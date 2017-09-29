@@ -51,54 +51,57 @@ CFLAGS = -O3
 #CC = cc
 #CFLAGS = 
 
-#-----------------------------------------------------------------------
-# Normally no need to change anything below
+all:
+	gfortran -o incompact3dlmn incompact3dlmn.f90
 
-# include PATH 
-ifeq ($(FFT),generic)
-  INC=
-else ifeq ($(FFT),fftw3)
-  INC=$(FFTW3_INCLUDE)
-endif
+# #-----------------------------------------------------------------------
+# # Normally no need to change anything below
 
-# library path
-ifeq ($(FFT),generic)
-   LIBFFT=
-else ifeq ($(FFT),fftw3)
-   LIBFFT=$(FFTW3_LIB)
-endif
+# # include PATH 
+# ifeq ($(FFT),generic)
+#   INC=
+# else ifeq ($(FFT),fftw3)
+#   INC=$(FFTW3_INCLUDE)
+# endif
 
-# List of source files
-SRC = decomp_2d.f90 glassman.f90 fft_$(FFT).f90 module_param.f90 io.f90 variables.f90 poisson.f90 schemes.f90 convdiff.f90 incompact3d.f90 navier.f90 filter.f90 derive.f90 parameters.f90 tools.f90 visu.f90 test_min_max.f90
+# # library path
+# ifeq ($(FFT),generic)
+#    LIBFFT=
+# else ifeq ($(FFT),fftw3)
+#    LIBFFT=$(FFTW3_LIB)
+# endif
 
-#-----------------------------------------------------------------------
-# Normally no need to change anything below
+# # List of source files
+# SRC = decomp_2d.f90 glassman.f90 fft_$(FFT).f90 module_param.f90 io.f90 variables.f90 poisson.f90 schemes.f90 convdiff.f90 incompact3d.f90 navier.f90 filter.f90 derive.f90 parameters.f90 tools.f90 visu.f90 test_min_max.f90
 
-ifneq (,$(findstring DSHM,$(OPTIONS)))
-SRC := FreeIPC.f90 $(SRC)  
-OBJ =	$(SRC:.f90=.o) alloc_shm.o FreeIPC_c.o
-else
-OBJ =	$(SRC:.f90=.o)
-endif	
+# #-----------------------------------------------------------------------
+# # Normally no need to change anything below
 
-all: incompact3d
+# ifneq (,$(findstring DSHM,$(OPTIONS)))
+# SRC := FreeIPC.f90 $(SRC)  
+# OBJ =	$(SRC:.f90=.o) alloc_shm.o FreeIPC_c.o
+# else
+# OBJ =	$(SRC:.f90=.o)
+# endif	
 
-alloc_shm.o: alloc_shm.c
-	$(CC) $(CFLAGS) -c $<
+# all: incompact3d
 
-FreeIPC_c.o: FreeIPC_c.c
-	$(CC) $(CFLAGS) -c $<
+# alloc_shm.o: alloc_shm.c
+# 	$(CC) $(CFLAGS) -c $<
 
-incompact3d : $(OBJ)
-	$(FC) -O3 -o $@ $(OBJ) $(LIBFFT)
+# FreeIPC_c.o: FreeIPC_c.c
+# 	$(CC) $(CFLAGS) -c $<
 
-%.o : %.f90
-	$(FC) $(OPTFC) $(OPTIONS) $(INC) -c $<
+# incompact3d : $(OBJ)
+# 	$(FC) -O3 -o $@ $(OBJ) $(LIBFFT)
 
-.PHONY: clean 
-clean:
-	rm -f *.o *.mod incompact3d
+# %.o : %.f90
+# 	$(FC) $(OPTFC) $(OPTIONS) $(INC) -c $<
 
-.PHONY: realclean
-realclean: clean
-	rm -f *~ \#*\#
+# .PHONY: clean 
+# clean:
+# 	rm -f *.o *.mod incompact3d
+
+# .PHONY: realclean
+# realclean: clean
+# 	rm -f *~ \#*\#
