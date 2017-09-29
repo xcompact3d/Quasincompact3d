@@ -44,6 +44,7 @@ FC = mpif90
 OPTFC = -O3 -funroll-loops -ftree-vectorize -fcray-pointer -cpp
 CC = mpicc
 CFLAGS = -O3
+OPTIONS += -Wall -Werror
 
 # Cray
 #FC = ftn
@@ -52,7 +53,10 @@ CFLAGS = -O3
 #CFLAGS = 
 
 all:
-	gfortran -o incompact3dlmn incompact3dlmn.f90
+	gfortran $(OPTIONS) -o incompact3dlmn incompact3dlmn.f90
+
+run:
+	./incompact3dlmn
 
 # #-----------------------------------------------------------------------
 # # Normally no need to change anything below

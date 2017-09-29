@@ -7,19 +7,19 @@
 
 PROGRAM incompact3dlmn
 
-  USE MPI
-  USE IBM
+  !USE MPI
+  !USE IBM
 
   IMPLICIT NONE
 
-  INTEGER :: ierr
-  INTEGER :: rank, size
+  !INTEGER :: ierr
+  !INTEGER :: rank, size
   
   !--------------------------------------------
   ! Initialisation
   !--------------------------------------------
 
-  CALL MPI_INIT(ierr)
+  !CALL MPI_INIT(ierr)
   print *, "Initialising incompact3dlmn"
 
   !--------------------------------------------
@@ -32,7 +32,7 @@ PROGRAM incompact3dlmn
   !--------------------------------------------
   print *, "Finalising"
 
-  CALL MPI_FINALIZE(ierr)
+  !CALL MPI_FINALIZE(ierr)
 
 ENDPROGRAM incompact3dlmn
 
