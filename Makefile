@@ -53,7 +53,7 @@ OPTIONS += -Wall -Werror
 #CFLAGS = 
 
 all:
-	gfortran $(OPTIONS) -o incompact3dlmn incompact3dlmn.f90
+	$(FC) $(OPTIONS) -o incompact3dlmn incompact3dlmn.f90
 
 run:
 	./incompact3dlmn
