@@ -7,32 +7,54 @@
 
 PROGRAM incompact3dlmn
 
-  !USE MPI
+  USE MPI
   !USE IBM
 
   IMPLICIT NONE
 
-  !INTEGER :: ierr
-  !INTEGER :: rank, size
+  INTEGER :: ierr
+  INTEGER :: rank, size
+
+  ! INTEGER :: itime, ifirst, ilast
+  ! REAL :: flowtime, dt
   
   !--------------------------------------------
   ! Initialisation
   !--------------------------------------------
 
-  !CALL MPI_INIT(ierr)
-  print *, "Initialising incompact3dlmn"
+  ! MPI init
+  CALL MPI_INIT(ierr)
+  CALL MPI_Comm_size(MPI_COMM_WORLD, size, ierr)
+  CALL MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
+
+  PRINT *, "Initialising incompact3dlmn"
 
   !--------------------------------------------
   ! Time loop
   !--------------------------------------------
-  print *, "Starting time loop"
+
+  PRINT *, "Starting time loop"
+!   DO itime = ifirst, ilast
+
+!      flowtime = (itime - 1) * dt
+!      WRITE(*, 1001) itime, flowtime
+! 1001 FORMAT("Timestep = ", i7, ", Time unit = ", F9.3)
+
+!      ! Convection-Diffusion
+!      ! Scalar Convection-Diffusion?
+!      ! Velocity divergence
+!      ! Pressure-Poisson
+!      ! Pressure gradient
+!      ! Velocity correction
+
+!   ENDDO
 
   !--------------------------------------------
   ! Finalise
   !--------------------------------------------
-  print *, "Finalising"
+  PRINT *, "Finalising"
 
-  !CALL MPI_FINALIZE(ierr)
+  CALL MPI_FINALIZE(ierr)
 
 ENDPROGRAM incompact3dlmn
 
