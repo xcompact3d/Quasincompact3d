@@ -44,7 +44,7 @@ FC = mpif90
 OPTFC = -O3 -funroll-loops -ftree-vectorize -fcray-pointer -cpp
 CC = mpicc
 CFLAGS = -O3
-OPTIONS += -Wall -Werror
+#OPTIONS += -Wall -Werror
 
 # Cray
 #FC = ftn
@@ -52,8 +52,49 @@ OPTIONS += -Wall -Werror
 #CC = cc
 #CFLAGS = 
 
-all:
-	$(FC) $(OPTIONS) -o incompact3dlmn incompact3dlmn.f90
+#-----------------------------------------------------------------------
+# Normally no need to change anything below
+
+# include PATH 
+ifeq ($(FFT),generic)
+  INC=
+else ifeq ($(FFT),fftw3)
+  INC=$(FFTW3_INCLUDE)
+endif
+
+# library path
+ifeq ($(FFT),generic)
+   LIBFFT=
+else ifeq ($(FFT),fftw3)
+   LIBFFT=$(FFTW3_LIB)
+endif
+
+# List of source files
+SRC = decomp_2d.f90 incompact3dlmn.f90
+
+#-----------------------------------------------------------------------
+# Normally no need to change anything below
+
+ifneq (,$(findstring DSHM,$(OPTIONS)))
+SRC := FreeIPC.f90 $(SRC)  
+OBJ =	$(SRC:.f90=.o) alloc_shm.o FreeIPC_c.o
+else
+OBJ =	$(SRC:.f90=.o)
+endif	
+
+all: incompact3d
+
+alloc_shm.o: alloc_shm.c
+	$(CC) $(CFLAGS) -c $<
+
+FreeIPC_c.o: FreeIPC_c.c
+	$(CC) $(CFLAGS) -c $<
+
+incompact3d : $(OBJ)
+	$(FC) $(OPTIONS) -o $@ $(OBJ) $(LIBFFT)
+
+%.o : %.f90
+	$(FC) $(OPTFC) $(OPTIONS) $(INC) -c $<
 
 run:
 	./incompact3dlmn
