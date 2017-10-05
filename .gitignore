@@ -1,3 +1,9 @@
 *.o
 incompact3d
 *.mod
+OUTPUT.log
+ux*
+uy*
+uz*
+vort*
+pp*
