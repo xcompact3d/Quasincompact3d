@@ -23,5 +23,19 @@ def main():
 	plt.xlim(xmax=max(t))
 	plt.show()
 
+	t = []
+	enstrophy = []
+	with open("ENSTROPHY.dat", "r") as data:
+		for row in data:
+			words = row.split()
+			t.append(float(words[1]))
+			enstrophy.append(float(words[2]))
+
+	plt.plot(t, enstrophy)
+	plt.xlabel("t")
+	plt.ylabel("Enstrophy")
+	plt.xlim(xmax=max(t))
+	plt.show()
+
 if __name__ == "__main__":
 	main()
