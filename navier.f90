@@ -393,8 +393,11 @@ if (itype.eq.4) then
   ! endif
 
 ! #ifndef TWOD
-  ! Set the flowfield (note flow is in z-direction as this allows x-BC to be set free-slip ->
-  ! quasi-2D case)
+  ! Set the flowfield
+  ! NB flow is in y-direction as BC(1-0-0) seems to work
+  ! ideally would like to be able to use BC(0-1-0) or BC(0-1-1)
+  ! as this would allow grid stretching and incase of BC(0-1-1)
+  ! a quasi-2D flow.
   do k = 1, xsize(3)
     do j = 1, xsize(2)
       if (istret.eq.0) then
@@ -407,6 +410,7 @@ if (itype.eq.4) then
 
         ! Calculate disturbance field (as given in Fortune2004)
         ! NB x and y are swapped relative to Fortune2004
+        ! `noise' is used to set the intensity of the disturbance
         disturb_decay = noise * (u1 - u2) * EXP(-0.05_mytype * (x**2))
         u_disturb = disturb_decay * (COS(8._mytype * PI * y / yly) &
              + 0.125_mytype * COS(4._mytype * PI * y / yly) &
@@ -419,14 +423,7 @@ if (itype.eq.4) then
         ux1(i, j, k) = ux1(i, j, k) + u_disturb
         uy1(i, j, k) = uy1(i, j, k) + (u1 + u2) / 2._mytype &
              + (u1 - u2) * TANH(2._mytype * x) / 2._mytype + v_disturb
-        ! uy1(i, j, k) = 0._mytype
         uz1(i, j, k) = uz1(i, j, k) + 0._mytype
-        ! uz1(i,j,k) = uz1(i, j, k) + (u1 + u2) / 2._mytype + (u1 - u2) * TANH(2._mytype * y) &
-        !      / 2._mytype
-        
-        bxx1(j,k) = 0._mytype
-        bxy1(j,k) = 0._mytype
-        bxz1(j,k) = 0._mytype
       enddo
     enddo
   enddo
