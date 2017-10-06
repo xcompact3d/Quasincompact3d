@@ -8,3 +8,7 @@ uz*
 vort*
 pp*
 *.dat
+*.eps
+TAGS
+*.xdmf
+paraview_incompact3d
