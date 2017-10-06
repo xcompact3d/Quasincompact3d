@@ -46,8 +46,11 @@ real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz
 real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 
+! Additional variables required for LMN
 real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
+real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
+real(mytype), save, allocatable, dimension(:,:,:) :: conductivity1, conductivity2, conductivity3
 
 !arrays for statistic collection
 real(mytype), save, allocatable, dimension(:,:,:) :: umean,vmean,wmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
@@ -112,6 +115,10 @@ contains
     call alloc_x(td1);call alloc_x(te1);call alloc_x(tf1)
     call alloc_x(tg1);call alloc_x(th1);call alloc_x(ti1)
     call alloc_x(di1);call alloc_x(ep1)
+    call alloc_x(rho1, opt_global=.true.)
+    call alloc_x(mu1, opt_global=.true.)
+    call alloc_x(temperature1, opt_global=.true.)
+    call alloc_x(conductivity1, opt_global=.true.)
     allocate(sx(xsize(2),xsize(3)),vx(xsize(2),xsize(3)))
     !inflow/ouflow 2d arrays
     allocate(bxx1(xsize(2),xsize(3)),bxy1(xsize(2),xsize(3)))
@@ -162,6 +169,10 @@ contains
     call alloc_y(tg2);call alloc_y(th2);call alloc_y(ti2)
     call alloc_y(tj2)
     call alloc_y(di2);call alloc_y(phi2)
+    call alloc_y(rho2)
+    call alloc_y(mu2)
+    call alloc_y(temperature2)
+    call alloc_y(conductivity2)
     allocate(sy(ysize(1),ysize(3)),vy(ysize(1),ysize(3)))
 !Z PENCILS
     call alloc_z(ux3);call alloc_z(uy3);call alloc_z(uz3)
@@ -169,6 +180,10 @@ contains
     call alloc_z(td3);call alloc_z(te3);call alloc_z(tf3)
     call alloc_z(tg3);call alloc_z(th3);call alloc_z(ti3)
     call alloc_z(di3);call alloc_z(phi3)
+    call alloc_z(rho3)
+    call alloc_z(mu3)
+    call alloc_z(temperature3)
+    call alloc_z(conductivity3)
     allocate(sz(zsize(1),zsize(2)),vz(zsize(1),zsize(2)))
 
  ! if all periodic
