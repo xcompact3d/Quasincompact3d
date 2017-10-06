@@ -411,18 +411,18 @@ if (itype.eq.4) then
         ! Calculate disturbance field (as given in Fortune2004)
         ! NB x and y are swapped relative to Fortune2004
         ! `noise' is used to set the intensity of the disturbance
-        disturb_decay = noise * (u1 - u2) * EXP(-0.05_mytype * (x**2))
-        u_disturb = disturb_decay * (COS(8._mytype * PI * y / yly) &
-             + COS(4._mytype * PI * y / yly) / 8._mytype &
-             + COS(2._mytype * PI * y / yly) / 16._mytype)
-        v_disturb = disturb_decay * (SIN(8._mytype * PI * y / yly) &
-             + SIN(4._mytype * PI * y / yly) / 8._mytype &
-             + SIN(2._mytype * PI * y / yly) / 16._mytype)
-        v_disturb = (0.05_mytype * x * yly / PI) * v_disturb
+        disturb_decay = noise * (u1 - u2) * EXP(-0.05_mytype * (y**2))
+        u_disturb = disturb_decay * (SIN(8._mytype * PI * x / xlx) &
+             + SIN(4._mytype * PI * x / xlx) / 8._mytype &
+             + SIN(2._mytype * PI * x / xlx) / 16._mytype)
+        u_disturb = (0.05_mytype * y * xlx / PI) * u_disturb
+        v_disturb = disturb_decay * (COS(8._mytype * PI * x / xlx) &
+             + COS(4._mytype * PI * x / xlx) / 8._mytype &
+             + COS(2._mytype * PI * x / xlx) / 16._mytype)
         
-        ux1(i, j, k) = ux1(i, j, k) + u_disturb
-        uy1(i, j, k) = uy1(i, j, k) + v_disturb &
-             + (u1 + u2) / 2._mytype + (u1 - u2) * TANH(2._mytype * x) / 2._mytype
+        ux1(i, j, k) = ux1(i, j, k) + u_disturb &
+             + (u1 + u2) / 2._mytype + (u1 - u2) * TANH(2._mytype * y) / 2._mytype
+        uy1(i, j, k) = uy1(i, j, k) + v_disturb 
         uz1(i, j, k) = uz1(i, j, k) + 0._mytype
       enddo
     enddo

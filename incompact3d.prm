@@ -1,9 +1,9 @@
 #
 # INCOMPACT 3D Flow parameters 
 #
-60.0             #xlx  # Lx (Size of the box in x-direction)
-30.7             #yly  # Ly (Size of the box in y-direction) 
-7.65             #zlz  # Lz (Size of the box in z-direction) 
+30.7             #xlx  # Lx (Size of the box in x-direction)
+60.0             #yly  # Ly (Size of the box in y-direction) 
+3.825             #zlz  # Lz (Size of the box in z-direction) 
 400.   #re   # Reynolds number
 1.     #sc   # Schmidt number (if passive scalar)
 0.5    #u1   # u1 (max velocity) (for inflow condition)
@@ -14,14 +14,14 @@
 #
 # INCOMPACT3D Flow configuration
 #
-1      #nclx   # nclx (BC)
-0      #ncly   # ncly (BC) 
+0      #nclx   # nclx (BC)
+1      #ncly   # ncly (BC) 
 0      #nclz   # nclz (BC)
-4      #itype  # Type of flow  
+4      #itype  # Type of flow  (4: Mixing layer, 6: Taylor-Green)
 1      #iin    # Inflow condition (1: classic, 2: turbinit)
 1      #ifirst # First iteration
 2700   #ilast  # Last iteration 
-1      #nscheme# Temporal scheme (1:AB2, 2: RK3, 3:RK4, 4:AB3)
+2      #nscheme# Temporal scheme (1:AB2, 2: RK3, 3:RK4, 4:AB3)
 0      #istret # y mesh refinement (0:no, 1:center, 2:both sides, 3:bottom)
 0.3    #beta   # Refinement parameter (beta) 
 1      #iskew  # (0:urotu, 1:skew, for the convective terms)
