@@ -96,6 +96,9 @@ incompact3d : $(OBJ)
 %.o : %.f90
 	$(FC) $(OPTFC) $(OPTIONS) $(INC) -c $<
 
+run:
+	nohup mpiexec -np 8 ./incompact3d > OUTPUT.log
+
 .PHONY: clean 
 clean:
 	rm -f *.o *.mod incompact3d
