@@ -90,11 +90,13 @@ call decomp_info_init(nxm,nym,nzm,phG)
 !if you want to collect 100 snapshots randomly on 50000 time steps
 !call collect_data() !it will generate 100 random time steps
 
-if (ilit==0) call init(ux1,uy1,uz1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
+if (ilit==0) call init(ux1,uy1,uz1,rho1,temperature1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
 if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
         px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
 call test_speed_min_max(ux1,uy1,uz1)
+! call test_density_min_max(rho1)
+! call test_temperature_min_max(temperature1)
 if (iscalar==1) call test_scalar_min_max(phi1)
 
 !array for stat to zero
