@@ -530,16 +530,26 @@ integer :: code
 integer (kind=MPI_OFFSET_KIND) :: disp
 
 if (iin.eq.0) then !set initial fields to zero
-   do k=1,xsize(3)
-      do j=1,xsize(2)
-         do i=1,xsize(1)
-            ux1(i,j,k)=0._mytype
-            uy1(i,j,k)=0._mytype
-            uz1(i,j,k)=0._mytype
-         enddo
+  do k=1,xsize(3)
+    do j=1,xsize(2)
+      do i=1,xsize(1)
+        ux1(i,j,k)=0._mytype
+        uy1(i,j,k)=0._mytype
+        uz1(i,j,k)=0._mytype
       enddo
-   enddo
+    enddo
+  enddo
 endif
+
+! LMN: set density to one
+do k = 1, xsize(3)
+  do j = 1, xsize(2)
+    do i = 1, xsize(1)
+      rho1(i, j, k) = 1._mytype
+    enddo
+  enddo
+enddo
+ 
 
 if (iin.eq.1) then !generation of a random noise
 
