@@ -506,7 +506,7 @@ end subroutine ecoule
 
 !********************************************************************
 !
-subroutine init (ux1,uy1,uz1,rho1,temperature1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
+subroutine init (ux1,uy1,uz1,rho1,rhos1,rhoss1,temperature1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
 !
 !********************************************************************
 
@@ -521,7 +521,7 @@ implicit none
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,phi1,ep1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1,phis1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1,phiss1
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,rhos1,rhoss1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: temperature1
 
 real(mytype) :: x, y,r,um,r1,r2,r3
@@ -545,7 +545,17 @@ endif
 do k = 1, xsize(3)
   do j = 1, xsize(2)
     do i = 1, xsize(1)
-      rho1(i, j, k) = 1._mytype
+      x = float((i + xstart(1) - 2)) * dx
+      if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
+        rho1(i, j, k) = 2._mytype
+      else
+        rho1(i, j, k) = 1._mytype
+      endif
+      rhos1(i, j, k) = rho1(i, j, k)
+      rhoss1(i, j, k) = rhos1(i, j, k)
+    enddo
+  enddo
+enddo
     enddo
   enddo
 enddo
