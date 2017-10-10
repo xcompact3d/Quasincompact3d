@@ -153,6 +153,14 @@ program visu_paraview
     write(nfil,*)'               </DataItem>'
     write(nfil,*)'            </Attribute>'
 
+    write(nfil,*)'            <Attribute Name="phi" Center="Node">'
+    write(nfil,*)'               <DataItem Format="Binary" '
+    write(nfil,*)'                DataType="Float" Precision="8" Endian="little"'
+    write(nfil,*)'                Dimensions="',nz,ny,nx,'">'
+    write(nfil,*)'                  phi'//chits
+    write(nfil,*)'               </DataItem>'
+    write(nfil,*)'            </Attribute>'
+
      write(nfil,*)'        </Grid>'
 
   enddo
