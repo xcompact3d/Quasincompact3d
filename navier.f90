@@ -523,6 +523,7 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1,phis1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1,phiss1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,rhos1,rhoss1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: temperature1
+real(mytype) :: pressure0
 
 real(mytype) :: x, y,r,um,r1,r2,r3
 integer :: k,j,i,fh,ierror,ii
@@ -540,6 +541,9 @@ if (iin.eq.0) then !set initial fields to zero
     enddo
   enddo
 endif
+
+! LMN: set thermodynamic pressure
+pressure0 = 1._mytype
 
 ! LMN: set density to one
 do k = 1, xsize(3)
