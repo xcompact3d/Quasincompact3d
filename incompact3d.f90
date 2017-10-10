@@ -96,6 +96,7 @@ if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
      px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
 call test_speed_min_max(ux1,uy1,uz1)
+call test_density_min_max(rho1)
 ! call test_density_min_max(rho1)
 ! call test_temperature_min_max(temperature1)
 if (iscalar==1) call test_scalar_min_max(phi1)
@@ -204,6 +205,7 @@ do itime=ifirst,ilast
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
 
       call test_speed_min_max(ux1,uy1,uz1)
+      call test_density_min_max(rho1)
       if (iscalar==1) call test_scalar_min_max(phi1)
 
    enddo

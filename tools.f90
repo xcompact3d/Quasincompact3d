@@ -78,6 +78,52 @@ end subroutine test_scalar_min_max
 
 !*******************************************************************
 !
+subroutine test_density_min_max(rho)
+!
+!*******************************************************************
+
+USE decomp_2d
+USE decomp_2d_poisson
+USE variables
+USE param
+USE var
+USE MPI
+
+
+implicit none
+
+integer :: i,j,k
+real(mytype) :: rhomax,rhomin,cfl
+real(mytype) :: rhomax1,rhomin1
+
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho
+integer :: code
+
+rhomax=-1609._mytype
+rhomin=1609._mytype
+do k=1,xsize(3)
+do j=1,xsize(2)
+do i=1,xsize(1)
+   if (rho(i,j,k).gt.rhomax) rhomax=rho(i,j,k)
+   if (rho(i,j,k).lt.rhomin) rhomin=rho(i,j,k)
+enddo
+enddo
+enddo
+
+
+call MPI_REDUCE(rhomax,rhomax1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+call MPI_REDUCE(rhomin,rhomin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+if (nrank==0) then
+   print *,'RHO max=',rhomax1
+   print *,'RHO min=',rhomin1
+endif
+
+
+return
+end subroutine test_density_min_max
+
+!*******************************************************************
+!
 subroutine test_speed_min_max(ux,uy,uz)
 !
 !*******************************************************************
