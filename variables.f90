@@ -47,7 +47,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 
 ! Additional variables required for LMN
-real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3
+real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
 real(mytype), save, allocatable, dimension(:,:,:) :: conductivity1, conductivity2, conductivity3
@@ -70,6 +70,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: ta3,tb3,tc3,td3,&
 ! 
 integer, save :: nxmsize, nymsize, nzmsize 
 
+real(mytype), save :: pressure0 ! LMN: thermodynamic pressure
 
 contains
 
@@ -116,6 +117,8 @@ contains
     call alloc_x(tg1);call alloc_x(th1);call alloc_x(ti1)
     call alloc_x(di1);call alloc_x(ep1)
     call alloc_x(rho1, opt_global=.true.)
+    call alloc_x(rhos1)
+    call alloc_x(rhoss1)
     call alloc_x(mu1, opt_global=.true.)
     call alloc_x(temperature1, opt_global=.true.)
     call alloc_x(conductivity1, opt_global=.true.)
