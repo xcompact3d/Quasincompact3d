@@ -64,7 +64,8 @@ read (10,1000) a
 read (10,*) xlx
 read (10,*) yly 
 read (10,*) zlz 
-read (10,*) re 
+read (10,*) re
+read (10,*) pr
 read (10,*) sc
 read (10,*) u1 
 read (10,*) u2 
@@ -130,6 +131,7 @@ write(*,1102) nclx,ncly,nclz
 write(*,1104) u1,u2 
 write(*,1105) re
 write(*,1106) dt
+write(*,1112) pr
 if (nscheme.eq.1) print *,'Temporal scheme   : Adams-bashforth 4'
 if (nscheme.eq.2) print *,'Temporal scheme   : Runge-Kutta 3'
 if (nscheme.eq.3) print *,'Temporal scheme   : Runge-Kutta 4'
@@ -157,6 +159,7 @@ endif
  1106 format(' Time step dt      : ',F15.8)
  1107 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
  1110 format(' Object length     : ',F6.2)
+ 1112 format(' Prandtl number    : ',F6.2)
  1113 format(' Schmidt number    : ',F6.2)
 endif
 xnu=1._mytype/re 

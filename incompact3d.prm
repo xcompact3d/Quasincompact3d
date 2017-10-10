@@ -5,6 +5,7 @@
 60.0             #yly  # Ly (Size of the box in y-direction) 
 3.825             #zlz  # Lz (Size of the box in z-direction) 
 400.   #re   # Reynolds number
+1.     #pr   # Prandtl number
 1.     #sc   # Schmidt number (if passive scalar)
 0.5    #u1   # u1 (max velocity) (for inflow condition)
 -0.5   #u2   # u2 (min velocity) (for inflow condition) 
