@@ -471,4 +471,176 @@ if (nscheme==4) then
 endif
 
 
- end subroutine scalar
+end subroutine scalar
+
+!!--------------------------------------------------------------------
+!! Subroutine: density
+!!
+!! Advances density in time for LMN.
+!!--------------------------------------------------------------------
+SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
+     uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
+     uz3, rho3, di3, ta3, tb3, epsi)
+  
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+  
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
+  
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2, td2
+  
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
+  
+  INTEGER :: i, j, k, ijk
+  INTEGER :: nxyz
+  INTEGER :: nvect1, nvect2, nvect3
+
+  nvect1 = xsize(1) * xsize(2) * xsize(3)
+  nvect2 = ysize(1) * ysize(2) * ysize(3)
+  nvect3 = zsize(1) * zsize(2) * zsize(3)
+
+  !X PENCILS
+
+  ! Advection term
+  CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  DO ijk = 1, nvect1
+    tb1(ijk, 1, 1) = ux1(ijk, 1, 1) * tb1(ijk, 1, 1)
+  ENDDO
+
+  ! Diffusion term
+  CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+
+  ! Go to Y
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_x_to_y(uy1, uy2)
+  CALL transpose_x_to_y(uz1, uz2)
+
+  !Y PENCILS
+
+  ! Advection term
+  CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  DO ijk = 1, nvect2
+    tb2(ijk, 1, 1) = uy2(ijk, 1, 1) * tb2(ijk, 1, 1)
+  ENDDO
+
+  ! Diffusion term
+  IF (istret.NE.0) THEN
+    CALL deryy (ta2, rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    CALL dery (tc2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    DO k = 1, ysize(3)
+      DO j = 1, ysize(2)
+        DO i = 1, ysize(1)
+          ta2(i, j, k) = ta2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+        ENDDO
+      ENDDO
+    ENDDO
+  ELSE
+    CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1) 
+  ENDIF
+
+  ! Go to Z
+  CALL transpose_y_to_z(rho2, rho3)
+  CALL transpose_y_to_z(uz2, uz3)
+
+  !Z PENCILS
+
+  ! Advection term
+  CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  DO ijk = 1, nvect3
+    tb3(ijk, 1, 1) = uz3(ijk, 1, 1) * tb3(ijk, 1, 1)
+  ENDDO
+  
+  CALL derzz (ta3, rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+
+  ! Get back to Y
+  CALL transpose_z_to_y(ta3, tc2)
+  CALL transpose_z_to_y(tb3, td2)
+
+  !Y PENCILS ADD TERMS
+  DO ijk = 1, nvect2
+    tc2(ijk, 1, 1) = tc2(ijk, 1, 1) + ta2(ijk, 1, 1)
+    td2(ijk, 1, 1) = td2(ijk, 1, 1) + tb2(ijk, 1, 1)
+  ENDDO
+
+  ! Get back to X
+  CALL transpose_y_to_x(tc2, tc1)
+  CALL transpose_y_to_x(td2, td1)
+
+  !X PENCILS ADD TERMS
+  DO ijk = 1, nvect1
+    ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + tc1(ijk, 1, 1) !SECOND DERIVATIVE
+    ta1(ijk, 1, 1) = rho1(ijk, 1, 1) * ta1(ijk, 1, 1)
+    tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + td1(ijk, 1, 1) !FIRST DERIVATIVE
+  ENDDO
+
+  !! TODO replace sc with pr (Prandtl number)
+  DO ijk = 1, nvect1
+    ta1(ijk, 1, 1) = xnu / sc * ta1(ijk, 1, 1) - tb1(ijk, 1, 1) 
+  ENDDO
+  
+  !TIME ADVANCEMENT
+  nxyz = xsize(1) * xsize(2) * xsize(3)  
+
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+    !! AB2 or RK3
+    IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
+         (nscheme.EQ.2.AND.itr.EQ.1)) THEN
+      DO ijk = 1, nxyz
+        rho1(ijk, 1, 1) = gdt(itr) * ta1(ijk, 1, 1) + rho1(ijk, 1, 1)
+        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
+      ENDDO
+    ELSE
+      DO ijk = 1, nxyz
+        rho1(ijk, 1, 1) = adt(itr) * ta1(ijk, 1, 1) + bdt(itr) * rhos1(ijk, 1, 1) + rho1(ijk, 1, 1)
+        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
+      ENDDO
+    ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+    !! RK4
+    !! XXX Not implemented!
+    IF (nrank.EQ.0) THEN
+      PRINT  *, 'LMN: RK4 not ready'
+    ENDIF
+    STOP 
+  ELSE
+    !! AB3
+    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+      IF (nrank.EQ.0) THEN
+        PRINT  *, 'start with Euler', itime
+      ENDIF
+      DO ijk = 1, nxyz !start with Euler
+        rho1(ijk, 1, 1) = dt * ta1(ijk, 1, 1) + rho1(ijk, 1, 1)
+        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
+      ENDDO
+    ELSE
+      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+          PRINT *, 'then with AB2', itime
+        ENDIF
+        DO ijk = 1, nxyz
+          rho1(ijk, 1, 1) = 1.5_mytype * dt * ta1(ijk, 1, 1) - 0.5_mytype * dt * rhos1(ijk, 1, 1) + rho1(ijk, 1, 1)
+          rhoss1(ijk, 1, 1) = rhos1(ijk, 1, 1)
+          rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)
+        ENDDO
+      ELSE
+        DO ijk = 1, nxyz
+          rho1(ijk, 1, 1) = adt(itr) * ta1(ijk, 1, 1) + bdt(itr) * rhos1(ijk, 1, 1) + &
+               cdt(itr) * rhoss1(ijk, 1, 1) + rho1(ijk, 1, 1)
+          rhoss1(ijk, 1, 1) = rhos1(ijk, 1, 1)
+          rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)
+        ENDDO
+      ENDIF
+    ENDIF
+  ENDIF
+  
+ENDSUBROUTINE density
+  
