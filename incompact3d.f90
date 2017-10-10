@@ -90,9 +90,10 @@ call decomp_info_init(nxm,nym,nzm,phG)
 !if you want to collect 100 snapshots randomly on 50000 time steps
 !call collect_data() !it will generate 100 random time steps
 
-if (ilit==0) call init(ux1,uy1,uz1,rho1,temperature1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
+if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,temperature1,&
+     ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
 if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
-        px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
+     px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
 call test_speed_min_max(ux1,uy1,uz1)
 ! call test_density_min_max(rho1)
@@ -118,7 +119,7 @@ call decomp_info_init(nxm, ny, nz, ph2)
 call decomp_info_init(nxm, nym, nz, ph3) 
 
 itime=0
-call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+call VISU_INSTA(ux1,uy1,uz1,rho1,temperature1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
@@ -215,11 +216,11 @@ do itime=ifirst,ilast
         px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
      
    if (mod(itime,imodulo)==0) then
-      call VISU_INSTA(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
-      call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
-           ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
+     call VISU_INSTA(ux1,uy1,uz1,rho1,temperature1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+          ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+          ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+     call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
+          ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
    endif
 
    if (mod(itime,10)==0) then
