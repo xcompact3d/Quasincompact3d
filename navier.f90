@@ -560,10 +560,16 @@ do k = 1, xsize(3)
     enddo
   enddo
 enddo
+
+! LMN: initialise temperature to one
+! NB. T = 0 would lead to numerical issues
+do k = 1, xsize(3)
+  do j = 1, xsize(2)
+    do i = 1, xsize(1)
+      temperature1(i, j, k) = pressure0 / rho1(i, j, k)
     enddo
   enddo
 enddo
- 
 
 if (iin.eq.1) then !generation of a random noise
 
