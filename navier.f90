@@ -544,21 +544,6 @@ endif
 ! LMN: set thermodynamic pressure
 pressure0 = 1._mytype
 
-! LMN: set density to one
-do k = 1, xsize(3)
-  do j = 1, xsize(2)
-    do i = 1, xsize(1)
-      x = float((i + xstart(1) - 2)) * dx
-      if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
-        rho1(i, j, k) = 2._mytype
-      else
-        rho1(i, j, k) = 1._mytype
-      endif
-      rhos1(i, j, k) = rho1(i, j, k)
-      rhoss1(i, j, k) = rhos1(i, j, k)
-    enddo
-  enddo
-enddo
 if (iin.eq.1) then !generation of a random noise
 
    call system_clock(count=code)
@@ -593,6 +578,22 @@ if (iin.eq.1) then !generation of a random noise
            uz1(i,j,k)=um*uz1(i,j,k)
          enddo
       enddo
+   enddo
+
+   ! LMN: set density to one
+   do k = 1, xsize(3)
+     do j = 1, xsize(2)
+       do i = 1, xsize(1)
+         x = float((i + xstart(1) - 2)) * dx
+         if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
+           rho1(i, j, k) = 2._mytype
+         else
+           rho1(i, j, k) = 1._mytype
+         endif
+         rhos1(i, j, k) = rho1(i, j, k)
+         rhoss1(i, j, k) = rhos1(i, j, k)
+       enddo
+     enddo
    enddo
 
    if (iscalar==1) then
