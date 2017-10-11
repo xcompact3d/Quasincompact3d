@@ -105,9 +105,9 @@ if (iskew==0) then !UROTU!
 else !SKEW!
 !WORK X-PENCILS
    do ijk=1,nvect1
-      ta1(ijk,1,1)=ux1(ijk,1,1)*ux1(ijk,1,1)
-      tb1(ijk,1,1)=ux1(ijk,1,1)*uy1(ijk,1,1)
-      tc1(ijk,1,1)=ux1(ijk,1,1)*uz1(ijk,1,1)
+      ta1(ijk,1,1)=rho1(ijk,1,1)*ux1(ijk,1,1)*ux1(ijk,1,1)
+      tb1(ijk,1,1)=rho1(ijk,1,1)*ux1(ijk,1,1)*uy1(ijk,1,1)
+      tc1(ijk,1,1)=rho1(ijk,1,1)*ux1(ijk,1,1)*uz1(ijk,1,1)
    enddo
    call derx (td1,ta1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
    call derx (te1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
@@ -117,9 +117,9 @@ else !SKEW!
    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
    do ijk=1,nvect1
-      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*ta1(ijk,1,1)
-      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tb1(ijk,1,1)
-      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)      
+      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*ta1(ijk,1,1)
+      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tb1(ijk,1,1)
+      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tc1(ijk,1,1)      
    enddo
 
    call transpose_x_to_y(ux1,ux2)
@@ -128,11 +128,13 @@ else !SKEW!
    call transpose_x_to_y(ta1,ta2)
    call transpose_x_to_y(tb1,tb2)
    call transpose_x_to_y(tc1,tc2)
+
+   call transpose_x_to_y(rho1,rho2)
 !WORK Y-PENCILS
    do ijk=1,nvect2
-      td2(ijk,1,1)=ux2(ijk,1,1)*uy2(ijk,1,1)
-      te2(ijk,1,1)=uy2(ijk,1,1)*uy2(ijk,1,1)
-      tf2(ijk,1,1)=uz2(ijk,1,1)*uy2(ijk,1,1)
+      td2(ijk,1,1)=rho2(ijk,1,1)*ux2(ijk,1,1)*uy2(ijk,1,1)
+      te2(ijk,1,1)=rho2(ijk,1,1)*uy2(ijk,1,1)*uy2(ijk,1,1)
+      tf2(ijk,1,1)=rho2(ijk,1,1)*uz2(ijk,1,1)*uy2(ijk,1,1)
    enddo
    call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
    call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
@@ -141,9 +143,9 @@ else !SKEW!
    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
    do ijk=1,nvect2
-      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)
-      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)
-      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)      
+      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*td2(ijk,1,1)
+      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*te2(ijk,1,1)
+      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*tf2(ijk,1,1)      
    enddo
    call transpose_y_to_z(ux2,ux3)
    call transpose_y_to_z(uy2,uy3)
@@ -151,11 +153,13 @@ else !SKEW!
    call transpose_y_to_z(ta2,ta3)
    call transpose_y_to_z(tb2,tb3)
    call transpose_y_to_z(tc2,tc3)
+
+   call transpose_y_to_z(rho2,rho3)
 !WORK Z-PENCILS
    do ijk=1,nvect3
-      td3(ijk,1,1)=ux3(ijk,1,1)*uz3(ijk,1,1)
-      te3(ijk,1,1)=uy3(ijk,1,1)*uz3(ijk,1,1)
-      tf3(ijk,1,1)=uz3(ijk,1,1)*uz3(ijk,1,1)
+      td3(ijk,1,1)=rho3(ijk,1,1)*ux3(ijk,1,1)*uz3(ijk,1,1)
+      te3(ijk,1,1)=rho3(ijk,1,1)*uy3(ijk,1,1)*uz3(ijk,1,1)
+      tf3(ijk,1,1)=rho3(ijk,1,1)*uz3(ijk,1,1)*uz3(ijk,1,1)
    enddo
    call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
@@ -164,9 +168,9 @@ else !SKEW!
    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    do ijk=1,nvect3
-      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)
-      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)
-      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)   
+      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*td3(ijk,1,1)
+      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*te3(ijk,1,1)
+      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*tf3(ijk,1,1)   
    enddo
 endif
 !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
@@ -196,6 +200,8 @@ call transpose_z_to_y(tc3,tc2)
 call transpose_z_to_y(td3,td2)
 call transpose_z_to_y(te3,te2)
 call transpose_z_to_y(tf3,tf2)
+
+call transpose_z_to_y(rho3,rho2)
 
 tg2(:,:,:)=td2(:,:,:)
 th2(:,:,:)=te2(:,:,:)
@@ -276,6 +282,8 @@ call transpose_y_to_x(tc2,tc1) !diff
 call transpose_y_to_x(tg2,td1)
 call transpose_y_to_x(th2,te1)
 call transpose_y_to_x(ti2,tf1) !conv
+
+call transpose_y_to_x(rho2,rho1)
 
 tg1(:,:,:)=td1(:,:,:)
 th1(:,:,:)=te1(:,:,:)
