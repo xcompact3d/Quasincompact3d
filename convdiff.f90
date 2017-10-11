@@ -32,7 +32,7 @@
 
 !********************************************************************
 !
-subroutine convdiff(ux1,uy1,uz1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
      ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
      ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 ! 
@@ -52,6 +52,10 @@ real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ux3,uy3,uz3
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
 
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
+real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
+real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
+
 real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
 real(mytype) :: tb1min, tb1min1, tb1max, tb1max1
 real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
@@ -59,8 +63,6 @@ real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
 integer :: ijk,nvect1,nvect2,nvect3,i,j,k
 integer :: code
 real(mytype) :: x,y,z
-
-
 
 nvect1=xsize(1)*xsize(2)*xsize(3)
 nvect2=ysize(1)*ysize(2)*ysize(3)
