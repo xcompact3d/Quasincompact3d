@@ -56,6 +56,10 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
 
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
+real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
+real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
+
 real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
 real(mytype) :: tb1min, tb1min1, tb1max, tb1max1
 real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
@@ -117,9 +121,10 @@ else !SKEW!
    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
    do ijk=1,nvect1
-      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*ta1(ijk,1,1)
-      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tb1(ijk,1,1)
-      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tc1(ijk,1,1)      
+     divu1(ijk, 1, 1) = ta1(ijk, 1, 1)
+     ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*ta1(ijk,1,1)
+     tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tb1(ijk,1,1)
+     tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*rho1(ijk,1,1)*ux1(ijk,1,1)*tc1(ijk,1,1)      
    enddo
 
    call transpose_x_to_y(ux1,ux2)
@@ -130,6 +135,7 @@ else !SKEW!
    call transpose_x_to_y(tc1,tc2)
 
    call transpose_x_to_y(rho1,rho2)
+   call transpose_x_to_y(divu1, divu2)
 !WORK Y-PENCILS
    do ijk=1,nvect2
       td2(ijk,1,1)=rho2(ijk,1,1)*ux2(ijk,1,1)*uy2(ijk,1,1)
@@ -141,12 +147,15 @@ else !SKEW!
    call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
    call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-   call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+   call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+   
    do ijk=1,nvect2
-      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*td2(ijk,1,1)
-      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*te2(ijk,1,1)
-      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*tf2(ijk,1,1)      
+     divu2(ijk, 1, 1) = divu2(ijk, 1, 1) + te2(ijk, 1, 1)
+     ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*td2(ijk,1,1)
+     tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*te2(ijk,1,1)
+     tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*rho2(ijk,1,1)*uy2(ijk,1,1)*tf2(ijk,1,1)      
    enddo
+
    call transpose_y_to_z(ux2,ux3)
    call transpose_y_to_z(uy2,uy3)
    call transpose_y_to_z(uz2,uz3)
@@ -155,6 +164,7 @@ else !SKEW!
    call transpose_y_to_z(tc2,tc3)
 
    call transpose_y_to_z(rho2,rho3)
+   call transpose_y_to_z(divu2, divu3)
 !WORK Z-PENCILS
    do ijk=1,nvect3
       td3(ijk,1,1)=rho3(ijk,1,1)*ux3(ijk,1,1)*uz3(ijk,1,1)
@@ -168,9 +178,10 @@ else !SKEW!
    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    do ijk=1,nvect3
-      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*td3(ijk,1,1)
-      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*te3(ijk,1,1)
-      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*tf3(ijk,1,1)   
+     divu3(ijk, 1, 1) = divu3(ijk, 1, 1) + tf3(ijk, 1, 1)
+     ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*td3(ijk,1,1)
+     tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*te3(ijk,1,1)
+     tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*rho3(ijk,1,1)*uz3(ijk,1,1)*tf3(ijk,1,1)   
    enddo
 endif
 !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
@@ -187,6 +198,11 @@ tf3(:,:,:)=tc3(:,:,:)
 call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
 call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
 call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
+
+! Compute cross-shear / bulk shear contribution
+! tg3, th3, ti3 available as work vectors
+call derz(ti3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
+tc3(:,:,:) = tc3(:,:,:) + (1._mytype / 3._mytype) * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -274,6 +290,13 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
+! Compute cross-shear / bulk shear contribution
+! td2, te2, tf2 avaiable as work vectors
+if(istret.ne.0) then
+else
+  call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ysize(1), ysize(2), ysize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
+endif
+tb2(:,:,:) = tb2(:,:,:) + (1._mytype / 3._mytype) * te2(:,:,:)
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
@@ -284,6 +307,7 @@ call transpose_y_to_x(th2,te1)
 call transpose_y_to_x(ti2,tf1) !conv
 
 call transpose_y_to_x(rho2,rho1)
+call transpose_y_to_x(divu2, divu1)
 
 tg1(:,:,:)=td1(:,:,:)
 th1(:,:,:)=te1(:,:,:)
@@ -297,6 +321,11 @@ call derxx (tf1,uz1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
 ta1(:,:,:)=ta1(:,:,:)+td1(:,:,:)
 tb1(:,:,:)=tb1(:,:,:)+te1(:,:,:)
 tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
+
+! Compute cross-shear / bulk shear contribution
+! td1, te1, tf1 available as work vectors
+call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
+ta1(:,:,:) = ta1(:,:,:) + (1._mytype / 3._mytype) * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
