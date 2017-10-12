@@ -616,7 +616,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   DO ijk = 1, nvect1
     !!! TODO add dp(0)dt source term
-    ta1(ijk, 1, 1) = -rho1(ijk, 1, 1) * (xnu / pr) * ta1(ijk, 1, 1) - tb1(ijk, 1, 1) 
+    ta1(ijk, 1, 1) = 0._mytype !-rho1(ijk, 1, 1) * (xnu / pr) * ta1(ijk, 1, 1) - tb1(ijk, 1, 1) 
   ENDDO
 
   !------------------------------------------------------------------------
