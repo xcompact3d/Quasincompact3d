@@ -394,10 +394,6 @@ if (itype.eq.4) then
 
 ! #ifndef TWOD
   ! Set the flowfield
-  ! NB flow is in y-direction as BC(1-0-0) seems to work
-  ! ideally would like to be able to use BC(0-1-0) or BC(0-1-1)
-  ! as this would allow grid stretching and incase of BC(0-1-1)
-  ! a quasi-2D flow.
   do k = 1, xsize(3)
     do j = 1, xsize(2)
       if (istret.eq.0) then
@@ -406,7 +402,7 @@ if (itype.eq.4) then
         y = yp(j + xstart(2) - 1) - yly / 2._mytype
       endif
       do i = 1, xsize(1)
-        x = float((i + xstart(1) - 2)) * dx - xlx / 2._mytype
+        x = float((i + xstart(1) - 2)) * dx
 
         ! Calculate disturbance field (as given in Fortune2004)
         ! NB x and y are swapped relative to Fortune2004
@@ -580,16 +576,17 @@ if (iin.eq.1) then !generation of a random noise
       enddo
    enddo
 
-   ! LMN: set density to one
+   ! LMN: set density
    do k = 1, xsize(3)
      do j = 1, xsize(2)
        do i = 1, xsize(1)
-         x = float((i + xstart(1) - 2)) * dx
-         if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
-           rho1(i, j, k) = 2._mytype
-         else
-           rho1(i, j, k) = 1._mytype
-         endif
+         ! x = float((i + xstart(1) - 2)) * dx
+         ! if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
+         !   rho1(i, j, k) = 2._mytype
+         ! else
+         !   rho1(i, j, k) = 1._mytype
+         ! endif
+         rho1(i, j, k) = 1._mytype
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
@@ -600,11 +597,17 @@ if (iin.eq.1) then !generation of a random noise
       do k=1,xsize(3)
          do j=1,xsize(2)
             do i=1,xsize(1)
-               phi1(i,j,k)=0._mytype
-               phis1(i,j,k)=phi1(i,j,k)
-               phiss1(i,j,k)=phis1(i,j,k)
+              ! x = float((i + xstart(1) - 2)) * dx
+              ! if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
+              !   phi1(i, j, k) = 2._mytype
+              ! else
+              !   phi1(i, j, k) = 1._mytype
+              ! endif
+              phi1(i,j,k)=0._mytype
+              phis1(i,j,k)=phi1(i,j,k)
+              phiss1(i,j,k)=phis1(i,j,k)
             enddo
-         enddo
+          enddo
       enddo
    endif
 endif
