@@ -569,9 +569,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-  DO ijk = 1, nvect1
-    tb1(ijk, 1, 1) = ux1(ijk, 1, 1) * tb1(ijk, 1, 1)
-  ENDDO
+  tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
 
   ! Diffusion term
   CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -586,9 +584,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-  DO ijk = 1, nvect2
-    tb2(ijk, 1, 1) = uy2(ijk, 1, 1) * tb2(ijk, 1, 1)
-  ENDDO
+  tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
 
   ! Diffusion term
   IF (istret.NE.0) THEN
@@ -598,9 +594,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
       DO j = 1, ysize(2)
         DO i = 1, ysize(1)
           ta2(i, j, k) = ta2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
-        ENDDO
-      ENDDO
-    ENDDO
+        ENDDO ! Loop over i
+      ENDDO ! Loop over j
+    ENDDO ! Loop over k
   ELSE
     CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1) 
   ENDIF
@@ -614,9 +610,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  DO ijk = 1, nvect3
-    tb3(ijk, 1, 1) = uz3(ijk, 1, 1) * tb3(ijk, 1, 1)
-  ENDDO
+  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
   
   CALL derzz (ta3, rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
 
@@ -626,10 +620,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  DO ijk = 1, nvect2
-    tc2(ijk, 1, 1) = tc2(ijk, 1, 1) + ta2(ijk, 1, 1)
-    td2(ijk, 1, 1) = td2(ijk, 1, 1) + tb2(ijk, 1, 1)
-  ENDDO
+  tc2(:,:,:) = tc2(:,:,:) + ta2(:,:,:)
+  td2(:,:,:) = td2(:,:,:) + tb2(:,:,:)
 
   ! Get back to X
   CALL transpose_y_to_x(tc2, tc1)
@@ -637,16 +629,11 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
-  DO ijk = 1, nvect1
-    ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + tc1(ijk, 1, 1) !SECOND DERIVATIVE (DIFFUSION, sort of)
-    ta1(ijk, 1, 1) = 0._mytype
-    tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + td1(ijk, 1, 1) !FIRST DERIVATIVE (CONV)
-  ENDDO
-
-  DO ijk = 1, nvect1
-    !!! TODO add dp(0)dt source term
-    ta1(ijk, 1, 1) = 0._mytype !-rho1(ijk, 1, 1) * (xnu / pr) * ta1(ijk, 1, 1) - tb1(ijk, 1, 1) 
-  ENDDO
+  ta1(:,:,:) = ta1(:,:,:) + tc1(:,:,:) !SECOND DERIVATIVE (DIFFUSION, sort of)
+  tb1(:,:,:) = tb1(:,:,:) + td1(:,:,:) !FIRST DERIVATIVE (CONV)
+  
+  !! TODO add dp(0)dt source term
+  ta1(:,:,:) = -rho1(:,:,:) * (xnu / pr) * ta1(:,:,:) - tb1(:,:,:)
 
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
@@ -656,15 +643,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
     !! AB2 or RK3
     IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
-      DO ijk = 1, nxyz
-        rho1(ijk, 1, 1) = gdt(itr) * ta1(ijk, 1, 1) + rho1(ijk, 1, 1)
-        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
-      ENDDO
+      rho1(:,:,:) = rho1(:,:,:) + gdt(itr) * ta1(:,:,:)
     ELSE
-      DO ijk = 1, nxyz
-        rho1(ijk, 1, 1) = adt(itr) * ta1(ijk, 1, 1) + bdt(itr) * rhos1(ijk, 1, 1) + rho1(ijk, 1, 1)
-        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
-      ENDDO
+      rho1(:,:,:) = rho1(:,:,:) + bdt(itr) * rhos1(:,:,:) + adt(itr) * ta1(:,:,:)
     ENDIF
   ELSE IF (nscheme.EQ.3) THEN
     !! RK4
@@ -672,38 +653,33 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
     IF (nrank.EQ.0) THEN
       PRINT  *, 'LMN: RK4 not ready'
     ENDIF
-    STOP 
+    STOP
   ELSE
     !! AB3
     IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
       IF (nrank.EQ.0) THEN
         PRINT  *, 'start with Euler', itime
       ENDIF
-      DO ijk = 1, nxyz !start with Euler
-        rho1(ijk, 1, 1) = dt * ta1(ijk, 1, 1) + rho1(ijk, 1, 1)
-        rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)          
-      ENDDO
+      rho1(:,:,:) = rho1(:,:,:) + dt * ta1(:,:,:)
     ELSE
       IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
         IF (nrank.EQ.0) THEN
           PRINT *, 'then with AB2', itime
         ENDIF
-        DO ijk = 1, nxyz
-          rho1(ijk, 1, 1) = 1.5_mytype * dt * ta1(ijk, 1, 1) - 0.5_mytype * dt * rhos1(ijk, 1, 1) &
-               + rho1(ijk, 1, 1)
-          rhoss1(ijk, 1, 1) = rhos1(ijk, 1, 1)
-          rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)
-        ENDDO
+        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * ta1(:,:,:))
+        rhos1(:,:,:) = ta1(:,:,:)
       ELSE
-        DO ijk = 1, nxyz
-          rho1(ijk, 1, 1) = adt(itr) * ta1(ijk, 1, 1) + bdt(itr) * rhos1(ijk, 1, 1) &
-               + cdt(itr) * rhoss1(ijk, 1, 1) + rho1(ijk, 1, 1)
-          rhoss1(ijk, 1, 1) = rhos1(ijk, 1, 1)
-          rhos1(ijk, 1, 1) = ta1(ijk, 1, 1)
-        ENDDO
+        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * ta1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
+             * rhoss1(:,:,:)
       ENDIF
+
+      !! Update oldold stage
+      rhoss1(:,:,:) = rhos1(:,:,:)
     ENDIF
   ENDIF
+
+  !! Update old stage
+  rhos1(:,:,:) = ta1(:,:,:)
   
 ENDSUBROUTINE density
   
