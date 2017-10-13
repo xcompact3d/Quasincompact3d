@@ -452,7 +452,7 @@ call transpose_y_to_x(td2,td1)
 
 !X PENCILS ADD TERMS
 do ijk=1,nvect1
-   ta1(ijk,1,1)=0._mytype ! ta1(ijk,1,1)+tc1(ijk,1,1) !SECOND DERIVATIVE
+   ta1(ijk,1,1)=ta1(ijk,1,1)+tc1(ijk,1,1) !SECOND DERIVATIVE
    tb1(ijk,1,1)=tb1(ijk,1,1)+td1(ijk,1,1) !FIRST DERIVATIVE
 enddo
  

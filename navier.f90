@@ -580,13 +580,7 @@ if (iin.eq.1) then !generation of a random noise
    do k = 1, xsize(3)
      do j = 1, xsize(2)
        do i = 1, xsize(1)
-         x = float((i + xstart(1) - 2)) * dx
-         if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
-           rho1(i, j, k) = 2._mytype
-         else
-           rho1(i, j, k) = 1._mytype
-         endif
-         ! rho1(i, j, k) = 1._mytype
+         rho1(i, j, k) = 1._mytype
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
@@ -597,13 +591,7 @@ if (iin.eq.1) then !generation of a random noise
       do k=1,xsize(3)
          do j=1,xsize(2)
             do i=1,xsize(1)
-              x = float((i + xstart(1) - 2)) * dx
-              if(((x.GE.(0.25_mytype * xlx)).AND.(x.LE.(0.75_mytype * xlx)))) then
-                phi1(i, j, k) = 2._mytype
-              else
-                phi1(i, j, k) = 1._mytype
-              endif
-              ! phi1(i,j,k)=0._mytype
+              phi1(i,j,k)=1._mytype
               phis1(i,j,k)=phi1(i,j,k)
               phiss1(i,j,k)=phis1(i,j,k)
             enddo
