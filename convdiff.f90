@@ -568,7 +568,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! X PENCILS
 
   ! Advection term
-  CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 1)
   tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
 
   ! Diffusion term
@@ -583,7 +583,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   !Y PENCILS
 
   ! Advection term
-  CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
   tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
 
   ! Diffusion term
@@ -609,7 +609,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! Z PENCILS
 
   ! Advection term
-  CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 1)
   tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
   
   CALL derzz (ta3, rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
