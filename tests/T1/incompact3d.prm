@@ -32,7 +32,7 @@
 #
 0           #ilit     # Read initial flow field ?
 25600       #isave    # Frequency for writing backup file  
-12800       #imodulo  # Frequency for visualization for VISU_INSTA
+2560       #imodulo  # Frequency for visualization for VISU_INSTA
 #
 # INCOMPACT 3D Body  old school
 #
