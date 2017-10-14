@@ -555,6 +555,11 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
+
+  REAL(mytype) :: x, y, z
+  REAL(mytype) :: xspec, yspec, zspec
+  REAL(mytype) :: SrhoX, SrhoY, SrhoZ
+  REAL(mytype) :: MMSource
   
   INTEGER :: i, j, k, ijk
   INTEGER :: nxyz
@@ -635,6 +640,40 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   !! TODO add dp(0)dt source term
   ta1(:,:,:) = -rho1(:,:,:) * (xnu / pr) * ta1(:,:,:) - tb1(:,:,:)
 
+  !! MMS Source term
+  DO k = 1,xsize(3)
+    z = float(k + xstart(3) - 2)
+    zspec = (2._mytype * PI) * (z / zlz)
+    DO j = 1,xsize(2)
+      y = float(j + xstart(2) - 2)
+      yspec = (2._mytype * PI) * (y / yly)
+      DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2)
+        xspec = (2._mytype * PI) * (x / xlx)
+
+        SrhoX = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(xspec)
+        SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
+        SrhoX = SrhoX * 4._mytype * (PI**2) * SIN(yspec) * SIN(zspec) &
+             / ((xlx**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+
+        SrhoY = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(yspec)
+        SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
+        SrhoY = SrhoY * 4._mytype * (PI**2) * SIN(xspec) * SIN(zspec) &
+             / ((yly**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+
+        SrhoZ = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(zspec)
+        SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
+        SrhoZ = SrhoZ * 4._mytype * (PI**2) * SIN(xspec) * SIN(yspec) &
+             / ((zlz**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+
+        MMSource = SrhoX + SrhoY + SrhoZ
+        MMSource = MMSource * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) / (pr / xnu)
+
+        ta1(i,j,k) = ta1(i,j,k) + MMSource
+      ENDDO
+    ENDDO
+  ENDDO
+  
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
   nxyz = xsize(1) * xsize(2) * xsize(3)  
