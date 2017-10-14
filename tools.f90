@@ -1009,3 +1009,39 @@ endif
 call MPI_BCAST(idata,200,MPI_INTEGER,0,MPI_COMM_WORLD,code)
 
 end subroutine collect_data
+
+!*****************************************************************
+!  SUBROUTINE: eval_error
+! DESCRIPTION: Given a (known) solution, compare with numerical
+!              value and compute l2 norm.
+!*****************************************************************
+SUBROUTINE eval_error(sol_num, sol_exact, name)
+
+  USE var
+  USE MPI
+  
+  IMPLICIT NONE
+
+  REAL(mytype), INTENT(IN), dimension(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
+  CHARACTER, INTENT(IN) :: name
+
+  REAL(mytype) :: err
+  INTEGER :: ijk
+  INTEGER :: nvect1
+  INTEGER :: ierr
+
+  nvect1 = xsize(1) * xsize(2) * xsize(3)
+  err = 0._mytype
+  DO ijk = 1,nvect1
+    err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
+  ENDDO
+  err = err / float(nvect1)
+
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+  err = err**0.5
+
+  IF (nrank.eq.0) THEN
+    PRINT *, "Error in ", name, " = ", err
+  ENDIF
+  
+ENDSUBROUTINE eval_error
