@@ -520,7 +520,8 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1,phiss1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,rhos1,rhoss1
 real(mytype) :: pressure0
 
-real(mytype) :: x, y,r,um,r1,r2,r3
+real(mytype) :: x,y,z,r,um,r1,r2,r3
+real(mytype) :: xspec,yspec,zspec
 integer :: k,j,i,fh,ierror,ii
 integer :: code
 integer (kind=MPI_OFFSET_KIND) :: disp
@@ -551,13 +552,24 @@ if (iin.eq.1) then !generation of a random noise
    call random_number(uz1)
 
    do k=1,xsize(3)
-      do j=1,xsize(2)
-         do i=1,xsize(1)
-            ux1(i,j,k)=0._mytype !noise*ux1(i,j,k)
-            uy1(i,j,k)=0._mytype !noise*uy1(i,j,k)
-            uz1(i,j,k)=0._mytype !noise*uz1(i,j,k)
-         enddo
-      enddo
+     z = float(k + xstart(3) - 2)
+     zspec = (2._mytype * PI) * (z / zlz)
+     do j=1,xsize(2)
+       y = float(j + xstart(2) - 2)
+       yspec = (2._mytype * PI) * (y / yly)
+       do i=1,xsize(1)
+         x = float(i + xstart(1) - 2)
+         xspec = (2._mytype * PI) * (x / xlx)
+         
+         ux1(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
+         uy1(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
+         uz1(i,j,k) = (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
+         
+         ! ux1(i,j,k)=0._mytype !noise*ux1(i,j,k)
+         ! uy1(i,j,k)=0._mytype !noise*uy1(i,j,k)
+         ! uz1(i,j,k)=0._mytype !noise*uz1(i,j,k)
+       enddo
+     enddo
    enddo
 
 !modulation of the random noise
@@ -578,9 +590,16 @@ if (iin.eq.1) then !generation of a random noise
 
    ! LMN: set density
    do k = 1, xsize(3)
+     z = float(k + xstart(3) - 2)
+     zspec = (2._mytype * PI) * (z / zlz)
      do j = 1, xsize(2)
+       y = float(j + xstart(2) - 2)
+       yspec = (2._mytype * PI) * (y / yly)
        do i = 1, xsize(1)
-         rho1(i, j, k) = 1._mytype
+         x = float(i + xstart(1) - 2)
+         xspec = (2._mytype * PI) * (x / xlx)
+         
+         rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
