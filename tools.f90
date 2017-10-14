@@ -1022,7 +1022,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   
   IMPLICIT NONE
 
-  REAL(mytype), INTENT(IN), dimension(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
+  REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
   CHARACTER, INTENT(IN) :: name
 
   REAL(mytype) :: err
@@ -1045,3 +1045,42 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   ENDIF
   
 ENDSUBROUTINE eval_error
+
+!*****************************************************************
+!  SUBROUTINE: eval_error_rho
+! DESCRIPTION: Compute an exact solution for rho and compare with
+!              the numerically obtained solution.
+!*****************************************************************
+SUBROUTINE eval_error_rho(rho_num)
+
+  USE var
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_num
+
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_exact
+  REAL(mytype) :: x,y,z
+  REAL(mytype) :: xspec,yspec,zspec
+  INTEGER :: i,j,k
+
+  ! Compute the exact solution
+  DO k = 1, xsize(3)
+    z = float(k + xstart(3) - 2)
+    zspec = (2._mytype * PI) * (z / zlz)
+    DO j = 1, xsize(2)
+      y = float(j + xstart(2) - 2)
+      yspec = (2._mytype * PI) * (y / yly)
+      DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2)
+        xspec = (2._mytype * PI) * (x / xlx)
+        rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+      ENDDO
+    ENDDO
+  ENDDO
+
+  ! Compare against the numerical solution
+  CALL eval_error(rho_num, rho_exact, "RHO")
+  
+ENDSUBROUTINE eval_error_rho

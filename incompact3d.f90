@@ -213,7 +213,7 @@ do itime=ifirst,ilast
       call test_density_min_max(rho1)
       if (iscalar==1) call test_scalar_min_max(phi1)
 
-   enddo
+   enddo ! End sub-timesteps
 
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
 !!$        uvmean,uwmean,vwmean,phiphimean,tmean)
@@ -231,10 +231,13 @@ do itime=ifirst,ilast
    endif
 
    if (mod(itime,10)==0) then
-      call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+     call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+          ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+          ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
    endif
+
+   ! MMS: compare errors
+   CALL eval_error_rho(rho1)
 
 enddo
 
