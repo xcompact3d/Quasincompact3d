@@ -574,7 +574,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 1)
-  tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
+  tb1 = ux1 * tb1
 
   ! Diffusion term
   CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -589,7 +589,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
-  tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
+  tb2 = uy2 * tb2
 
   ! Diffusion term
   IF (istret.NE.0) THEN
@@ -615,7 +615,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Advection term
   CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 1)
-  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
+  tb3 = uz3 * tb3
   
   CALL derzz (ta3, 1._mytype / rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
 
@@ -625,8 +625,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  tc2(:,:,:) = tc2(:,:,:) + ta2(:,:,:)
-  td2(:,:,:) = td2(:,:,:) + tb2(:,:,:)
+  tc2 = tc2 + ta2
+  td2 = td2 + tb2
 
   ! Get back to X
   CALL transpose_y_to_x(tc2, tc1)
@@ -634,11 +634,11 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
-  ta1(:,:,:) = ta1(:,:,:) + tc1(:,:,:) !SECOND DERIVATIVE (DIFFUSION, sort of)
-  tb1(:,:,:) = tb1(:,:,:) + td1(:,:,:) !FIRST DERIVATIVE (CONV)
+  ta1 = ta1 + tc1 !SECOND DERIVATIVE (DIFFUSION, sort of)
+  tb1 = tb1 + td1 !FIRST DERIVATIVE (CONV)
   
   !! TODO add dp(0)dt source term
-  ta1(:,:,:) = -rho1(:,:,:) * (xnu / pr) * ta1(:,:,:) - tb1(:,:,:)
+  ta1 = -rho1 * (xnu / pr) * ta1 - tb1
 
   !! MMS Source term
   DO k = 1,xsize(3)
@@ -651,6 +651,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
+        ! Compute nabla.nabla 1/rho
         SrhoX = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(xspec)
         SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
         SrhoX = SrhoX * 4._mytype * (PI**2) * SIN(yspec) * SIN(zspec) &
@@ -682,9 +683,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
     !! AB2 or RK3
     IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
-      rho1(:,:,:) = rho1(:,:,:) + gdt(itr) * ta1(:,:,:)
+      rho1 = rho1 + gdt(itr) * ta1
     ELSE
-      rho1(:,:,:) = rho1(:,:,:) + bdt(itr) * rhos1(:,:,:) + adt(itr) * ta1(:,:,:)
+      rho1 = rho1 + bdt(itr) * rhos1 + adt(itr) * ta1
     ENDIF
   ELSE IF (nscheme.EQ.3) THEN
     !! RK4
@@ -699,26 +700,26 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
       IF (nrank.EQ.0) THEN
         PRINT  *, 'start with Euler', itime
       ENDIF
-      rho1(:,:,:) = rho1(:,:,:) + dt * ta1(:,:,:)
+      rho1 = rho1 + dt * ta1
     ELSE
       IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
         IF (nrank.EQ.0) THEN
           PRINT *, 'then with AB2', itime
         ENDIF
-        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * ta1(:,:,:))
-        rhos1(:,:,:) = ta1(:,:,:)
+        rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * ta1)
+        rhos1 = ta1
       ELSE
-        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * ta1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
-             * rhoss1(:,:,:)
+        rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1 + cdt(itr) &
+             * rhoss1
       ENDIF
 
       !! Update oldold stage
-      rhoss1(:,:,:) = rhos1(:,:,:)
+      rhoss1 = rhos1
     ENDIF
   ENDIF
 
   !! Update old stage
-  rhos1(:,:,:) = ta1(:,:,:)
+  rhos1 = ta1
   
 ENDSUBROUTINE density
   
