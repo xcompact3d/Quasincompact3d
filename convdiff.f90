@@ -559,7 +559,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   REAL(mytype) :: x, y, z
   REAL(mytype) :: xspec, yspec, zspec
   REAL(mytype) :: SrhoX, SrhoY, SrhoZ
-  REAL(mytype) :: MMSource
+  REAL(mytype) :: MMSource, rhomms
   
   INTEGER :: i, j, k, ijk
   INTEGER :: nxyz
@@ -651,31 +651,38 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
-        ! Compute nabla.nabla 1/rho
-        SrhoX = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(xspec)
+        rhomms = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+
+        !!
+        !! Compute nabla.nabla 1/rho
+        !!
+
+        ! d/dx( d/dx 1/rho )
+        SrhoX = rhomms * SIN(xspec)
         SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
-        SrhoX = SrhoX * 4._mytype * (PI**2) * SIN(yspec) * SIN(zspec) &
-             / ((xlx**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+        SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
 
-        SrhoY = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(yspec)
+        ! d/dy( d/dy 1/rho )
+        SrhoY = rhomms * SIN(yspec)
         SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
-        SrhoY = SrhoY * 4._mytype * (PI**2) * SIN(xspec) * SIN(zspec) &
-             / ((yly**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+        SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
 
-        SrhoZ = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(zspec)
+        ! d/dz( d/dz 1/rho )
+        SrhoZ = rhomms * SIN(zspec)
         SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
-        SrhoZ = SrhoZ * 4._mytype * (PI**2) * SIN(xspec) * SIN(yspec) &
-             / ((zlz**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
+        SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
 
         MMSource = SrhoX + SrhoY + SrhoZ
+        MMSource = 4._mytype * (PI**2) * MMSource
 
         ! Multiply by rho / (Re Pr)
-        MMSource = MMSource * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * (xnu / pr)
+        ! N.B. there is a common factor of 1 / rho^3 in SrhoX, etc. which cancels
+        MMSource = MMSource * (xnu / pr) / (rhomms**2)
 
         ta1(i,j,k) = ta1(i,j,k) + MMSource
-      ENDDO
-    ENDDO
-  ENDDO
+      ENDDO ! End loop over i
+    ENDDO ! End loop over j
+  ENDDO ! End loop over k
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
