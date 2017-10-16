@@ -716,7 +716,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
           PRINT *, 'then with AB2', itime
         ENDIF
         rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * ta1)
-        rhos1 = ta1
       ELSE
         rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1 + cdt(itr) &
              * rhoss1
