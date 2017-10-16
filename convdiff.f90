@@ -668,7 +668,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
              / ((zlz**2) * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec))**3)
 
         MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = MMSource * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) / (pr / xnu)
+
+        ! Multiply by rho / (Re Pr)
+        MMSource = MMSource * (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * (xnu / pr)
 
         ta1(i,j,k) = ta1(i,j,k) + MMSource
       ENDDO

@@ -1025,7 +1025,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
   CHARACTER, INTENT(IN) :: name
 
-  REAL(mytype) :: err
+  REAL(mytype) :: err, delta
   INTEGER :: ijk
   INTEGER :: nvect1
   INTEGER :: ierr
@@ -1033,7 +1033,8 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   nvect1 = xsize(1) * xsize(2) * xsize(3)
   err = 0._mytype
   DO ijk = 1,nvect1
-    err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
+    delta = sol_num(ijk,1,1) - sol_exact(ijk,1,1)
+    err = err + delta * delta
   ENDDO
 
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
@@ -1074,7 +1075,7 @@ SUBROUTINE eval_error_rho(rho_num)
       DO i = 1, xsize(1)
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
-        rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        rho_exact(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
       ENDDO
     ENDDO
   ENDDO
