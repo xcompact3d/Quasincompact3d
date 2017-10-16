@@ -571,10 +571,18 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   ! X PENCILS
+  ! ta1 = diffusion
+  ! tb1 = advection
 
-  ! Advection term
+  ! Advection term (non-conservative)
   CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 1)
   tb1 = ux1 * tb1
+
+  ! ! Advection term (conservative)
+  ! ta1 = rho1 * ux1
+  ! CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
+  ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
+  ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
 
   ! Diffusion term
   CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -586,14 +594,22 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   !Y PENCILS
+  ! ta2 = diffusion
+  ! tb2 = advection
 
-  ! Advection term
+  ! Advection term (non-conservative)
   CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
   tb2 = uy2 * tb2
 
+  ! ! Advection term (conservative)
+  ! ta2 = rho2 * uy2
+  ! CALL dery (tb2, ta2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy (rho v)
+  ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
+  ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
+
   ! Diffusion term
   IF (istret.NE.0) THEN
-    CALL deryy (ta2, rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
     CALL dery (tc2, 1._mytype / rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
     DO k = 1, ysize(3)
       DO j = 1, ysize(2)
@@ -694,7 +710,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
       rho1 = rho1 + gdt(itr) * ta1
     ELSE
-      rho1 = rho1 + bdt(itr) * rhos1 + adt(itr) * ta1
+      rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1
     ENDIF
   ELSE IF (nscheme.EQ.3) THEN
     !! RK4
