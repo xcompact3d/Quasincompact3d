@@ -330,6 +330,7 @@ implicit none
 integer  :: i,j,k,jj1,jj2 
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
 real(mytype) :: x,y,z,ym
+real(mytype) :: xspec,yspec,zspec
 real(mytype) :: r1,r2,r3,r
 real(mytype) :: uh,ud,um,xv,bruit1
 real(mytype) :: u_disturb, v_disturb, disturb_decay
@@ -349,14 +350,22 @@ bzx1=0._mytype;bzy1=0._mytype;bzz1=0._mytype
 !ITYPE=9 --> Tank 
 
 if (itype.eq.1) then
-   um=0.5_mytype*(u1+u2)
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      bxx1(j,k)=um
-      bxy1(j,k)=0._mytype
-      bxz1(j,k)=0._mytype
-   enddo
-   enddo
+  do k=1,xsize(3)
+    z = float(k + xstart(3) - 2) * dz
+    zspec = (2._mytype * PI) * (z / zlz)
+    do j=1,xsize(2)
+      y = float(j + xstart(2) - 2) * dy
+      yspec = (2._mytype * PI) * (y / yly)
+      do i=1,xsize(1)
+        x = float(i + xstart(1) - 2) * dx
+        xspec = (2._mytype * PI) * (x / xlx)
+        
+        ux1(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
+        uy1(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
+        uz1(i,j,k) = -2._mytype * (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
+      enddo
+    enddo
+  enddo
 endif
 
 if (itype.eq.2) then
@@ -552,22 +561,11 @@ if (iin.eq.1) then !generation of a random noise
    call random_number(uz1)
 
    do k=1,xsize(3)
-     z = float(k + xstart(3) - 2)
-     zspec = (2._mytype * PI) * (z / zlz)
      do j=1,xsize(2)
-       y = float(j + xstart(2) - 2)
-       yspec = (2._mytype * PI) * (y / yly)
        do i=1,xsize(1)
-         x = float(i + xstart(1) - 2)
-         xspec = (2._mytype * PI) * (x / xlx)
-         
-         ux1(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
-         uy1(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
-         uz1(i,j,k) = (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
-         
-         ! ux1(i,j,k)=0._mytype !noise*ux1(i,j,k)
-         ! uy1(i,j,k)=0._mytype !noise*uy1(i,j,k)
-         ! uz1(i,j,k)=0._mytype !noise*uz1(i,j,k)
+         ux1(i,j,k)=0._mytype !noise*ux1(i,j,k)
+         uy1(i,j,k)=0._mytype !noise*uy1(i,j,k)
+         uz1(i,j,k)=0._mytype !noise*uz1(i,j,k)
        enddo
      enddo
    enddo
@@ -590,13 +588,13 @@ if (iin.eq.1) then !generation of a random noise
 
    ! LMN: set density
    do k = 1, xsize(3)
-     z = float(k + xstart(3) - 2)
+     z = float(k + xstart(3) - 2) * dz
      zspec = (2._mytype * PI) * (z / zlz)
      do j = 1, xsize(2)
-       y = float(j + xstart(2) - 2)
+       y = float(j + xstart(2) - 2) * dy
        yspec = (2._mytype * PI) * (y / yly)
        do i = 1, xsize(1)
-         x = float(i + xstart(1) - 2)
+         x = float(i + xstart(1) - 2) * dx
          xspec = (2._mytype * PI) * (x / xlx)
          
          rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)

@@ -1035,7 +1035,6 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   DO ijk = 1,nvect1
     err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
   ENDDO
-  err = err / float(nvect1)
 
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
   err = err**0.5
@@ -1067,13 +1066,13 @@ SUBROUTINE eval_error_rho(rho_num)
 
   ! Compute the exact solution
   DO k = 1, xsize(3)
-    z = float(k + xstart(3) - 2)
+    z = float(k + xstart(3) - 2) * dz
     zspec = (2._mytype * PI) * (z / zlz)
     DO j = 1, xsize(2)
-      y = float(j + xstart(2) - 2)
+      y = float(j + xstart(2) - 2) * dy
       yspec = (2._mytype * PI) * (y / yly)
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2)
+        x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
         rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
       ENDDO

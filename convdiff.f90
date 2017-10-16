@@ -642,13 +642,13 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !! MMS Source term
   DO k = 1,xsize(3)
-    z = float(k + xstart(3) - 2)
+    z = float(k + xstart(3) - 2) * dz
     zspec = (2._mytype * PI) * (z / zlz)
     DO j = 1,xsize(2)
-      y = float(j + xstart(2) - 2)
+      y = float(j + xstart(2) - 2) * dy
       yspec = (2._mytype * PI) * (y / yly)
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2)
+        x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
         SrhoX = (2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)) * SIN(xspec)
