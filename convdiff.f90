@@ -628,14 +628,24 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !------------------------------------------------------------------------
   ! Z PENCILS
+  ! ta3 = diffusion
+  ! tb3 = advection
 
-  ! Advection term
+  ! Advection term (non-conservative)
   CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 1)
   tb3 = uz3 * tb3
+
+  ! ! Advection term (conservative)
+  ! ta3 = rho3 * uz3
+  ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
+  ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
+  ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
   
   CALL derzz (ta3, 1._mytype / rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
 
   ! Get back to Y
+  ! tc2 = diffusion work vector
+  ! td2 = advection work vector
   CALL transpose_z_to_y(ta3, tc2)
   CALL transpose_z_to_y(tb3, td2)
 
@@ -645,13 +655,15 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   td2 = td2 + tb2
 
   ! Get back to X
+  ! tc1 = diffusion work vector
+  ! td1 = advection work vector
   CALL transpose_y_to_x(tc2, tc1)
   CALL transpose_y_to_x(td2, td1)
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
   ta1 = ta1 + tc1 !SECOND DERIVATIVE (DIFFUSION, sort of)
-  tb1 = tb1 + td1 !FIRST DERIVATIVE (CONV)
+  tb1 = tb1 + td1 !FIRST DERIVATIVE (ADV)
   
   !! TODO add dp(0)dt source term
   ta1 = -rho1 * (xnu / pr) * ta1 - tb1
