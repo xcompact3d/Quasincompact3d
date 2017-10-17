@@ -555,13 +555,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
-
-  REAL(mytype) :: x, y, z
-  REAL(mytype) :: xspec, yspec, zspec
-  REAL(mytype) :: SrhoX, SrhoY, SrhoZ
-  REAL(mytype) :: MMSource, rhomms
   
-  INTEGER :: i, j, k, ijk
+  INTEGER :: i, j, k
   INTEGER :: nxyz
   INTEGER :: nvect1, nvect2, nvect3
 
@@ -666,51 +661,10 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   tb1 = tb1 + td1 !FIRST DERIVATIVE (ADV)
   
   !! TODO add dp(0)dt source term
-  ta1 = -rho1 * (xnu / pr) * ta1 - tb1
+  ta1 = -rho1 * (xnu / pr) * ta1 !- tb1
 
   !! MMS Source term
-  DO k = 1,xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
-    DO j = 1,xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
-      DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
-
-        rhomms = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
-
-        !!
-        !! Compute nabla.nabla 1/rho
-        !!
-
-        ! d/dx( d/dx 1/rho )
-        SrhoX = rhomms * SIN(xspec)
-        SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
-        SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
-
-        ! d/dy( d/dy 1/rho )
-        SrhoY = rhomms * SIN(yspec)
-        SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
-        SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
-
-        ! d/dz( d/dz 1/rho )
-        SrhoZ = rhomms * SIN(zspec)
-        SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
-        SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
-
-        MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = 4._mytype * (PI**2) * MMSource
-
-        ! Multiply by rho / (Re Pr)
-        ! N.B. there is a common factor of 1 / rho^3 in SrhoX, etc. which cancels
-        MMSource = MMSource * (xnu / pr) / (rhomms**2)
-
-        ta1(i,j,k) = ta1(i,j,k) + MMSource
-      ENDDO ! End loop over i
-    ENDDO ! End loop over j
-  ENDDO ! End loop over k
+  CALL density_source_mmsT2d(ta1)
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
@@ -759,3 +713,77 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   
 ENDSUBROUTINE density
   
+!!--------------------------------------------------------------------
+!! SUBROUTINE: density_source_mmsT2d
+!! DESCIPTION: Computes the source term for the density equation in
+!!             Method of Manufactured Solutions test and adds it to
+!!             the stress/diffusion term. This source term is for the
+!!             case div(u) = 0 and
+!!             rho = 2 + sin(2pi x / lx) sin(2pi y / ly) sin(2pi z / lz).
+!!             This solution should permit:
+!!               periodic
+!!               drho/dn = 0
+!!               rho = 2
+!!             as boundary conditions.
+!!             This corresponds to test T2d
+!!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
+SUBROUTINE density_source_mmsT2d(mms)
+
+  USE var
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: mms
+
+  REAL(mytype) :: x,y,z
+  REAL(mytype) :: xspec,yspec,zspec
+  INTEGER :: i,j,k
+
+  REAL(mytype) :: rhomms
+  REAL(mytype) :: SrhoX, SrhoY, SrhoZ
+  REAL(mytype) :: MMSource
+
+  DO k = 1,xsize(3)
+    z = float(k + xstart(3) - 2) * dz
+    zspec = (2._mytype * PI) * (z / zlz)
+    DO j = 1,xsize(2)
+      y = float(j + xstart(2) - 2) * dy
+      yspec = (2._mytype * PI) * (y / yly)
+      DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2) * dx
+        xspec = (2._mytype * PI) * (x / xlx)
+
+        rhomms = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+
+        !!
+        !! Compute nabla.nabla 1/rho
+        !!
+
+        ! d/dx( d/dx 1/rho )
+        SrhoX = rhomms * SIN(xspec)
+        SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
+        SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
+
+        ! d/dy( d/dy 1/rho )
+        SrhoY = rhomms * SIN(yspec)
+        SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
+        SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
+
+        ! d/dz( d/dz 1/rho )
+        SrhoZ = rhomms * SIN(zspec)
+        SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
+        SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
+
+        MMSource = SrhoX + SrhoY + SrhoZ
+        MMSource = 4._mytype * (PI**2) * MMSource
+
+        ! Multiply by rho / (Re Pr)
+        ! N.B. there is a common factor of 1 / rho^3 in SrhoX, etc. which cancels
+        MMSource = MMSource * (xnu / pr) / (rhomms**2)
+
+        mms(i,j,k) = mms(i,j,k) + MMSource
+      ENDDO ! End loop over i
+    ENDDO ! End loop over j
+  ENDDO ! End loop over k
+
+ENDSUBROUTINE density_source_mmsT2d
