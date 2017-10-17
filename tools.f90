@@ -1013,7 +1013,7 @@ end subroutine collect_data
 !*****************************************************************
 !  SUBROUTINE: eval_error
 ! DESCRIPTION: Given a (known) solution, compare with numerical
-!              value and compute l2 norm.
+!              value and compute (normalised) l2 norm.
 !*****************************************************************
 SUBROUTINE eval_error(sol_num, sol_exact, name)
 
@@ -1025,7 +1025,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
   CHARACTER, INTENT(IN) :: name
 
-  REAL(mytype) :: err, delta
+  REAL(mytype) :: err
   INTEGER :: ijk
   INTEGER :: nvect1
   INTEGER :: ierr
@@ -1033,11 +1033,11 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   nvect1 = xsize(1) * xsize(2) * xsize(3)
   err = 0._mytype
   DO ijk = 1,nvect1
-    delta = sol_num(ijk,1,1) - sol_exact(ijk,1,1)
-    err = err + delta * delta
+    err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
   ENDDO
 
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+  err = err / float(nxm * nym * nzm)
   err = err**0.5
 
   IF (nrank.eq.0) THEN

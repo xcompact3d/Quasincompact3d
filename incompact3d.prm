@@ -16,7 +16,7 @@
 # INCOMPACT3D Flow configuration
 #
 0      #nclx   # nclx (BC)
-1      #ncly   # ncly (BC) 
+0      #ncly   # ncly (BC) 
 0      #nclz   # nclz (BC)
 1      #itype  # Type of flow  (1: Constant flowfield, 4: Mixing layer, 6: Taylor-Green)
 1      #iin    # Inflow condition (1: classic, 2: turbinit)
