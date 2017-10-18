@@ -217,8 +217,6 @@ call transpose_z_to_y(td3,td2)
 call transpose_z_to_y(te3,te2)
 call transpose_z_to_y(tf3,tf2)
 
-call transpose_z_to_y(rho3,rho2)
-
 tg2(:,:,:)=td2(:,:,:)
 th2(:,:,:)=te2(:,:,:)
 ti2(:,:,:)=tf2(:,:,:)
@@ -306,7 +304,6 @@ call transpose_y_to_x(tg2,td1)
 call transpose_y_to_x(th2,te1)
 call transpose_y_to_x(ti2,tf1) !conv
 
-call transpose_y_to_x(rho2,rho1)
 call transpose_y_to_x(divu2, divu1)
 
 tg1(:,:,:)=td1(:,:,:)
