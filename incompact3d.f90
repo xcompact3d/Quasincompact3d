@@ -148,70 +148,70 @@ do itime=ifirst,ilast
           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
           uz3,rho3,di3,ta3,tb3,ep1)
 
-!       if (nclx.eq.2) then
-!          call inflow (ux1,uy1,uz1,phi1) !X PENCILS
-!          call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
-!       endif
+      if (nclx.eq.2) then
+         call inflow (ux1,uy1,uz1,phi1) !X PENCILS
+         call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
+      endif
 
-!       !X-->Y-->Z-->Y-->X
-!       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-!            ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-!            ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+      !X-->Y-->Z-->Y-->X
+      call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+           ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
            
-!       if (iscalar==1) then
-!          call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-!               uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,ep1) 
-!       endif
+      if (iscalar==1) then
+         call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+              uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,ep1) 
+      endif
 
-!       !X PENCILS
-!       call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
+      !X PENCILS
+      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
 
-! !!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
-! !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
-! !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
+!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
-!       call pre_correc(ux1,uy1,uz1)
+      call pre_correc(ux1,uy1,uz1)
 
-! !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
-! !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
-! !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
+!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
-! !!$      if (ivirt==1) then !solid body old school
-! !!$         !we are in X-pencil
-! !!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
-! !!$         call body(ux1,uy1,uz1,ep1)
-! !!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
-! !!$      endif
+!!$      if (ivirt==1) then !solid body old school
+!!$         !we are in X-pencil
+!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
+!!$         call body(ux1,uy1,uz1,ep1)
+!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
+!!$      endif
 
-!       !X-->Y-->Z
-!       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-!            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
-!            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)       
+      !X-->Y-->Z
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)       
 
-! !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
-! !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
-! !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
+!!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
 
-!       !POISSON Z-->Z 
-!       call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+      !POISSON Z-->Z 
+      call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
 
-! !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
+!!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-!       !Z-->Y-->X
-!       call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-!            ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+      !Z-->Y-->X
+      call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+           ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
 
-!       !X PENCILS
-!       call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1) 
+      !X PENCILS
+      call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1) 
 
-!       !does not matter -->output=DIV U=0 (in dv3)
-!       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-!            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,dv3,&
-!            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
+      !does not matter -->output=DIV U=0 (in dv3)
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,dv3,&
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
 
-!       call test_speed_min_max(ux1,uy1,uz1)
+      call test_speed_min_max(ux1,uy1,uz1)
       call test_density_min_max(rho1)
-!       if (iscalar==1) call test_scalar_min_max(phi1)
+      if (iscalar==1) call test_scalar_min_max(phi1)
 
    enddo ! End sub-timesteps
 
