@@ -1023,7 +1023,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   IMPLICIT NONE
 
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
-  CHARACTER, INTENT(IN) :: name
+  CHARACTER(LEN=*), INTENT(IN) :: name
 
   REAL(mytype) :: err
   INTEGER :: ijk
@@ -1045,6 +1045,50 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   ENDIF
   
 ENDSUBROUTINE eval_error
+
+!*****************************************************************
+!  SUBROUTINE: eval_error_vel
+! DESCRIPTION: Compute an exact solution for rho and compare with
+!              the numerically obtained solution.
+!*****************************************************************
+SUBROUTINE eval_error_vel(ux1_num, uy1_num, uz1_num)
+
+  USE var
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1_num, uy1_num, uz1_num
+
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1_exact, uy1_exact, uz1_exact
+  REAL(mytype) :: x,y,z
+  REAL(mytype) :: xspec,yspec,zspec
+  INTEGER :: i,j,k
+
+  ! Compute the exact solution
+  DO k = 1, xsize(3)
+    z = float(k + xstart(3) - 2) * dz
+    zspec = (2._mytype * PI) * (z / zlz)
+    DO j = 1, xsize(2)
+      y = float(j + xstart(2) - 2) * dy
+      yspec = (2._mytype * PI) * (y / yly)
+      DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2) * dx
+        xspec = (2._mytype * PI) * (x / xlx)
+
+        ux1_exact(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
+        uy1_exact(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
+        uz1_exact(i,j,k) = -2._mytype * (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
+      ENDDO
+    ENDDO
+  ENDDO
+
+  ! Compare against the numerical solution
+  CALL eval_error(ux1_num, ux1_exact, "UVEL")
+  CALL eval_error(uy1_num, uy1_exact, "VVEL")
+  CALL eval_error(uz1_num, uz1_exact, "WVEL")
+  
+ENDSUBROUTINE eval_error_vel
 
 !*****************************************************************
 !  SUBROUTINE: eval_error_rho

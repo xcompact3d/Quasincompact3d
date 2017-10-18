@@ -238,6 +238,7 @@ do itime=ifirst,ilast
 
    ! MMS: compare errors
    CALL eval_error_rho(rho1)
+   CALL eval_error_vel(ux1,uy1,uz1)
 
 enddo
 
