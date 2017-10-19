@@ -217,6 +217,8 @@ call transpose_z_to_y(td3,td2)
 call transpose_z_to_y(te3,te2)
 call transpose_z_to_y(tf3,tf2)
 
+call transpose_z_to_y(divu3, divu2)
+
 tg2(:,:,:)=td2(:,:,:)
 th2(:,:,:)=te2(:,:,:)
 ti2(:,:,:)=tf2(:,:,:)
