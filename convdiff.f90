@@ -124,7 +124,7 @@ else !SKEW!
      divu1(ijk, 1, 1) = ta1(ijk, 1, 1)
      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*ta1(ijk,1,1)*rho1(ijk,1,1)
      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tb1(ijk,1,1)*rho1(ijk,1,1)
-     tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)      
+     tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)
    enddo
 
    call transpose_x_to_y(ux1,ux2)
@@ -153,7 +153,7 @@ else !SKEW!
      divu2(ijk, 1, 1) = divu2(ijk, 1, 1) + te2(ijk, 1, 1)
      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)*rho2(ijk,1,1)
      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)*rho2(ijk,1,1)
-     tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)      
+     tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
    enddo
 
    call transpose_y_to_z(ux2,ux3)
@@ -181,7 +181,7 @@ else !SKEW!
      divu3(ijk, 1, 1) = divu3(ijk, 1, 1) + tf3(ijk, 1, 1)
      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)*rho3(ijk,1,1)
      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
-     tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)   
+     tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
    enddo
 endif
 !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
@@ -335,6 +335,9 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 ta1(:,:,:)=xnu*ta1(:,:,:)-tg1(:,:,:)
 tb1(:,:,:)=xnu*tb1(:,:,:)-th1(:,:,:)
 tc1(:,:,:)=xnu*tc1(:,:,:)-ti1(:,:,:)
+
+!! MMS Source term
+call momentum_source_mmsT3a(ta1,tb1,tc1)
 
 ta1max=-1.e30_mytype
 ta1min=+1.e30_mytype
@@ -786,3 +789,105 @@ SUBROUTINE density_source_mmsT2d(mms)
   ENDDO ! End loop over k
 
 ENDSUBROUTINE density_source_mmsT2d
+  
+!!--------------------------------------------------------------------
+!! SUBROUTINE: momentum_source_mmsT2d
+!! DESCIPTION: Computes the source term for the momentum equations in
+!!             Method of Manufactured Solutions test and adds it to
+!!             the stress/diffusion term. This source term is for the
+!!             case div(u) = 0, given by
+!!             u = (lx / 2pi) sin(2pi x / lx) cos(2pi y / ly) cos(2pi z / lz)
+!!             v = (ly / 2pi) cos(2pi x / lx) sin(2pi y / ly) cos(2pi z / lz)
+!!             w = -2 (lz / 2pi) cos(2pi x / lx) cos(2pi y / ly) sin(2pi z / lz)
+!!             and
+!!             rho = rho_0 + sin(2pi x / lx) sin(2pi y / ly) sin(2pi z / lz).
+!!             This solution should permit:
+!!               periodic
+!!               drho/dn = 0
+!!               u \cdot n = 0
+!!             as boundary conditions.
+!!             This corresponds to test T2d
+!!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
+SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
+
+  USE var
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: mmsx1, mmsy1, mmsz1
+
+  REAL(mytype) :: x,y,z
+  REAL(mytype) :: xspec,yspec,zspec
+  INTEGER :: i,j,k
+
+  REAL(mytype) :: rhomms, rho_0
+  REAL(mytype) :: MMSource
+
+  REAL(mytype) :: SINX, SINY, SINZ, SINHALFX, SINHALFY, SINHALFZ
+  REAL(mytype) :: COSX, COSY, COSZ, COSHALFX, COSHALFY, COSHALFZ
+
+  rho_0 = 2._mytype
+  
+  DO k = 1,xsize(3)
+    z = float(k + xstart(3) - 2) * dz
+    zspec = (2._mytype * PI) * (z / zlz)
+    DO j = 1,xsize(2)
+      y = float(j + xstart(2) - 2) * dy
+      yspec = (2._mytype * PI) * (y / yly)
+      DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2) * dx
+        xspec = (2._mytype * PI) * (x / xlx)
+
+        SINX = SIN(xspec)
+        SINY = SIN(yspec)
+        SINZ = SIN(zspec)
+        COSX = COS(xspec)
+        COSY = COS(yspec)
+        COSZ = COS(zspec)
+        SINHALFX = SIN(0.5_mytype * xspec)
+        SINHALFY = SIN(0.5_mytype * yspec)
+        SINHALFZ = SIN(0.5_mytype * zspec)
+        COSHALFX = COS(0.5_mytype * xspec)
+        COSHALFY = COS(0.5_mytype * yspec)
+        COSHALFZ = COS(0.5_mytype * zspec)
+
+        rhomms = rho_0 + SINX * SINY * SINZ
+
+        !! XMOM
+        MMSource = 8._mytype * (SINHALFY**4) - 8._mytype * (SINHALFY**2) &
+             - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
+        MMSource = MMSource * COSX
+        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
+        MMSource = MMSource + 4._mytype * (PI**2) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSY * COSZ
+        MMSource = (SINX / (2._mytype * PI * (1._mytype / xnu) * (xlx * yly**2 * zlz**2))) &
+             * MMSource
+        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+
+        !! YMOM
+        MMSource = 8._mytype * (SINHALFX**4) - 8._mytype * (SINHALFX**2) &
+             - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
+        MMSource = MMSource * COSY
+        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
+        MMSource = MMSource + 4._mytype * (PI**2) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSX * COSZ
+        MMSource = (SINY / (2._mytype * PI * (1._mytype / xnu) * (xlx**2 * yly * zlz**2))) &
+             * MMSource
+        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+
+        !! XMOM
+        MMSource = 4._mytype * (SINHALFX**4) - 4._mytype * (SINHALFX**2) &
+             + 4._mytype * (SINHALFY**4) - 4._mytype * (SINHALFY**2) + 2._mytype
+        MMSource = MMSource * COSZ
+        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
+        MMSource = MMSource - 4._mytype * (PI**2) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSX * COSY
+        MMSource = (SINZ / (PI * (1._mytype / xnu) * (xlx**2 * yly**2 * zlz))) &
+             * MMSource
+        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
+
+      ENDDO ! End loop over i
+    ENDDO ! End loop over j
+  ENDDO ! End loop over k
+
+ENDSUBROUTINE momentum_source_mmsT3a
