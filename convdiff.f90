@@ -571,15 +571,15 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! ta1 = diffusion
   ! tb1 = advection
 
-  ! ! Advection term (non-conservative)
-  ! CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  ! tb1 = ux1 * tb1
+  ! Advection term (non-conservative)
+  CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  tb1 = ux1 * tb1
 
-  ! Advection term (conservative)
-  ta1 = rho1 * ux1
-  CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
-  CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
-  tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
+  ! ! Advection term (conservative)
+  ! ta1 = rho1 * ux1
+  ! CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
+  ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
+  ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
 
   ! Diffusion term
   CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -594,15 +594,15 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! ta2 = diffusion
   ! tb2 = advection
 
-  ! ! Advection term (non-conservative)
-  ! CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  ! tb2 = uy2 * tb2
+  ! Advection term (non-conservative)
+  CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  tb2 = uy2 * tb2
 
-  ! Advection term (conservative)
-  ta2 = rho2 * uy2
-  CALL dery (tb2, ta2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy (rho v)
-  CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
-  tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
+  ! ! Advection term (conservative)
+  ! ta2 = rho2 * uy2
+  ! CALL dery (tb2, ta2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy (rho v)
+  ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
+  ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
 
   ! Diffusion term
   IF (istret.NE.0) THEN
@@ -628,15 +628,15 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! ta3 = diffusion
   ! tb3 = advection
 
-  ! ! Advection term (non-conservative)
-  ! CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  ! tb3 = uz3 * tb3
+  ! Advection term (non-conservative)
+  CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  tb3 = uz3 * tb3
 
-  ! Advection term (conservative)
-  ta3 = rho3 * uz3
-  CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
-  CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
-  tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
+  ! ! Advection term (conservative)
+  ! ta3 = rho3 * uz3
+  ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
+  ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
+  ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
   
   CALL derzz (ta3, 1._mytype / rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
 
