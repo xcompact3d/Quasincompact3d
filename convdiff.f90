@@ -567,7 +567,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! tb1 = advection
 
   ! ! Advection term (non-conservative)
-  ! CALL derx (tb1, rho1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 1)
+  ! CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
   ! tb1 = ux1 * tb1
 
   ! Advection term (conservative)
@@ -590,7 +590,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! tb2 = advection
 
   ! ! Advection term (non-conservative)
-  ! CALL dery (tb2, rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
+  ! CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
   ! tb2 = uy2 * tb2
 
   ! Advection term (conservative)
@@ -624,7 +624,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! tb3 = advection
 
   ! ! Advection term (non-conservative)
-  ! CALL derz (tb3, rho3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 1)
+  ! CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
   ! tb3 = uz3 * tb3
 
   ! Advection term (conservative)
