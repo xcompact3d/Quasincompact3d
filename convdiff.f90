@@ -201,11 +201,11 @@ call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
 call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
 call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 
-! Compute cross-shear / bulk shear contribution
-! tg3, th3, ti3 available as work vectors
-! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-tc3(:,:,:) = tc3(:,:,:) + ONETHIRD * ti3(:,:,:)
+! ! Compute cross-shear / bulk shear contribution
+! ! tg3, th3, ti3 available as work vectors
+! ! TODO need to check ffzp, and whether last terms should be 1 or 0
+! call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+! tc3(:,:,:) = tc3(:,:,:) + ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -293,14 +293,14 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-! Compute cross-shear / bulk shear contribution
-! td2, te2, tf2 avaiable as work vectors
-if(istret.ne.0) then
-else
-  ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-endif
-tb2(:,:,:) = tb2(:,:,:) + ONETHIRD * te2(:,:,:)
+! ! Compute cross-shear / bulk shear contribution
+! ! td2, te2, tf2 avaiable as work vectors
+! if(istret.ne.0) then
+! else
+!   ! TODO need to check ffzp, and whether last terms should be 1 or 0
+!   call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+! endif
+! tb2(:,:,:) = tb2(:,:,:) + ONETHIRD * te2(:,:,:)
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
@@ -325,11 +325,11 @@ ta1(:,:,:)=ta1(:,:,:)+td1(:,:,:)
 tb1(:,:,:)=tb1(:,:,:)+te1(:,:,:)
 tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 
-! Compute cross-shear / bulk shear contribution
-! td1, te1, tf1 available as work vectors
-! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-ta1(:,:,:) = ta1(:,:,:) + ONETHIRD * td1(:,:,:)
+! ! Compute cross-shear / bulk shear contribution
+! ! td1, te1, tf1 available as work vectors
+! ! TODO need to check ffzp, and whether last terms should be 1 or 0
+! call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+! ta1(:,:,:) = ta1(:,:,:) + ONETHIRD * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
@@ -340,6 +340,78 @@ ta1(:,:,:) = ta1(:,:,:) + ONETHIRD * td1(:,:,:)
 ta1(:,:,:)=xnu*ta1(:,:,:)-tg1(:,:,:)
 tb1(:,:,:)=xnu*tb1(:,:,:)-th1(:,:,:)
 tc1(:,:,:)=xnu*tc1(:,:,:)-ti1(:,:,:)
+
+!! Compute cross-shear
+! NB ta1,tb1,tc1 cannot be touched!
+! NB u2,u3 have already been updated, no need to transpose velocities!
+
+! X - accumulate d(v,w)dx terms
+call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+
+call transpose_x_to_y(te1, te2) ! te2 contains dvdx
+call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
+
+! Y - accumulate dwdy terms
+call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+
+call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
+call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
+
+! Z - accumulate ddz terms
+call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+call derz(tb3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+
+! Z - compute ddz(dwdx, dwdy, dwdz)
+call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+
+call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
+call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
+call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
+
+call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
+call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
+
+! Y - compute ddy(dvdx, dvdy, dvdz)
+
+call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+
+td2 = td2 + tg2 ! td2 contains d2vdydx + d2wdzdx
+te2 = te2 + th2 ! te2 contains d2vdydy + d2wdzdy
+tf2 = tf2 + ti2 ! tf2 contains d2vdydz + d2wdzdz
+
+call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
+call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
+call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
+
+call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+
+call transpose_y_to_x(td2, th1) ! tg1 contains dudy
+call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
+
+! X - compute ddx(dudx, dudy, dudz)
+
+! First make some room to work!
+ta1 = ta1 + xnu * td1
+tb1 = tb1 + xnu * te1
+tc1 = tc1 + xnu * tf1
+
+call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+
+call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+
+!! Finish off adding cross-stresses to shear stress
+ta1 = ta1 + xnu * td1
+tb1 = tb1 + xnu * te1
+tc1 = tc1 + xnu * tf1
 
 !! MMS Source term
 call momentum_source_mmsT3a(ta1,tb1,tc1)
