@@ -68,6 +68,8 @@ integer :: ijk,nvect1,nvect2,nvect3,i,j,k
 integer :: code
 real(mytype) :: x,y,z
 
+real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
+
 nvect1=xsize(1)*xsize(2)*xsize(3)
 nvect2=ysize(1)*ysize(2)*ysize(3)
 nvect3=zsize(1)*zsize(2)*zsize(3)
@@ -201,8 +203,9 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 
 ! Compute cross-shear / bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
-call derz(ti3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
-tc3(:,:,:) = tc3(:,:,:) + (1._mytype / 3._mytype) * ti3(:,:,:)
+! TODO need to check ffzp, and whether last terms should be 1 or 0
+call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+tc3(:,:,:) = tc3(:,:,:) + ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -294,9 +297,10 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 ! td2, te2, tf2 avaiable as work vectors
 if(istret.ne.0) then
 else
-  call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
+  ! TODO need to check ffzp, and whether last terms should be 1 or 0
+  call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
 endif
-tb2(:,:,:) = tb2(:,:,:) + (1._mytype / 3._mytype) * te2(:,:,:)
+tb2(:,:,:) = tb2(:,:,:) + ONETHIRD * te2(:,:,:)
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
@@ -323,8 +327,9 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 
 ! Compute cross-shear / bulk shear contribution
 ! td1, te1, tf1 available as work vectors
-call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! TODO need to check ffzp, and whether last terms should be 1 or 0
-ta1(:,:,:) = ta1(:,:,:) + (1._mytype / 3._mytype) * td1(:,:,:)
+! TODO need to check ffzp, and whether last terms should be 1 or 0
+call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+ta1(:,:,:) = ta1(:,:,:) + ONETHIRD * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
