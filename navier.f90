@@ -849,7 +849,7 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
   DO k = 1, nzmsize
     DO j = ph1%zst(2), ph1%zen(2)
       DO i = ph1%zst(1), ph1%zen(1)
-        pp3(i,j,k) = pp3(i,j,k)
+        pp3(i,j,k) = pp3(i,j,k) - divmom3(i,j,k)
       ENDDO
     ENDDO
   ENDDO
