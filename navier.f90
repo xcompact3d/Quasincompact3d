@@ -794,6 +794,30 @@ return
 end subroutine divergence
 
 !********************************************************************
+!  SUBROUTINE: extrapol_rhotrans
+! DESCRIPTION: Extrapolates the transient of density at time k+1.
+!       INPUT: rho1,rhos1,rhoss1, current density (rho^{k+1}), old
+!              divergence of momentum (-div(rho u)^{k+1}), and ?
+!      OUTPUT: drhodt1, the predicted transient of continuity
+!              equation at time k+1.
+!        NOTE: All input and output in X-pencils.
+!********************************************************************
+SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, drhodt1)
+
+  USE decomp_2d
+  USE variables
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, drhodt1
+
+  !! Straightforward approximation:
+  !!   ddt rho^{k+1} = -div(rho u)^k
+  drhodt1 = rhos1
+  
+ENDSUBROUTINE extrapol_rhotrans
+
+!********************************************************************
 !  SUBROUTINE: divergence_mom
 ! DESCRIPTION: In LMN with the constant-coefficient poisson equation
 !              we need to approximate the divergence of momentum at

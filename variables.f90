@@ -48,6 +48,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 
 ! Additional variables required for LMN
 real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1
+real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 
 !arrays for statistic collection
@@ -117,6 +118,7 @@ contains
     call alloc_x(rho1, opt_global=.true.)
     call alloc_x(rhos1)
     call alloc_x(rhoss1)
+    call alloc_x(drhodt1)
     call alloc_x(mu1, opt_global=.true.)
     allocate(sx(xsize(2),xsize(3)),vx(xsize(2),xsize(3)))
     !inflow/ouflow 2d arrays
