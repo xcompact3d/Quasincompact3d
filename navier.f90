@@ -794,6 +794,69 @@ return
 end subroutine divergence
 
 !********************************************************************
+!  SUBROUTINE: divergence_mom
+! DESCRIPTION: In LMN with the constant-coefficient poisson equation
+!              we need to approximate the divergence of momentum at
+!              the new timestep as:
+!                div(rho u)^{k+1} = -ddt rho^{k+1}
+!              where some appropriate approximation is used to
+!              extrapolate ddt rho^{k+1}.
+!       INPUT: drhodt1, the approximation of ddt rho^{k+1} in X
+!              stencil.
+!      OUTPUT: pp3, the RHS of pressure Poisson equation in Z
+!              stencil. Part of this has already been computed so
+!              this is an addition.
+!********************************************************************
+SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4)
+
+  USE decomp_2d
+  USE variables
+  
+  IMPLICIT NONE
+
+  INTEGER i, j, k
+
+  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+  INTEGER :: nxmsize, nymsize, nzmsize
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: di2
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(1):ph1%zen(2), xsize(3)) :: di3
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
+  REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: divmom1
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: drhodt2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize, ysize(3)) :: divmom2
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: drhodt3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: divmom3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),nzmsize) :: pp3
+
+  ! Interpolate in x
+  CALL inter6(divmom1, -drhodt1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), &
+       xsize(3), 1)
+
+  ! Interpolate in y
+  CALL transpose_x_to_y(-divmom1, drhodt2, ph4) !->NXM NY NZ
+  CALL intery6(divmom2, -drhodt2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), &
+       ysize(2), nymsize, ysize(3), 1)
+
+  ! Interpolate in z
+  CALL transpose_y_to_z(-divmom2, drhodt3, ph3) !->NXM NYM NZ
+  CALL interz6(divmom3, -drhodt3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+
+  ! Add new divergence of momentum to RHS of Poisson equation
+  DO k = 1, nzmsize
+    DO j = ph1%zst(2), ph1%zen(2)
+      DO i = ph1%zst(1), ph1%zen(1)
+        pp3(i,j,k) = pp3(i,j,k)
+      ENDDO
+    ENDDO
+  ENDDO
+  
+ENDSUBROUTINE divergence_mom
+
+!********************************************************************
 !
 subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
      ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
