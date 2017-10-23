@@ -204,8 +204,8 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
+! call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+! tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -297,8 +297,8 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 ! td2, te2, tf2 avaiable as work vectors
 if(istret.ne.0) then
 else
-  ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  ! ! TODO need to check ffzp, and whether last terms should be 1 or 0
+  ! call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
 endif
 tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
 
@@ -328,8 +328,8 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 ! Compute bulk shear contribution
 ! td1, te1, tf1 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
+! call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+! ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
