@@ -186,7 +186,12 @@ do itime=ifirst,ilast
       !X-->Y-->Z
       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
-           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)       
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
+
+      ! LMN: Should compute approximation to ddt rho^{k+1} here.
+      !      Simplest approximation is ddt rho^{k+1} = -div(rho u)^k which is stored
+      !      in rhos1 = -div(rho u)^k (in X-stencil).
+      call divergence_mom(rhos1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
 
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
