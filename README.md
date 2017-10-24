@@ -1,12 +1,13 @@
 # README #
 
-This README would normally document whatever steps are necessary to get your application up and running.
-
-### What is this repository for? ###
+This is the repository for the Low Mach Number (LMN) version of incompact3d.
 
 * Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* Road map
+** v1.0 Impose divergence of momentum
+** v1.1 Solve for divergence of velocity using extrapolated pressure field
+** v1.2 Solve for divergence of velocity using defect correction
+* Version: v0.0.T1
 
 ### How do I get set up? ###
 
