@@ -95,6 +95,11 @@ if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
 if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
      px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
+! LMN: initialise temperature field
+call calctemp_eos(temperature1, rho1, pressure0)
+! XXX LMN: Calculate divergence of velocity field
+!          X->Y->Z->Y->X 
+
 call test_speed_min_max(ux1,uy1,uz1)
 call test_density_min_max(rho1)
 ! call test_density_min_max(rho1)
@@ -144,9 +149,16 @@ do itime=ifirst,ilast
    do itr=1,iadvance_time
 
      ! Update density
-     call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
-          uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-          uz3,rho3,di3,ta3,tb3,ep1)
+     ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
+     !          have computed div(u) for this timestep, could store and reuse
+     !          (will cut down communications)
+     call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,temperature1,di1,tg1,th1,ti1,td1,&
+          uy2,uz2,rho2,temperature2,di2,ta2,tb2,tc2,td2,&
+          uz3,rho3,temperature3,di3,ta3,tb3,ep1)
+     ! Update Temperature equation using EOS
+     call calctemp_eos(temperature1, rho1, pressure0)
+     ! XXX LMN: Calculate new divergence of velocity using new temperature field.
+     !          X->Y->Z->Y->Z
 
       if (nclx.eq.2) then
          call inflow (ux1,uy1,uz1,phi1) !X PENCILS
