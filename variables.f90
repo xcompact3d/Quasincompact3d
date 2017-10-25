@@ -50,6 +50,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1
 real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
 real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
+real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 
 !arrays for statistic collection
@@ -183,6 +184,7 @@ contains
     call alloc_z(di3);call alloc_z(phi3)
     call alloc_z(rho3)
     call alloc_z(temperature3)
+    call alloc_z(divu3)
     call alloc_z(mu3)
     allocate(sz(zsize(1),zsize(2)),vz(zsize(1),zsize(2)))
 
