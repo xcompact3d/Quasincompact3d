@@ -810,7 +810,7 @@ ENDSUBROUTINE density
 !!              thermodynamic pressure is zero.
 !!--------------------------------------------------------------------
 SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
-     ta2, tb2, rho2, temperature2, di2, &
+     ta2, tb2, tc2, rho2, temperature2, di2, &
      divu3, ta3, rho3, temperature3, di3, &
      pressure0)
 
@@ -820,10 +820,12 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   
   IMPLICIT NONE
 
+  INTEGER i, j, k
+
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, di2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, tc2, di2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, di3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3
@@ -853,7 +855,19 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   CALL calctemp_eos(temperature2, rho2, pressure0)
 
   ! Calculate divergence of velocity
-  CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+  IF(istret.NE.0) THEN
+    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    DO k = 1, ysize(3)
+      DO j = 1, ysize(2)
+        DO i = 1, ysize(1)
+          tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+        ENDDO
+      ENDDO
+    ENDDO
+  ELSE
+    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+  ENDIF
   ta2 = ta2 + tb2
 
   ! Transpose to Z
@@ -881,6 +895,7 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
   ! XXX Density and temperature fields are now up to date in all
   !     pencils.
+  !     Divergence of velocity is only known in Z pencil.
   !-------------------------------------------------------------------
   
 ENDSUBROUTINE calc_divu
