@@ -7,7 +7,7 @@ This is the repository for the Low Mach Number (LMN) version of incompact3d.
 ** v1.0 Impose divergence of momentum
 ** v1.1 Solve for divergence of velocity using extrapolated pressure field
 ** v1.2 Solve for divergence of velocity using defect correction
-* Version: v0.0.T1
+* Version: v0.0.T3a
 
 ### How do I get set up? ###
 
