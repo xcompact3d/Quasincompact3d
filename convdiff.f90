@@ -804,6 +804,88 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, t
 ENDSUBROUTINE density
 
 !!--------------------------------------------------------------------
+!!  SUBROUTINE: calc_divu
+!! DESCRIPTION: In LMN the divergence of velocity is given in terms of
+!!              the temperature field, ensuring the gradient of
+!!              thermodynamic pressure is zero.
+!!--------------------------------------------------------------------
+SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
+     ta2, tb2, rho2, temperature2, di2, &
+     divu3, ta3, rho3, temperature3, di3, &
+     pressure0)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, di2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, di3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3
+  REAL(mytype), INTENT(IN) :: pressure0
+
+  REAL(mytype) :: invpressure0
+
+  !-------------------------------------------------------------------
+  ! X pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature1, rho1, pressure0)
+
+  ! Calculate divergence of velocity
+  CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+
+  ! Transpose to Y
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_x_to_y(ta1, ta2)
+
+  !-------------------------------------------------------------------
+  ! Y pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature2, rho2, pressure0)
+
+  ! Calculate divergence of velocity
+  CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+  ta2 = ta2 + tb2
+
+  ! Transpose to Z
+  CALL transpose_y_to_z(rho2, rho3)
+  CALL transpose_y_to_z(ta2, ta3)
+
+  !-------------------------------------------------------------------
+  ! Z pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature3, rho3, pressure0)
+
+  ! Calculate divergence of velocity
+  CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+  divu3 = divu3 + ta3
+  divu3 = (xnu / pr) * divu3
+
+  ! TODO add dpdt and additional source terms
+
+  ! divu3 = divu3 / (rho3 * temperature3)
+  invpressure0 = 1._mytype / pressure0
+  divu3 = invpressure0 * divu3 ! rho*T = pressure0 = constant (in space)
+
+  !-------------------------------------------------------------------
+  ! XXX Density and temperature fields are now up to date in all
+  !     pencils.
+  !-------------------------------------------------------------------
+  
+ENDSUBROUTINE calc_divu
+
+!!--------------------------------------------------------------------
 !!  SUBROUTINE: calctemp_eos
 !! DESCRIPTION: Given the new density field, calculate temperature
 !!              using the equation of state.
@@ -815,7 +897,7 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0)
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
 
   REAL(mytype), INTENT(IN) :: pressure0
