@@ -613,9 +613,9 @@ end subroutine scalar
 !!              and transpose temperature array when we do this with
 !!              density anyway.
 !!--------------------------------------------------------------------
-SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, tb1, tc1, td1, &
-     uy2, uz2, rho2, temperature2, di2, ta2, tb2, tc2, td2, &
-     uz3, rho3, temperature3, di3, ta3, tb3, epsi)
+SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
+     uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
+     uz3, rho3, divu3, di3, ta3, tb3, epsi)
   
   USE param
   USE variables
@@ -625,26 +625,16 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, t
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
   
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2, td2
   
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
-  
-  INTEGER :: i, j, k, ijk
-  INTEGER :: nxyz
-  INTEGER :: nvect1, nvect2, nvect3
-
-  nvect1 = xsize(1) * xsize(2) * xsize(3)
-  nvect2 = ysize(1) * ysize(2) * ysize(3)
-  nvect3 = zsize(1) * zsize(2) * zsize(3)
 
   !------------------------------------------------------------------------
   ! X PENCILS
@@ -661,13 +651,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, t
   ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
   ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
 
-  ! Diffusion term
-  ! CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
-  CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
-
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
-  CALL transpose_x_to_y(temperature1, temperature2)
   CALL transpose_x_to_y(uy1, uy2)
   CALL transpose_x_to_y(uz1, uz2)
 
@@ -686,27 +671,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, t
   ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
   ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
 
-  ! Diffusion term
-  IF (istret.NE.0) THEN
-    ! CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    CALL deryy (ta2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    ! CALL dery (tc2, 1._mytype / rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    DO k = 1, ysize(3)
-      DO j = 1, ysize(2)
-        DO i = 1, ysize(1)
-          ta2(i, j, k) = ta2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
-        ENDDO ! Loop over i
-      ENDDO ! Loop over j
-    ENDDO ! Loop over k
-  ELSE
-    ! CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1) 
-    CALL deryy (ta2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1) 
-  ENDIF
-
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
-  CALL transpose_y_to_z(temperature2, temperature3)
   CALL transpose_y_to_z(uz2, uz3)
 
   !------------------------------------------------------------------------
@@ -723,42 +689,31 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, temperature1, di1, ta1, t
   ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
   ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
   ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
-  
-  ! CALL derzz (ta3, 1._mytype / rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-  CALL derzz (ta3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+
+  ! We can now add div u
+  tb3 = tb3 + rho3 * divu3
 
   ! Get back to Y
-  ! tc2 = diffusion work vector
-  ! td2 = advection work vector
-  CALL transpose_z_to_y(ta3, tc2)
   CALL transpose_z_to_y(tb3, td2)
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  tc2 = tc2 + ta2
   td2 = td2 + tb2
 
   ! Get back to X
-  ! tc1 = diffusion work vector
-  ! td1 = advection work vector
-  CALL transpose_y_to_x(tc2, tc1)
   CALL transpose_y_to_x(td2, td1)
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
-  ta1 = ta1 + tc1 !SECOND DERIVATIVE (DIFFUSION, sort of)
-  tb1 = tb1 + td1 !FIRST DERIVATIVE (ADV)
+  tb1 = tb1 + td1 !FIRST DERIVATIVE (CONV)
   
-  !! TODO add dp(0)dt source term
-  ! ta1 = -rho1 * (xnu / pr) * ta1 - tb1
-  ta1 = -(xnu / (pr * temperature1)) * ta1 - tb1
+  ta1 = -tb1
 
   !! MMS Source term
   CALL density_source_mmsT2d(ta1)
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
-  nxyz = xsize(1) * xsize(2) * xsize(3)  
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3

@@ -165,9 +165,9 @@ do itime=ifirst,ilast
       ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
       !          have computed div(u) for this timestep, could store and reuse
       !          (will cut down communications)
-      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,temperature1,di1,tg1,th1,ti1,td1,&
-           uy2,uz2,rho2,temperature2,di2,ta2,tb2,tc2,td2,&
-           uz3,rho3,temperature3,di3,ta3,tb3,ep1)
+      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
+           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+           uz3,rho3,divu3,di3,ta3,tb3,ep1)
       ! XXX LMN: Calculate new divergence of velocity using new temperature field.
       !          X->Y->Z->Y->Z
       call calc_divu(ta1,rho1,temperature1,di1,&
