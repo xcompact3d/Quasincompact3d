@@ -295,12 +295,12 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 
 ! Compute bulk shear contribution
 ! td2, te2, tf2 avaiable as work vectors
-if(istret.ne.0) then
-else
-  ! ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  ! call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-endif
-tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
+! if(istret.ne.0) then
+! else
+!   ! ! TODO need to check ffzp, and whether last terms should be 1 or 0
+!   ! call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+! endif
+! tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
