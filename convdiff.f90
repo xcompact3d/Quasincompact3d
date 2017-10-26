@@ -197,8 +197,8 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-! call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-! tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
+call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
