@@ -33,8 +33,8 @@
 !********************************************************************
 !
 subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-     ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-     ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+     ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+     ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 ! 
 !********************************************************************
 USE param
@@ -56,8 +56,6 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
 
 real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
@@ -123,7 +121,6 @@ else !SKEW!
    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
    do ijk=1,nvect1
-     divu1(ijk, 1, 1) = ta1(ijk, 1, 1) ! Accumulate dudx
      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*ta1(ijk,1,1)*rho1(ijk,1,1)
      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tb1(ijk,1,1)*rho1(ijk,1,1)
      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)
@@ -137,7 +134,6 @@ else !SKEW!
    call transpose_x_to_y(tc1,tc2)
 
    call transpose_x_to_y(rho1,rho2)
-   call transpose_x_to_y(divu1, divu2)
 !WORK Y-PENCILS
    do ijk=1,nvect2
       td2(ijk,1,1)=ux2(ijk,1,1)*uy2(ijk,1,1)*rho2(ijk,1,1)
@@ -152,7 +148,6 @@ else !SKEW!
    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
    
    do ijk=1,nvect2
-     divu2(ijk, 1, 1) = divu2(ijk, 1, 1) + te2(ijk, 1, 1) ! Accumulate dvdy
      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)*rho2(ijk,1,1)
      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)*rho2(ijk,1,1)
      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
@@ -166,7 +161,6 @@ else !SKEW!
    call transpose_y_to_z(tc2,tc3)
 
    call transpose_y_to_z(rho2,rho3)
-   call transpose_y_to_z(divu2, divu3)
 !WORK Z-PENCILS
    do ijk=1,nvect3
       td3(ijk,1,1)=ux3(ijk,1,1)*uz3(ijk,1,1)*rho3(ijk,1,1)
@@ -180,7 +174,6 @@ else !SKEW!
    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    do ijk=1,nvect3
-     divu3(ijk, 1, 1) = divu3(ijk, 1, 1) + tf3(ijk, 1, 1) ! Accumulate dwdz
      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)*rho3(ijk,1,1)
      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
@@ -219,8 +212,6 @@ call transpose_z_to_y(tc3,tc2)
 call transpose_z_to_y(td3,td2)
 call transpose_z_to_y(te3,te2)
 call transpose_z_to_y(tf3,tf2)
-
-call transpose_z_to_y(divu3, divu2)
 
 tg2(:,:,:)=td2(:,:,:)
 th2(:,:,:)=te2(:,:,:)
@@ -309,8 +300,6 @@ call transpose_y_to_x(tc2,tc1) !diff
 call transpose_y_to_x(tg2,td1)
 call transpose_y_to_x(th2,te1)
 call transpose_y_to_x(ti2,tf1) !conv
-
-call transpose_y_to_x(divu2, divu1)
 
 tg1(:,:,:)=td1(:,:,:)
 th1(:,:,:)=te1(:,:,:)
@@ -841,7 +830,7 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   divu3 = divu3 + ta3
   divu3 = (xnu / pr) * divu3
 
-  ! TODO add dpdt and additional source terms
+  ! XXX add dpdt and additional source terms
 
   ! divu3 = divu3 / (rho3 * temperature3)
   invpressure0 = 1._mytype / pressure0

@@ -91,7 +91,7 @@ call decomp_info_init(nxm,nym,nzm,phG)
 !call collect_data() !it will generate 100 random time steps
 
 if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
-     gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
+     gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
 if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
      px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
@@ -158,8 +158,8 @@ do itime=ifirst,ilast
 
       !X-->Y-->Z-->Y-->X
       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+           ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
       ! Update density
       ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
@@ -170,7 +170,7 @@ do itime=ifirst,ilast
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
       ! XXX LMN: Calculate new divergence of velocity using new temperature field.
       !          X->Y->Z->Y->Z
-      call calc_divu(ta1,rho1,temperature1,di1,&
+      call calc_divu(tg1,rho1,temperature1,di1,&
            ta2,tb2,tc2,rho2,temperature2,di2,&
            divu3,ta3,rho3,temperature3,di3,&
            pressure0)
