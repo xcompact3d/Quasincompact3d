@@ -403,7 +403,7 @@ tb1 = tb1 + xnu * te1
 tc1 = tc1 + xnu * tf1
 
 !! MMS Source term
-call momentum_source_mmsT3a(ta1,tb1,tc1)
+call momentum_source_mmsT3b(ta1,tb1,tc1)
 
 ta1max=-1.e30_mytype
 ta1min=+1.e30_mytype
@@ -866,6 +866,7 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
   !!------------------------------------------------------------------
   !! Very simple EOS
   !!   p = rho T
+  !!------------------------------------------------------------------
   temperature1 = pressure0 / rho1
   
 ENDSUBROUTINE calctemp_eos
@@ -958,7 +959,7 @@ SUBROUTINE density_source_mmsT2d(mms)
 ENDSUBROUTINE density_source_mmsT2d
   
 !!--------------------------------------------------------------------
-!! SUBROUTINE: momentum_source_mmsT2d
+!! SUBROUTINE: momentum_source_mmsT3b
 !! DESCIPTION: Computes the source term for the momentum equations in
 !!             Method of Manufactured Solutions test and adds it to
 !!             the stress/diffusion term. This source term is for the
@@ -973,9 +974,9 @@ ENDSUBROUTINE density_source_mmsT2d
 !!               drho/dn = 0
 !!               u \cdot n = 0
 !!             as boundary conditions.
-!!             This corresponds to test T2d
+!!             This corresponds to test T3b
 !!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
-SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
+SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
 
   USE var
 
@@ -988,12 +989,15 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
   INTEGER :: i,j,k
 
   REAL(mytype) :: rhomms, rho_0
+  REAL(mytype) :: press0
+  REAL(mytype) :: Tmms
   REAL(mytype) :: MMSource
 
   REAL(mytype) :: SINX, SINY, SINZ, SINHALFX, SINHALFY, SINHALFZ
   REAL(mytype) :: COSX, COSY, COSZ, COSHALFX, COSHALFY, COSHALFZ
 
   rho_0 = 2._mytype
+  press0 = 1._mytype
   
   DO k = 1,xsize(3)
     z = float(k + xstart(3) - 2) * dz
@@ -1019,8 +1023,11 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
         COSHALFZ = COS(0.5_mytype * zspec)
 
         rhomms = rho_0 + SINX * SINY * SINZ
+        Tmms = press0 / rhomms
 
         !! XMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 8._mytype * (SINHALFY**4) - 8._mytype * (SINHALFY**2) &
              - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
         MMSource = MMSource * COSX
@@ -1032,6 +1039,8 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
         !! YMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 8._mytype * (SINHALFX**4) - 8._mytype * (SINHALFX**2) &
              - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
         MMSource = MMSource * COSY
@@ -1042,7 +1051,9 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
              * MMSource
         mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
 
-        !! XMOM
+        !! ZMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 4._mytype * (SINHALFX**4) - 4._mytype * (SINHALFX**2) &
              + 4._mytype * (SINHALFY**4) - 4._mytype * (SINHALFY**2) + 2._mytype
         MMSource = MMSource * COSZ
@@ -1057,4 +1068,4 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
     ENDDO ! End loop over j
   ENDDO ! End loop over k
 
-ENDSUBROUTINE momentum_source_mmsT3a
+ENDSUBROUTINE momentum_source_mmsT3b
