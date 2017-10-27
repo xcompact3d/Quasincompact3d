@@ -896,9 +896,14 @@ SUBROUTINE density_source_mmsT2d(mms)
   REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
 
-  REAL(mytype) :: rhomms
+  REAL(mytype) :: rhomms, rho0
+  REAL(mytype) :: Tmms
+  REAL(mytype) :: press0
   REAL(mytype) :: SrhoX, SrhoY, SrhoZ
   REAL(mytype) :: MMSource
+
+  press0 = 1._mytype
+  rho0 = 2._mytype
 
   DO k = 1,xsize(3)
     z = float(k + xstart(3) - 2) * dz
@@ -910,33 +915,40 @@ SUBROUTINE density_source_mmsT2d(mms)
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
-        rhomms = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        rhomms = rho0 + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        Tmms = press0 / rhomms
 
         !!
-        !! Compute nabla.nabla 1/rho
+        !! Compute nabla.nabla T
         !!
 
-        ! d/dx( d/dx 1/rho )
+        ! d/dx( d/dx T )
         SrhoX = rhomms * SIN(xspec)
         SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
         SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
 
-        ! d/dy( d/dy 1/rho )
+        ! d/dy( d/dy T )
         SrhoY = rhomms * SIN(yspec)
         SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
         SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
 
-        ! d/dz( d/dz 1/rho )
+        ! d/dz( d/dz T )
         SrhoZ = rhomms * SIN(zspec)
         SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
         SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
 
         MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = 4._mytype * (PI**2) * MMSource
+        MMSource = 4._mytype * (PI**2) * MMSource * (press0 / (rhomms**3))
 
-        ! Multiply by rho / (Re Pr)
-        ! N.B. there is a common factor of 1 / rho^3 in SrhoX, etc. which cancels
-        MMSource = MMSource * (xnu / pr) / (rhomms**2)
+        !!
+        !! Compute divu = (1 / (Re Pr T)) * nabla.nabla T / rho
+        !!
+        MMSource = MMSource * (xnu / (pr * Tmms)) / rhomms
+
+        !!
+        !! Finally: S_rho = rho * divu
+        !!
+        MMSource = rhomms * MMSource        
 
         mms(i,j,k) = mms(i,j,k) + MMSource
       ENDDO ! End loop over i
