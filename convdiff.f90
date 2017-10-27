@@ -197,8 +197,8 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-! call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-! tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
+call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -1062,6 +1062,22 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
              * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSX * COSY
         MMSource = (SINZ / (PI * (1._mytype / xnu) * (xlx**2 * yly**2 * zlz))) &
              * MMSource
+        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
+
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINY &
+             - 6._mytype * xlx**2 * yly**2 * rhomms * SINX**2 * SINY**2 * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**3 * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINY
+        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX**2 * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINY * SINZ**3 * COSY**2 &
+             + yly**2 * zlz**2 * rhomms**2 * SINX * SINY
+        MMSource = MMSource + 2._mytype * yly**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) * SINY**2 * SINZ
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**3 * SINZ**2 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSZ / (3._mytype * (pr / xnu**2) &
+             * xlx**2 * yly**2 * zlz**3 * rhomms**4)) * MMSource
         mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
 
       ENDDO ! End loop over i
