@@ -782,7 +782,7 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature1, rho1, pressure0)
+  CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
 
   ! Calculate divergence of velocity
   CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -796,7 +796,7 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature2, rho2, pressure0)
+  CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
 
   ! Calculate divergence of velocity
   IF(istret.NE.0) THEN
@@ -823,7 +823,7 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature3, rho3, pressure0)
+  CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
 
   ! Calculate divergence of velocity
   CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
@@ -849,15 +849,17 @@ ENDSUBROUTINE calc_divu
 !! DESCRIPTION: Given the new density field, calculate temperature
 !!              using the equation of state.
 !!--------------------------------------------------------------------
-SUBROUTINE calctemp_eos(temperature1, rho1, pressure0)
+SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
 
   USE variables
   USE decomp_2d
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  INTEGER, DIMENSION(3), INTENT(IN) :: arrsize
+
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(OUT) :: temperature1
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: rho1
 
   REAL(mytype), INTENT(IN) :: pressure0
 
