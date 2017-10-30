@@ -1071,7 +1071,7 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
              + xlx**2 * zlz**2 * rhomms**2 * SINX * SINY
         MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
              * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX**2 * SINZ
-        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINY * SINZ**3 * COSY**2 &
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINY * SINZ**2 * COSY**2 &
              + yly**2 * zlz**2 * rhomms**2 * SINX * SINY
         MMSource = MMSource + 2._mytype * yly**2 * zlz**2 * rhomms &
              * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) * SINY**2 * SINZ
