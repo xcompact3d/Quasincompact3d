@@ -1054,7 +1054,7 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
              - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
         MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
         MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
-             * xlx**3 * yly**2 * zlz**2 * rhomms**4))
+             * xlx**3 * yly**2 * zlz**2 * rhomms**4)) * MMSource
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
         !! YMOM
