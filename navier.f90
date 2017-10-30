@@ -511,7 +511,7 @@ end subroutine ecoule
 
 !********************************************************************
 !
-subroutine init (ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
+subroutine init (ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)
 !
 !********************************************************************
 

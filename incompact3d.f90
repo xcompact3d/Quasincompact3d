@@ -91,14 +91,17 @@ call decomp_info_init(nxm,nym,nzm,phG)
 !call collect_data() !it will generate 100 random time steps
 
 if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
-     gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)  
+     gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
 if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
      px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
-! LMN: initialise temperature field
-call calctemp_eos(temperature1, rho1, pressure0)
-! XXX LMN: Calculate divergence of velocity field
-!          X->Y->Z->Y->X 
+! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
+!          and Z pencils.
+!          X->Y->Z
+call calc_divu(ta1,rho1,temperature1,di1,&
+     ta2,tb2,tc2,rho2,temperature2,di2,&
+     divu3,ta3,rho3,temperature3,di3,&
+     pressure0)
 
 call test_speed_min_max(ux1,uy1,uz1)
 call test_density_min_max(rho1)
@@ -148,18 +151,6 @@ do itime=ifirst,ilast
 !!! CM call test_min_max('di2  ','In main 4      ',di2,size(di2))
    do itr=1,iadvance_time
 
-     ! Update density
-     ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
-     !          have computed div(u) for this timestep, could store and reuse
-     !          (will cut down communications)
-     call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,temperature1,di1,tg1,th1,ti1,td1,&
-          uy2,uz2,rho2,temperature2,di2,ta2,tb2,tc2,td2,&
-          uz3,rho3,temperature3,di3,ta3,tb3,ep1)
-     ! Update Temperature equation using EOS
-     call calctemp_eos(temperature1, rho1, pressure0)
-     ! XXX LMN: Calculate new divergence of velocity using new temperature field.
-     !          X->Y->Z->Y->Z
-
       if (nclx.eq.2) then
          call inflow (ux1,uy1,uz1,phi1) !X PENCILS
          call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
@@ -167,8 +158,22 @@ do itime=ifirst,ilast
 
       !X-->Y-->Z-->Y-->X
       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+           ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+
+      ! Update density
+      ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
+      !          have computed div(u) for this timestep, could store and reuse
+      !          (will cut down communications)
+      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
+           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+           uz3,rho3,divu3,di3,ta3,tb3,ep1)
+      ! XXX LMN: Calculate new divergence of velocity using new temperature field.
+      !          X->Y->Z->Y->Z
+      call calc_divu(tg1,rho1,temperature1,di1,&
+           ta2,tb2,tc2,rho2,temperature2,di2,&
+           divu3,ta3,rho3,temperature3,di3,&
+           pressure0)
            
       if (iscalar==1) then
          call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
