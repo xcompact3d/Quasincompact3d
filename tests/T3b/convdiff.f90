@@ -33,8 +33,8 @@
 !********************************************************************
 !
 subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-     ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-     ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+     ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+     ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 ! 
 !********************************************************************
 USE param
@@ -123,7 +123,6 @@ else !SKEW!
    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
    do ijk=1,nvect1
-     divu1(ijk, 1, 1) = ta1(ijk, 1, 1) ! Accumulate dudx
      ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*ta1(ijk,1,1)*rho1(ijk,1,1)
      tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tb1(ijk,1,1)*rho1(ijk,1,1)
      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)
@@ -137,7 +136,6 @@ else !SKEW!
    call transpose_x_to_y(tc1,tc2)
 
    call transpose_x_to_y(rho1,rho2)
-   call transpose_x_to_y(divu1, divu2)
 !WORK Y-PENCILS
    do ijk=1,nvect2
       td2(ijk,1,1)=ux2(ijk,1,1)*uy2(ijk,1,1)*rho2(ijk,1,1)
@@ -152,7 +150,6 @@ else !SKEW!
    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
    
    do ijk=1,nvect2
-     divu2(ijk, 1, 1) = divu2(ijk, 1, 1) + te2(ijk, 1, 1) ! Accumulate dvdy
      ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)*rho2(ijk,1,1)
      tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)*rho2(ijk,1,1)
      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
@@ -166,7 +163,6 @@ else !SKEW!
    call transpose_y_to_z(tc2,tc3)
 
    call transpose_y_to_z(rho2,rho3)
-   call transpose_y_to_z(divu2, divu3)
 !WORK Z-PENCILS
    do ijk=1,nvect3
       td3(ijk,1,1)=ux3(ijk,1,1)*uz3(ijk,1,1)*rho3(ijk,1,1)
@@ -180,7 +176,6 @@ else !SKEW!
    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    do ijk=1,nvect3
-     divu3(ijk, 1, 1) = divu3(ijk, 1, 1) + tf3(ijk, 1, 1) ! Accumulate dwdz
      ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)*rho3(ijk,1,1)
      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
@@ -204,7 +199,7 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+call derz(ti3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
 tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
@@ -293,13 +288,9 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-! Compute bulk shear contribution
-! td2, te2, tf2 avaiable as work vectors
-if(istret.ne.0) then
-else
-  ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-endif
+! ! Compute bulk shear contribution
+! ! td2, te2, tf2 avaiable as work vectors
+call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
 tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
 
 !WORK X-PENCILS
@@ -328,7 +319,7 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 ! Compute bulk shear contribution
 ! td1, te1, tf1 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derx(td1, divu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
 ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
@@ -414,7 +405,7 @@ tb1 = tb1 + xnu * te1
 tc1 = tc1 + xnu * tf1
 
 !! MMS Source term
-call momentum_source_mmsT3a(ta1,tb1,tc1)
+call momentum_source_mmsT3b(ta1,tb1,tc1)
 
 ta1max=-1.e30_mytype
 ta1min=+1.e30_mytype
@@ -615,7 +606,7 @@ end subroutine scalar
 !!--------------------------------------------------------------------
 SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
-     uz3, rho3, di3, ta3, tb3, epsi)
+     uz3, rho3, divu3, di3, ta3, tb3, epsi)
   
   USE param
   USE variables
@@ -633,15 +624,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
-  
-  INTEGER :: i, j, k, ijk
-  INTEGER :: nxyz
-  INTEGER :: nvect1, nvect2, nvect3
-
-  nvect1 = xsize(1) * xsize(2) * xsize(3)
-  nvect2 = ysize(1) * ysize(2) * ysize(3)
-  nvect3 = zsize(1) * zsize(2) * zsize(3)
 
   !------------------------------------------------------------------------
   ! X PENCILS
@@ -657,9 +641,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
   ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
   ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
-
-  ! Diffusion term
-  CALL derxx (ta1, 1._mytype / rho1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -681,21 +662,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
   ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
 
-  ! Diffusion term
-  IF (istret.NE.0) THEN
-    CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    CALL dery (tc2, 1._mytype / rho2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    DO k = 1, ysize(3)
-      DO j = 1, ysize(2)
-        DO i = 1, ysize(1)
-          ta2(i, j, k) = ta2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
-        ENDDO ! Loop over i
-      ENDDO ! Loop over j
-    ENDDO ! Loop over k
-  ELSE
-    CALL deryy (ta2, 1._mytype / rho2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1) 
-  ENDIF
-
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
   CALL transpose_y_to_z(uz2, uz3)
@@ -714,40 +680,31 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
   ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
   ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
-  
-  CALL derzz (ta3, 1._mytype / rho3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+
+  ! We can now add div u
+  tb3 = tb3 + rho3 * divu3
 
   ! Get back to Y
-  ! tc2 = diffusion work vector
-  ! td2 = advection work vector
-  CALL transpose_z_to_y(ta3, tc2)
   CALL transpose_z_to_y(tb3, td2)
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  tc2 = tc2 + ta2
   td2 = td2 + tb2
 
   ! Get back to X
-  ! tc1 = diffusion work vector
-  ! td1 = advection work vector
-  CALL transpose_y_to_x(tc2, tc1)
   CALL transpose_y_to_x(td2, td1)
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
-  ta1 = ta1 + tc1 !SECOND DERIVATIVE (DIFFUSION, sort of)
-  tb1 = tb1 + td1 !FIRST DERIVATIVE (ADV)
+  tb1 = tb1 + td1 !FIRST DERIVATIVE (CONV)
   
-  !! TODO add dp(0)dt source term
-  ta1 = -rho1 * (xnu / pr) * ta1 - tb1
+  ta1 = -tb1
 
   !! MMS Source term
   CALL density_source_mmsT2d(ta1)
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
-  nxyz = xsize(1) * xsize(2) * xsize(3)  
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
@@ -791,6 +748,130 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   rhos1 = ta1
   
 ENDSUBROUTINE density
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calc_divu
+!! DESCRIPTION: In LMN the divergence of velocity is given in terms of
+!!              the temperature field, ensuring the gradient of
+!!              thermodynamic pressure is zero.
+!!--------------------------------------------------------------------
+SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
+     ta2, tb2, tc2, rho2, temperature2, di2, &
+     divu3, ta3, rho3, temperature3, di3, &
+     pressure0)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  INTEGER i, j, k
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, tc2, di2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, di3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3
+  REAL(mytype), INTENT(IN) :: pressure0
+
+  REAL(mytype) :: invpressure0
+
+  !-------------------------------------------------------------------
+  ! X pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
+
+  ! Calculate divergence of velocity
+  CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+
+  ! Transpose to Y
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_x_to_y(ta1, ta2)
+
+  !-------------------------------------------------------------------
+  ! Y pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
+
+  ! Calculate divergence of velocity
+  IF(istret.NE.0) THEN
+    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    DO k = 1, ysize(3)
+      DO j = 1, ysize(2)
+        DO i = 1, ysize(1)
+          tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+        ENDDO
+      ENDDO
+    ENDDO
+  ELSE
+    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+  ENDIF
+  ta2 = ta2 + tb2
+
+  ! Transpose to Z
+  CALL transpose_y_to_z(rho2, rho3)
+  CALL transpose_y_to_z(ta2, ta3)
+
+  !-------------------------------------------------------------------
+  ! Z pencil
+  !-------------------------------------------------------------------
+
+  ! Update temperature
+  CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
+
+  ! Calculate divergence of velocity
+  CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+  divu3 = divu3 + ta3
+  divu3 = (xnu / pr) * divu3
+
+  ! XXX add dpdt and additional source terms
+
+  ! divu3 = divu3 / (rho3 * temperature3)
+  invpressure0 = 1._mytype / pressure0
+  divu3 = invpressure0 * divu3 ! rho*T = pressure0 = constant (in space)
+
+  !-------------------------------------------------------------------
+  ! XXX Density and temperature fields are now up to date in all
+  !     pencils.
+  !     Divergence of velocity is only known in Z pencil.
+  !-------------------------------------------------------------------
+  
+ENDSUBROUTINE calc_divu
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calctemp_eos
+!! DESCRIPTION: Given the new density field, calculate temperature
+!!              using the equation of state.
+!!--------------------------------------------------------------------
+SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
+
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  INTEGER, DIMENSION(3), INTENT(IN) :: arrsize
+
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(OUT) :: temperature1
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: rho1
+
+  REAL(mytype), INTENT(IN) :: pressure0
+
+  !!------------------------------------------------------------------
+  !! Very simple EOS
+  !!   p = rho T
+  !!------------------------------------------------------------------
+  temperature1 = pressure0 / rho1
+  
+ENDSUBROUTINE calctemp_eos
   
 !!--------------------------------------------------------------------
 !! SUBROUTINE: density_source_mmsT2d
@@ -818,9 +899,14 @@ SUBROUTINE density_source_mmsT2d(mms)
   REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
 
-  REAL(mytype) :: rhomms
+  REAL(mytype) :: rhomms, rho0
+  REAL(mytype) :: Tmms
+  REAL(mytype) :: press0
   REAL(mytype) :: SrhoX, SrhoY, SrhoZ
   REAL(mytype) :: MMSource
+
+  press0 = 1._mytype
+  rho0 = 2._mytype
 
   DO k = 1,xsize(3)
     z = float(k + xstart(3) - 2) * dz
@@ -832,33 +918,40 @@ SUBROUTINE density_source_mmsT2d(mms)
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
-        rhomms = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        rhomms = rho0 + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        Tmms = press0 / rhomms
 
         !!
-        !! Compute nabla.nabla 1/rho
+        !! Compute nabla.nabla T
         !!
 
-        ! d/dx( d/dx 1/rho )
+        ! d/dx( d/dx T )
         SrhoX = rhomms * SIN(xspec)
         SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
         SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
 
-        ! d/dy( d/dy 1/rho )
+        ! d/dy( d/dy T )
         SrhoY = rhomms * SIN(yspec)
         SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
         SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
 
-        ! d/dz( d/dz 1/rho )
+        ! d/dz( d/dz T )
         SrhoZ = rhomms * SIN(zspec)
         SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
         SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
 
         MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = 4._mytype * (PI**2) * MMSource
+        MMSource = 4._mytype * (PI**2) * MMSource * (press0 / (rhomms**3))
 
-        ! Multiply by rho / (Re Pr)
-        ! N.B. there is a common factor of 1 / rho^3 in SrhoX, etc. which cancels
-        MMSource = MMSource * (xnu / pr) / (rhomms**2)
+        !!
+        !! Compute divu = (1 / (Re Pr T)) * nabla.nabla T / rho
+        !!
+        MMSource = MMSource * (xnu / (pr * Tmms)) / rhomms
+
+        !!
+        !! Finally: S_rho = rho * divu
+        !!
+        MMSource = rhomms * MMSource        
 
         mms(i,j,k) = mms(i,j,k) + MMSource
       ENDDO ! End loop over i
@@ -868,7 +961,7 @@ SUBROUTINE density_source_mmsT2d(mms)
 ENDSUBROUTINE density_source_mmsT2d
   
 !!--------------------------------------------------------------------
-!! SUBROUTINE: momentum_source_mmsT2d
+!! SUBROUTINE: momentum_source_mmsT3b
 !! DESCIPTION: Computes the source term for the momentum equations in
 !!             Method of Manufactured Solutions test and adds it to
 !!             the stress/diffusion term. This source term is for the
@@ -883,9 +976,9 @@ ENDSUBROUTINE density_source_mmsT2d
 !!               drho/dn = 0
 !!               u \cdot n = 0
 !!             as boundary conditions.
-!!             This corresponds to test T2d
+!!             This corresponds to test T3b
 !!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
-SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
+SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
 
   USE var
 
@@ -898,12 +991,15 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
   INTEGER :: i,j,k
 
   REAL(mytype) :: rhomms, rho_0
+  REAL(mytype) :: press0
+  REAL(mytype) :: Tmms
   REAL(mytype) :: MMSource
 
   REAL(mytype) :: SINX, SINY, SINZ, SINHALFX, SINHALFY, SINHALFZ
   REAL(mytype) :: COSX, COSY, COSZ, COSHALFX, COSHALFY, COSHALFZ
 
   rho_0 = 2._mytype
+  press0 = 1._mytype
   
   DO k = 1,xsize(3)
     z = float(k + xstart(3) - 2) * dz
@@ -929,8 +1025,11 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
         COSHALFZ = COS(0.5_mytype * zspec)
 
         rhomms = rho_0 + SINX * SINY * SINZ
+        Tmms = press0 / rhomms
 
         !! XMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 8._mytype * (SINHALFY**4) - 8._mytype * (SINHALFY**2) &
              - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
         MMSource = MMSource * COSX
@@ -941,7 +1040,26 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
              * MMSource
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINY * SINZ &
+             + 2._mytype * xlx**2 * yly**2 * rhomms &
+             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) &
+             * SINX * SINY**2
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**2 * SINY**3 * SINZ * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINY * SINZ
+        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX * SINZ**2
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**2 * SINY * SINZ**3 * COSY**2 &
+             + yly**2 * zlz**2 * rhomms**2 * SINY * SINZ &
+             - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
+             * xlx**3 * yly**2 * zlz**2 * rhomms**4))
+        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+
         !! YMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 8._mytype * (SINHALFX**4) - 8._mytype * (SINHALFX**2) &
              - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
         MMSource = MMSource * COSY
@@ -952,7 +1070,26 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
              * MMSource
         mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
 
-        !! XMOM
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINZ &
+             + 2._mytype * xlx**2 * yly**2 * rhomms &
+             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) * SINX**2 * SINY
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**2 * SINZ * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * rhomms * SINX**2 * SINY * SINZ**2 &
+             - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINZ**3 * COSY**2
+        MMSource = MMSource + yly**2 * zlz**2 * rhomms**2 * SINX * SINZ &
+             + 2._mytype * yly**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) &
+             * SINY * SINZ**2
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**2 * SINZ**3 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSY &
+             / (3._mytype * (pr / xnu**2) * xlx**2 * yly**3 * zlz**2 * rhomms**4)) * MMSource
+        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+
+        !! ZMOM
+
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
         MMSource = 4._mytype * (SINHALFX**4) - 4._mytype * (SINHALFX**2) &
              + 4._mytype * (SINHALFY**4) - 4._mytype * (SINHALFY**2) + 2._mytype
         MMSource = MMSource * COSZ
@@ -963,8 +1100,24 @@ SUBROUTINE momentum_source_mmsT3a(mmsx1, mmsy1, mmsz1)
              * MMSource
         mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
 
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINY &
+             - 6._mytype * xlx**2 * yly**2 * rhomms * SINX**2 * SINY**2 * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**3 * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINY
+        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX**2 * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINY * SINZ**2 * COSY**2 &
+             + yly**2 * zlz**2 * rhomms**2 * SINX * SINY
+        MMSource = MMSource + 2._mytype * yly**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) * SINY**2 * SINZ
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**3 * SINZ**2 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSZ / (3._mytype * (pr / xnu**2) &
+             * xlx**2 * yly**2 * zlz**3 * rhomms**4)) * MMSource
+        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
+
       ENDDO ! End loop over i
     ENDDO ! End loop over j
   ENDDO ! End loop over k
 
-ENDSUBROUTINE momentum_source_mmsT3a
+ENDSUBROUTINE momentum_source_mmsT3b

@@ -1,36 +1,37 @@
 #!/bin/sh
 
 CASE=""
+NP=8
 
-nohup mpiexec -np 8 ./incompact3d-8x8x8 | tee OUTPUT.log
+nohup mpiexec -np ${NP} ./incompact3d-8x8x8 | tee OUTPUT.log
 mv ux* DATA/${CASE}/8x8x8/
 mv uy* DATA/${CASE}/8x8x8/
 mv uz* DATA/${CASE}/8x8x8/
 mv rho* DATA/${CASE}/8x8x8/
 mv OUTPUT.log DATA/${CASE}/8x8x8/
 
-nohup mpiexec -np 8 ./incompact3d-16x16x16 | tee OUTPUT.log
+nohup mpiexec -np ${NP} ./incompact3d-16x16x16 | tee OUTPUT.log
 mv ux* DATA/${CASE}/16x16x16/
 mv uy* DATA/${CASE}/16x16x16/
 mv uz* DATA/${CASE}/16x16x16/
 mv rho* DATA/${CASE}/16x16x16/
 mv OUTPUT.log DATA/${CASE}/16x16x16/
 
-nohup mpiexec -np 8 ./incompact3d-32x32x32 | tee OUTPUT.log
+nohup mpiexec -np ${NP} ./incompact3d-32x32x32 | tee OUTPUT.log
 mv ux* DATA/${CASE}/32x32x32/
 mv uy* DATA/${CASE}/32x32x32/
 mv uz* DATA/${CASE}/32x32x32/
 mv rho* DATA/${CASE}/32x32x32/
 mv OUTPUT.log DATA/${CASE}/32x32x32/
 
-nohup mpiexec -np 8 ./incompact3d-64x64x64 | tee OUTPUT.log
+nohup mpiexec -np ${NP} ./incompact3d-64x64x64 | tee OUTPUT.log
 mv ux* DATA/${CASE}/64x64x64/
 mv uy* DATA/${CASE}/64x64x64/
 mv uz* DATA/${CASE}/64x64x64/
 mv rho* DATA/${CASE}/64x64x64/
 mv OUTPUT.log DATA/${CASE}/64x64x64/
 
-#nohup mpiexec -np 8 ./incompact3d-128x128x128 | tee OUTPUT.log
+#nohup mpiexec -np ${NP} ./incompact3d-128x128x128 | tee OUTPUT.log
 #mv ux* DATA/${CASE}/128x128x128/
 #mv uy* DATA/${CASE}/128x128x128/
 #mv uz* DATA/${CASE}/128x128x128/
