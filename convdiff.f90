@@ -56,6 +56,7 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
 
+real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
 
 real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
@@ -197,7 +198,7 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(ti3, divu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+call derz(ti3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
 tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
@@ -212,6 +213,8 @@ call transpose_z_to_y(tc3,tc2)
 call transpose_z_to_y(td3,td2)
 call transpose_z_to_y(te3,te2)
 call transpose_z_to_y(tf3,tf2)
+
+call transpose_z_to_y(divu3, divu2)
 
 tg2(:,:,:)=td2(:,:,:)
 th2(:,:,:)=te2(:,:,:)
@@ -284,14 +287,10 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-! Compute bulk shear contribution
-! td2, te2, tf2 avaiable as work vectors
-! if(istret.ne.0) then
-! else
-!   ! ! TODO need to check ffzp, and whether last terms should be 1 or 0
-!   ! call dery(te2, divu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-! endif
-! tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
+! ! Compute bulk shear contribution
+! ! td2, te2, tf2 avaiable as work vectors
+call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
@@ -1050,6 +1049,22 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
         MMSource = (SINY / (2._mytype * PI * (1._mytype / xnu) * (xlx**2 * yly * zlz**2))) &
              * MMSource
         mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINZ &
+             + 2._mytype * xlx**2 * yly**2 * rhomms &
+             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) * SINX**2 * SINY
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**2 * SINZ * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINZ
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * rhomms * SINX**2 * SINY * SINZ**2 &
+             - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINZ**3 * COSY**2
+        MMSource = MMSource + yly**2 * zlz**2 * rhomms**2 * SINX * SINZ &
+             + 2._mytype * yly**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) &
+             * SINY * SINZ**2
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**2 * SINZ**3 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSY &
+             / (3._mytype * (pr / xnu**2) * xlx**2 * yly**3 * zlz**2 * rhomms**4)) * MMSource
 
         !! ZMOM
 
