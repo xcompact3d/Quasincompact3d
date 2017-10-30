@@ -319,8 +319,8 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 ! Compute bulk shear contribution
 ! td1, te1, tf1 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-! call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-! ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
+call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
@@ -1040,22 +1040,22 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
              * MMSource
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
-        ! ! The bulk component of viscous stress tensor
-        ! MMSource = xlx**2 * yly**2 * rhomms**2 * SINY * SINZ &
-        !      + 2._mytype * xlx**2 * yly**2 * rhomms &
-        !      * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) &
-        !      * SINX * SINY**2
-        ! MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**2 * SINY**3 * SINZ * COSZ**2 &
-        !      + xlx**2 * zlz**2 * rhomms**2 * SINY * SINZ
-        ! MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
-        !      * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX * SINZ**2
-        ! MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**2 * SINY * SINZ**3 * COSY**2 &
-        !      + yly**2 * zlz**2 * rhomms**2 * SINY * SINZ &
-        !      - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
-        ! MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
-        ! MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
-        !      * xlx**3 * yly**2 * zlz**2 * rhomms**4))
-        ! mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+        ! The bulk component of viscous stress tensor
+        MMSource = xlx**2 * yly**2 * rhomms**2 * SINY * SINZ &
+             + 2._mytype * xlx**2 * yly**2 * rhomms &
+             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) &
+             * SINX * SINY**2
+        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**2 * SINY**3 * SINZ * COSZ**2 &
+             + xlx**2 * zlz**2 * rhomms**2 * SINY * SINZ
+        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
+             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX * SINZ**2
+        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**2 * SINY * SINZ**3 * COSY**2 &
+             + yly**2 * zlz**2 * rhomms**2 * SINY * SINZ &
+             - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
+        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
+        MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
+             * xlx**3 * yly**2 * zlz**2 * rhomms**4))
+        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
         !! YMOM
 
