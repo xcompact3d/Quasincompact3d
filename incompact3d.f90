@@ -181,6 +181,8 @@ do itime=ifirst,ilast
       endif
 
       !X PENCILS
+      ! XXX In LMN this calculates the intermediate state
+      !   (rho u)^*, not u^*
       call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
 
 !!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
