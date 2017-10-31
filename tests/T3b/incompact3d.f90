@@ -132,9 +132,9 @@ call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
-call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-     ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-     ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+!call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+!     ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+!     ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
@@ -247,11 +247,11 @@ do itime=ifirst,ilast
           ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
    endif
 
-   if (mod(itime,10)==0) then
-     call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-          ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-          ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
-   endif
+!   if (mod(itime,10)==0) then
+!     call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+!          ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+!          ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+!   endif
 
    ! MMS: compare errors
    CALL eval_error_rho(rho1)
