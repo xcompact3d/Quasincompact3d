@@ -171,7 +171,7 @@ end subroutine intt
 
 !********************************************************************
 !
-subroutine corgp (ux,gx,uy,uz,px,py,pz)
+subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
 ! 
 !********************************************************************
 
@@ -184,21 +184,24 @@ USE MPI
 implicit none
 
 integer :: ijk,nxyz
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,px,py,pz
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,px,py,pz,rho
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: gx
+
+real(mytype) :: invrho
 
 nxyz=xsize(1)*xsize(2)*xsize(3)
 
 do ijk=1,nxyz
-   ux(ijk,1,1)=-px(ijk,1,1)+ux(ijk,1,1)
-   uy(ijk,1,1)=-py(ijk,1,1)+uy(ijk,1,1) 
-   uz(ijk,1,1)=-pz(ijk,1,1)+uz(ijk,1,1) 
+  invrho = 1 / rho(ijk,1,1)
+  ux(ijk,1,1)=(-px(ijk,1,1)+ux(ijk,1,1)) * invrho
+  uy(ijk,1,1)=(-py(ijk,1,1)+uy(ijk,1,1)) * invrho
+  uz(ijk,1,1)=(-pz(ijk,1,1)+uz(ijk,1,1)) * invrho
 enddo
 
 if (itype==2) then !channel flow
-   call transpose_x_to_y(ux,gx)
-   call channel(gx)
-   call transpose_y_to_x(gx,ux)
+  call transpose_x_to_y(ux,gx)
+  call channel(gx)
+  call transpose_y_to_x(gx,ux)
 endif
 
 return
