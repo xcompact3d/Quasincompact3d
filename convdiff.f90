@@ -705,6 +705,11 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !! MMS Source term
   CALL density_source_mmsT2d(ta1)
+
+  ! Now store velocity as momentum
+  ux1 = ux1 * rho1
+  uy1 = uy1 * rho1
+  uz1 = uz1 * rho1
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
