@@ -616,10 +616,12 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
   
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2, td2
   
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
@@ -644,6 +646,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_x_to_y(temperature1, temperature2)
   CALL transpose_x_to_y(uy1, uy2)
   CALL transpose_x_to_y(uz1, uz2)
 
