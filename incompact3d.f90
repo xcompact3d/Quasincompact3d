@@ -164,6 +164,13 @@ do itime=ifirst,ilast
       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+           
+      if (iscalar==1) then
+         call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+              uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
+              uz3,phi3,di3,ta3,tb3,&
+              ep1) 
+      endif
 
       ! Update density
       !    X->Y->Z->Y->X
@@ -185,11 +192,6 @@ do itime=ifirst,ilast
            ta2,tb2,tc2,rho2,temperature2,di2,&
            divu3,ta3,rho3,temperature3,di3,&
            pressure0)
-           
-      if (iscalar==1) then
-         call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-              uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,ep1) 
-      endif
 
       !X PENCILS
       ! XXX In LMN this calculates the intermediate state
