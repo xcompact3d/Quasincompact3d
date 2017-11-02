@@ -823,7 +823,8 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, drhodt1
 
   !! Straightforward approximation:
-  !!   ddt rho^{k+1} = -div(rho u)^k
+  !!   ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
+  !!                                      = rhos1
   drhodt1 = rhos1
   
 ENDSUBROUTINE extrapol_rhotrans

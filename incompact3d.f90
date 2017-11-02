@@ -174,6 +174,8 @@ do itime=ifirst,ilast
 
       ! Update density
       !    X->Y->Z->Y->X
+      ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+      !     transpose operations by operating on Z->Y->X.
       call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
