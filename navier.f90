@@ -416,6 +416,10 @@ if (itype.eq.4) then
       do i = 1, xsize(1)
         x = float((i + xstart(1) - 2)) * dx
 
+        ! Set mean field
+        ux1(i, j, k) = ux1(i, j, k) + (u1 + u2) / 2._mytype &
+             + (u1 - u2) * TANH(2._mytype * y) / 2._mytype
+
         ! Calculate disturbance field (as given in Fortune2004)
         ! NB x and y are swapped relative to Fortune2004
         ! `noise' is used to set the intensity of the disturbance
@@ -428,8 +432,7 @@ if (itype.eq.4) then
              + COS(4._mytype * PI * x / xlx) / 8._mytype &
              + COS(2._mytype * PI * x / xlx) / 16._mytype)
         
-        ux1(i, j, k) = ux1(i, j, k) + u_disturb &
-             + (u1 + u2) / 2._mytype + (u1 - u2) * TANH(2._mytype * y) / 2._mytype
+        ux1(i, j, k) = ux1(i, j, k) + u_disturb
         uy1(i, j, k) = uy1(i, j, k) + v_disturb 
         uz1(i, j, k) = uz1(i, j, k) + 0._mytype
       enddo
@@ -599,8 +602,13 @@ if (iin.eq.1) then !generation of a random noise
        do i = 1, xsize(1)
          x = float(i + xstart(1) - 2) * dx
          xspec = (2._mytype * PI) * (x / xlx)
-         
-         rho1(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+         if(y.gt.0._mytype) then
+           rho1(i, j, k) = 0.5_mytype
+         else if(y.eq.0._mytype) then
+           rho1(i, j, k) = 0.75_mytype
+         else
+           rho1(i, j, k) = 1.0_mytype
+         endif
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
