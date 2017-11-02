@@ -597,7 +597,7 @@ if (iin.eq.1) then !generation of a random noise
      z = float(k + xstart(3) - 2) * dz
      zspec = (2._mytype * PI) * (z / zlz)
      do j = 1, xsize(2)
-       y = float(j + xstart(2) - 2) * dy
+       y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
        yspec = (2._mytype * PI) * (y / yly)
        do i = 1, xsize(1)
          x = float(i + xstart(1) - 2) * dx
