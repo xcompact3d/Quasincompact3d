@@ -606,7 +606,8 @@ end subroutine scalar
 !!--------------------------------------------------------------------
 SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
-     uz3, rho3, divu3, di3, ta3, tb3, epsi)
+     uz3, rho3, divu3, di3, ta3, tb3, &
+     epsi)
   
   USE param
   USE variables
@@ -638,12 +639,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
   tb1 = ux1 * tb1
 
-  ! ! Advection term (conservative)
-  ! ta1 = rho1 * ux1
-  ! CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
-  ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
-  ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
-
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
   CALL transpose_x_to_y(temperature1, temperature2)
@@ -659,12 +654,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
   tb2 = uy2 * tb2
 
-  ! ! Advection term (conservative)
-  ! ta2 = rho2 * uy2
-  ! CALL dery (tb2, ta2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy (rho v)
-  ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
-  ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
-
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
   CALL transpose_y_to_z(uz2, uz3)
@@ -677,12 +666,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! Advection term (non-conservative)
   CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
   tb3 = uz3 * tb3
-
-  ! ! Advection term (conservative)
-  ! ta3 = rho3 * uz3
-  ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
-  ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
-  ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
 
   ! We can now add div u
   tb3 = tb3 + rho3 * divu3
@@ -707,9 +690,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   CALL density_source_mmsT2d(ta1)
 
   ! Now store velocity as momentum
-  ux1 = ux1 * rho1
-  uy1 = uy1 * rho1
-  uz1 = uz1 * rho1
+  ux1 = rho1 * ux1
+  uy1 = rho1 * uy1
+  uz1 = rho1 * uz1
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
