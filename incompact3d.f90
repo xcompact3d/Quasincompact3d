@@ -151,6 +151,10 @@ do itime=ifirst,ilast
 !!! CM call test_min_max('di2  ','In main 4      ',di2,size(di2))
    do itr=1,iadvance_time
 
+      !-----------------------------------------------------------------------------------
+      ! XXX ux,uy,uz now contain velocity: ux = u etc.
+      !-----------------------------------------------------------------------------------
+
       if (nclx.eq.2) then
          call inflow (ux1,uy1,uz1,phi1) !X PENCILS
          call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
@@ -162,14 +166,21 @@ do itime=ifirst,ilast
            ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
       ! Update density
-      ! XXX LMN: when doing variable-coefficient pressure Poisson, will already
-      !          have computed div(u) for this timestep, could store and reuse
-      !          (will cut down communications)
+      !    X->Y->Z->Y->X
       call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
-      ! XXX LMN: Calculate new divergence of velocity using new temperature field.
-      !          X->Y->Z->Y->Z
+
+      !-----------------------------------------------------------------------------------
+      ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
+      !-----------------------------------------------------------------------------------
+      
+      ! LMN: Calculate new divergence of velocity using new density/temperature field.
+      !      This updates the temperature field using the density field.
+      !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
+      !      upto date.
+      !
+      !    X->Y->Z
       call calc_divu(tg1,rho1,temperature1,di1,&
            ta2,tb2,tc2,rho2,temperature2,di2,&
            divu3,ta3,rho3,temperature3,di3,&
@@ -207,8 +218,8 @@ do itime=ifirst,ilast
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
-      ! LMN: Approximate ddt rho^{k+1} and use as constraint for div(rho u)^{k+1}
-      call extrapol_rhotrans(rho1, rhos1, rhoss1, drhodt1)
+      ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
+      call extrapol_rhotrans(rho1,rhos1,rhoss1,drhodt1)
       call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
 
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
@@ -225,9 +236,11 @@ do itime=ifirst,ilast
            ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
 
       !X PENCILS
-      ! XXX in LMN ux,uy,uz contain the intermediate momentum
-      !      (rho u)^*, not u^*
       call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
+
+      !-----------------------------------------------------------------------------------
+      ! XXX ux,uy,uz now contain velocity: ux = u etc.
+      !-----------------------------------------------------------------------------------
 
       !does not matter -->output=DIV U=0 (in dv3)
       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
@@ -242,7 +255,6 @@ do itime=ifirst,ilast
 
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
 !!$        uvmean,uwmean,vwmean,phiphimean,tmean)
-   
 
    if (mod(itime,isave)==0) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
         px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
