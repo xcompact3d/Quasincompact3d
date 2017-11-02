@@ -404,8 +404,8 @@ ta1 = ta1 + xnu * td1
 tb1 = tb1 + xnu * te1
 tc1 = tc1 + xnu * tf1
 
-!! MMS Source term
-call momentum_source_mmsT3b(ta1,tb1,tc1)
+! !! MMS Source term
+! call momentum_source_mmsT3b(ta1,tb1,tc1)
 
 ta1max=-1.e30_mytype
 ta1min=+1.e30_mytype
@@ -686,8 +686,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   
   ta1 = -tb1
 
-  !! MMS Source term
-  CALL density_source_mmsT2d(ta1)
+  ! !! MMS Source term
+  ! CALL density_source_mmsT2d(ta1)
 
   ! Now store velocity as momentum
   ux1 = rho1 * ux1

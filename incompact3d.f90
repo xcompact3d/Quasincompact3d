@@ -275,9 +275,9 @@ do itime=ifirst,ilast
    !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
    ! endif
 
-   ! MMS: compare errors
-   CALL eval_error_rho(rho1)
-   CALL eval_error_vel(ux1,uy1,uz1)
+   ! ! MMS: compare errors
+   ! CALL eval_error_rho(rho1)
+   ! CALL eval_error_vel(ux1,uy1,uz1)
 
 enddo
 
