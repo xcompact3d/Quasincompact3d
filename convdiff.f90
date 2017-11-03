@@ -128,6 +128,13 @@ else !SKEW!
      tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)
    enddo
 
+   ! Quasi-skew symmetric terms
+   tg1 = rho1 * ux1
+   call derx(th1,tg1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+   ta1 = ta1 + 0.5_mytype * ux1 * th1
+   tb1 = tb1 + 0.5_mytype * uy1 * th1
+   tc1 = tc1 + 0.5_mytype * uz1 * th1
+
    call transpose_x_to_y(ux1,ux2)
    call transpose_x_to_y(uy1,uy2)
    call transpose_x_to_y(uz1,uz2)
@@ -155,6 +162,13 @@ else !SKEW!
      tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
    enddo
 
+   ! Quasi-skew symmetric terms
+   tg2 = rho2 * uy2
+   call dery(th2,tg2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+   ta2 = ta2 + 0.5_mytype * ux2 * th2
+   tb2 = tb2 + 0.5_mytype * uy2 * th2
+   tc2 = tc2 + 0.5_mytype * uz2 * th2
+
    call transpose_y_to_z(ux2,ux3)
    call transpose_y_to_z(uy2,uy3)
    call transpose_y_to_z(uz2,uz3)
@@ -180,6 +194,13 @@ else !SKEW!
      tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
      tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
    enddo
+
+   ! Quasi-skew symmetric terms
+   tg3 = rho3 * uz3
+   call derz(th3,tg3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+   ta3 = ta3 + 0.5_mytype * ux3 * th3
+   tb3 = tb3 + 0.5_mytype * uy3 * th3
+   tc3 = tc3 + 0.5_mytype * uz3 * th3
 endif
 !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
