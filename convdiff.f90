@@ -410,7 +410,7 @@ tb1 = tb1 + xnu * te1
 tc1 = tc1 + xnu * tf1
 
 ! !! MMS Source term
-! call momentum_source_mmsT3b(ta1,tb1,tc1)
+! call momentum_source_mms(ta1,tb1,tc1)
 
 ta1max=-1.e30_mytype
 ta1min=+1.e30_mytype
@@ -692,7 +692,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ta1 = -tb1
 
   ! !! MMS Source term
-  ! CALL density_source_mmsT2d(ta1)
+  ! CALL density_source_mms(ta1)
 
   ! Now store velocity as momentum
   ux1 = rho1 * ux1
@@ -870,20 +870,11 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
 ENDSUBROUTINE calctemp_eos
   
 !!--------------------------------------------------------------------
-!! SUBROUTINE: density_source_mmsT2d
+!! SUBROUTINE: density_source_mms
 !! DESCIPTION: Computes the source term for the density equation in
 !!             Method of Manufactured Solutions test and adds it to
-!!             the stress/diffusion term. This source term is for the
-!!             case div(u) = 0 and
-!!             rho = 2 + sin(2pi x / lx) sin(2pi y / ly) sin(2pi z / lz).
-!!             This solution should permit:
-!!               periodic
-!!               drho/dn = 0
-!!               rho = 2
-!!             as boundary conditions.
-!!             This corresponds to test T2d
-!!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
-SUBROUTINE density_source_mmsT2d(mms)
+!!             the stress/diffusion term.
+SUBROUTINE density_source_mms(mms)
 
   USE var
 
@@ -963,27 +954,14 @@ SUBROUTINE density_source_mmsT2d(mms)
     ENDDO ! End loop over j
   ENDDO ! End loop over k
 
-ENDSUBROUTINE density_source_mmsT2d
+ENDSUBROUTINE density_source_mms
   
 !!--------------------------------------------------------------------
-!! SUBROUTINE: momentum_source_mmsT3b
+!! SUBROUTINE: momentum_source_mms
 !! DESCIPTION: Computes the source term for the momentum equations in
 !!             Method of Manufactured Solutions test and adds it to
-!!             the stress/diffusion term. This source term is for the
-!!             case div(u) = 0, given by
-!!             u = (lx / 2pi) sin(2pi x / lx) cos(2pi y / ly) cos(2pi z / lz)
-!!             v = (ly / 2pi) cos(2pi x / lx) sin(2pi y / ly) cos(2pi z / lz)
-!!             w = -2 (lz / 2pi) cos(2pi x / lx) cos(2pi y / ly) sin(2pi z / lz)
-!!             and
-!!             rho = rho_0 + sin(2pi x / lx) sin(2pi y / ly) sin(2pi z / lz).
-!!             This solution should permit:
-!!               periodic
-!!               drho/dn = 0
-!!               u \cdot n = 0
-!!             as boundary conditions.
-!!             This corresponds to test T3b
-!!      NOTES: The form of rho is chosen so that rho > 0 everywhere.
-SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
+!!             the stress/diffusion term
+SUBROUTINE momentum_source_mms(mmsx1, mmsy1, mmsz1)
 
   USE var
 
@@ -1148,4 +1126,4 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
     ENDDO ! End loop over j
   ENDDO ! End loop over k
 
-ENDSUBROUTINE momentum_source_mmsT3b
+ENDSUBROUTINE momentum_source_mms
