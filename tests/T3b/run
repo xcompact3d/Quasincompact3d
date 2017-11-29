@@ -31,12 +31,12 @@ mv uz* DATA/${CASE}/64x64x64/
 mv rho* DATA/${CASE}/64x64x64/
 mv OUTPUT.log DATA/${CASE}/64x64x64/
 
-#nohup mpiexec -np ${NP} ./incompact3d-128x128x128 | tee OUTPUT.log
-#mv ux* DATA/${CASE}/128x128x128/
-#mv uy* DATA/${CASE}/128x128x128/
-#mv uz* DATA/${CASE}/128x128x128/
-#mv rho* DATA/${CASE}/128x128x128/
-#mv OUTPUT.log DATA/${CASE}/128x128x128/
+# nohup mpiexec -np ${NP} ./incompact3d-128x128x128 | tee OUTPUT.log
+# mv ux* DATA/${CASE}/128x128x128/
+# mv uy* DATA/${CASE}/128x128x128/
+# mv uz* DATA/${CASE}/128x128x128/
+# mv rho* DATA/${CASE}/128x128x128/
+# mv OUTPUT.log DATA/${CASE}/128x128x128/
 
 rm pp*
 rm vort*
