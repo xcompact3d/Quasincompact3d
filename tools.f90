@@ -1038,7 +1038,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
 
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
   err = err / float(nxm * nym * nzm)
-  err = err**0.5
+  err = SQRT(err)
 
   IF (nrank.eq.0) THEN
     PRINT *, "Error in ", name, " = ", err
