@@ -3,7 +3,7 @@
 #
 1.0             #xlx  # Lx (Size of the box in x-direction)
 1.0             #yly  # Ly (Size of the box in y-direction) 
-1.0              #zlz  # Lz (Size of the box in z-direction) 
+1.0             #zlz  # Lz (Size of the box in z-direction) 
 400.   #re   # Reynolds number
 1.     #pr   # Prandtl number
 1.     #sc   # Schmidt number (if passive scalar)

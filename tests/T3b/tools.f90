@@ -1128,3 +1128,88 @@ SUBROUTINE eval_error_rho(rho_num)
   CALL eval_error(rho_num, rho_exact, "RHO")
   
 ENDSUBROUTINE eval_error_rho
+
+!*****************************************************************
+!  SUBROUTINE: updateXYZ
+! DESCRIPTION: Given a set of new values in pencil 'X', update
+!              by transposing to 'Y' then 'Z'.
+!       INPUT: var1, the variable in 'X' stencil
+!              size1, the size array of var1
+!              size2, the size array of var2
+!              size3, the size array of var3
+!              idx1, the actual pencil of var1: 1 = X, 2 = Y, 3 = Z
+!              idx2, the actual pencil of var2: 1 = X, 2 = Y, 3 = Z
+!              idx3, the actual pencil of var3: 1 = X, 2 = Y, 3 = Z
+!      OUTPUT: var2, var3 the variable in 'Y' and 'Z' stencils
+!              with updated values
+!*****************************************************************
+SUBROUTINE updateXYZ(var1, var2, var3, size1, size2, size3, idx1, idx2, idx3)
+
+  USE var
+  
+  IMPLICIT NONE
+
+  INTEGER, INTENT(IN) :: idx1, idx2, idx3
+  INTEGER, DIMENSION(3), INTENT(IN) :: size1, size2, size3
+
+  REAL(mytype), DIMENSION(size1(1), size1(2), size1(3)), INTENT(IN) :: var1
+  REAL(mytype), DIMENSION(size2(1), size2(2), size2(3)), INTENT(OUT) :: var2
+  REAL(mytype), DIMENSION(size3(1), size3(2), size3(3)), INTENT(OUT) :: var3
+
+  ! IF((idx1.EQ.idx2).OR.(idx1.EQ.idx3).OR.(idx2.EQ.idx3)) THEN
+  !   PRINT *, "Transpose: ", idx1, "->", idx2, "->" idx3, " is invalid!"
+  !   STOP
+  ! ENDIF
+
+  ! idx1->idx2
+  IF(idx1.EQ.1) THEN
+    IF(idx2.EQ.2) THEN
+      CALL transpose_x_to_y(var1, var2)
+    ELSE
+      PRINT *, "X->Z not yet implemented"
+      STOP
+      ! CALL transpose_x_to_z(var1, var2)
+    ENDIF
+  ELSEIF(idx1.EQ.2) THEN
+    IF(idx2.EQ.1) THEN
+      CALL transpose_y_to_x(var1, var2)
+    ELSE
+      CALL transpose_y_to_z(var1, var2)
+    ENDIF
+  ELSE
+    IF(idx2.EQ.1) THEN
+      PRINT *, "Z->X not yet implemented"
+      STOP
+      ! CALL transpose_z_to_x(var1, var2)
+    ELSE
+      CALL transpose_z_to_y(var1, var2)
+    ENDIF
+  ENDIF
+
+  ! idx2->idx3
+  IF(idx2.EQ.1) THEN
+    IF(idx3.EQ.2) THEN
+      CALL transpose_x_to_y(var2, var3)
+    ELSE
+      PRINT *, "X->Z not yet implemented"
+      STOP
+      ! CALL transpose_x_to_z(var2, var3)
+    ENDIF
+  ELSEIF(idx2.EQ.2) THEN
+    IF(idx3.EQ.1) THEN
+      CALL transpose_y_to_x(var2, var3)
+    ELSE
+      CALL transpose_y_to_z(var2, var3)
+    ENDIF
+  ELSE
+    IF(idx3.EQ.1) THEN
+      PRINT *, "Z->X not yet implemented"
+      STOP
+      ! CALL transpose_z_to_x(var2, var3)
+    ELSE
+      CALL transpose_z_to_y(var2, var3)
+    ENDIF
+  ENDIF
+    
+ENDSUBROUTINE updateXYZ
+

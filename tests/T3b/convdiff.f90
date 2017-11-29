@@ -110,23 +110,36 @@ if (iskew==0) then !UROTU!
    enddo
 else !SKEW!
 !WORK X-PENCILS
-   do ijk=1,nvect1
-      ta1(ijk,1,1)=ux1(ijk,1,1)*ux1(ijk,1,1)*rho1(ijk,1,1)
-      tb1(ijk,1,1)=ux1(ijk,1,1)*uy1(ijk,1,1)*rho1(ijk,1,1)
-      tc1(ijk,1,1)=ux1(ijk,1,1)*uz1(ijk,1,1)*rho1(ijk,1,1)
-   enddo
-   call derx (td1,ta1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call derx (te1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (tf1,tc1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+   ! do ijk=1,nvect1
+   !    td1(ijk,1,1)=rho1(ijk,1,1)*ux1(ijk,1,1)*ux1(ijk,1,1)
+   !    te1(ijk,1,1)=rho1(ijk,1,1)*uy1(ijk,1,1)*ux1(ijk,1,1)
+   !    tf1(ijk,1,1)=rho1(ijk,1,1)*uz1(ijk,1,1)*ux1(ijk,1,1)
+   ! enddo
+   td1 = rho1 * ux1 * ux1
+   te1 = rho1 * uy1 * ux1
+   tf1 = rho1 * uz1 * ux1
 
-   do ijk=1,nvect1
-     ta1(ijk,1,1)=0.5_mytype*td1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*ta1(ijk,1,1)*rho1(ijk,1,1)
-     tb1(ijk,1,1)=0.5_mytype*te1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tb1(ijk,1,1)*rho1(ijk,1,1)
-     tc1(ijk,1,1)=0.5_mytype*tf1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tc1(ijk,1,1)*rho1(ijk,1,1)
-   enddo
+   call derx (tg1,td1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+   call derx (th1,te1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+   call derx (ti1,tf1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+   call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+   call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+   call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+
+   ! do ijk=1,nvect1
+   !   ta1(ijk,1,1)=0.5_mytype*tg1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*td1(ijk,1,1)*rho1(ijk,1,1)
+   !   tb1(ijk,1,1)=0.5_mytype*th1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*te1(ijk,1,1)*rho1(ijk,1,1)
+   !   tc1(ijk,1,1)=0.5_mytype*ti1(ijk,1,1)+0.5_mytype*ux1(ijk,1,1)*tf1(ijk,1,1)*rho1(ijk,1,1)
+   ! enddo
+   ta1 = 0.5_mytype * (tg1 + rho1 * ux1 * td1)
+   tb1 = 0.5_mytype * (th1 + rho1 * ux1 * te1)
+   tc1 = 0.5_mytype * (ti1 + rho1 * ux1 * tf1)
+
+   ! Quasi-skew symmetric terms
+   call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+   ta1 = ta1 + 0.5_mytype * ux1 * ux1 * tg1
+   tb1 = tb1 + 0.5_mytype * uy1 * ux1 * tg1
+   tc1 = tc1 + 0.5_mytype * uz1 * ux1 * tg1
 
    call transpose_x_to_y(ux1,ux2)
    call transpose_x_to_y(uy1,uy2)
@@ -137,11 +150,15 @@ else !SKEW!
 
    call transpose_x_to_y(rho1,rho2)
 !WORK Y-PENCILS
-   do ijk=1,nvect2
-      td2(ijk,1,1)=ux2(ijk,1,1)*uy2(ijk,1,1)*rho2(ijk,1,1)
-      te2(ijk,1,1)=uy2(ijk,1,1)*uy2(ijk,1,1)*rho2(ijk,1,1)
-      tf2(ijk,1,1)=uz2(ijk,1,1)*uy2(ijk,1,1)*rho2(ijk,1,1)
-   enddo
+   ! do ijk=1,nvect2
+   !    td2(ijk,1,1)=rho2(ijk,1,1)*ux2(ijk,1,1)*uy2(ijk,1,1)
+   !    te2(ijk,1,1)=rho2(ijk,1,1)*uy2(ijk,1,1)*uy2(ijk,1,1)
+   !    tf2(ijk,1,1)=rho2(ijk,1,1)*uz2(ijk,1,1)*uy2(ijk,1,1)
+   ! enddo
+   td2 = rho2 * ux2 * uy2
+   te2 = rho2 * uy2 * uy2
+   tf2 = rho2 * uz2 * uy2
+
    call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
    call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
    call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
@@ -149,11 +166,20 @@ else !SKEW!
    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
    
-   do ijk=1,nvect2
-     ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)*rho2(ijk,1,1)
-     tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)*rho2(ijk,1,1)
-     tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
-   enddo
+   ! do ijk=1,nvect2
+   !   ta2(ijk,1,1)=ta2(ijk,1,1)+0.5_mytype*tg2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*td2(ijk,1,1)*rho2(ijk,1,1)
+   !   tb2(ijk,1,1)=tb2(ijk,1,1)+0.5_mytype*th2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*te2(ijk,1,1)*rho2(ijk,1,1)
+   !   tc2(ijk,1,1)=tc2(ijk,1,1)+0.5_mytype*ti2(ijk,1,1)+0.5_mytype*uy2(ijk,1,1)*tf2(ijk,1,1)*rho2(ijk,1,1)
+   ! enddo
+   ta2 = ta2 + 0.5_mytype * (tg2 + rho2 * uy2 * td2)
+   tb2 = tb2 + 0.5_mytype * (th2 + rho2 * uy2 * te2)
+   tc2 = tc2 + 0.5_mytype * (ti2 + rho2 * uy2 * tf2)
+
+   ! Quasi-skew symmetric terms
+   call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+   ta2 = ta2 + 0.5_mytype * ux2 * uy2 * th2
+   tb2 = tb2 + 0.5_mytype * uy2 * uy2 * th2
+   tc2 = tc2 + 0.5_mytype * uz2 * uy2 * th2
 
    call transpose_y_to_z(ux2,ux3)
    call transpose_y_to_z(uy2,uy3)
@@ -164,22 +190,41 @@ else !SKEW!
 
    call transpose_y_to_z(rho2,rho3)
 !WORK Z-PENCILS
-   do ijk=1,nvect3
-      td3(ijk,1,1)=ux3(ijk,1,1)*uz3(ijk,1,1)*rho3(ijk,1,1)
-      te3(ijk,1,1)=uy3(ijk,1,1)*uz3(ijk,1,1)*rho3(ijk,1,1)
-      tf3(ijk,1,1)=uz3(ijk,1,1)*uz3(ijk,1,1)*rho3(ijk,1,1)
-   enddo
+   ! do ijk=1,nvect3
+   !    td3(ijk,1,1)=rho3(ijk,1,1)*ux3(ijk,1,1)*uz3(ijk,1,1)
+   !    te3(ijk,1,1)=rho3(ijk,1,1)*uy3(ijk,1,1)*uz3(ijk,1,1)
+   !    tf3(ijk,1,1)=rho3(ijk,1,1)*uz3(ijk,1,1)*uz3(ijk,1,1)
+   ! enddo
+   td3 = rho3 * ux3 * uz3
+   te3 = rho3 * uy3 * uz3
+   tf3 = rho3 * uz3 * uz3
+
    call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
    call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-   do ijk=1,nvect3
-     ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)*rho3(ijk,1,1)
-     tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
-     tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
-   enddo
+
+   ! do ijk=1,nvect3
+   !   ta3(ijk,1,1)=ta3(ijk,1,1)+0.5_mytype*tg3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*td3(ijk,1,1)*rho3(ijk,1,1)
+   !   tb3(ijk,1,1)=tb3(ijk,1,1)+0.5_mytype*th3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*te3(ijk,1,1)*rho3(ijk,1,1)
+   !   tc3(ijk,1,1)=tc3(ijk,1,1)+0.5_mytype*ti3(ijk,1,1)+0.5_mytype*uz3(ijk,1,1)*tf3(ijk,1,1)*rho3(ijk,1,1)
+   ! enddo
+   ta3 = ta3 + 0.5_mytype * (tg3 + rho3 * uz3 * td3)
+   tb3 = tb3 + 0.5_mytype * (th3 + rho3 * uz3 * te3)
+   tc3 = tc3 + 0.5_mytype * (ti3 + rho3 * uz3 * tf3)
+
+   ! Quasi-skew symmetric terms
+   call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+   ta3 = ta3 + 0.5_mytype * ux3 * uz3 * ti3
+   tb3 = tb3 + 0.5_mytype * uy3 * uz3 * ti3
+   tc3 = tc3 + 0.5_mytype * uz3 * uz3 * ti3
+
+   ! Quasi-skew symmetric contribution from div(u)
+   ta3 = ta3 + 0.5_mytype * ux3 * rho3 * divu3
+   tb3 = tb3 + 0.5_mytype * uy3 * rho3 * divu3
+   tc3 = tc3 + 0.5_mytype * uz3 * rho3 * divu3
 endif
 !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
@@ -187,9 +232,9 @@ endif
 !!! CM call test_min_max('te3  ','In convdiff    ',te3,size(te3))
 !!! CM call test_min_max('tf3  ','In convdiff    ',tf3,size(tf3))
 
-td3(:,:,:)=ta3(:,:,:)
-te3(:,:,:)=tb3(:,:,:)
-tf3(:,:,:)=tc3(:,:,:)
+tg3(:,:,:)=ta3(:,:,:)
+th3(:,:,:)=tb3(:,:,:)
+ti3(:,:,:)=tc3(:,:,:)
 
 !DIFFUSIVE TERMS IN Z
 call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
@@ -199,8 +244,8 @@ call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 ! Compute bulk shear contribution
 ! tg3, th3, ti3 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(ti3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
+call derz(tf3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+tc3 = tc3 - 2._mytype * ONETHIRD * tf3
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -211,15 +256,11 @@ tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * ti3(:,:,:)
 call transpose_z_to_y(ta3,ta2)
 call transpose_z_to_y(tb3,tb2)
 call transpose_z_to_y(tc3,tc2)
-call transpose_z_to_y(td3,td2)
-call transpose_z_to_y(te3,te2)
-call transpose_z_to_y(tf3,tf2)
+call transpose_z_to_y(tg3,tg2)
+call transpose_z_to_y(th3,th2)
+call transpose_z_to_y(ti3,ti2)
 
 call transpose_z_to_y(divu3, divu2)
-
-tg2(:,:,:)=td2(:,:,:)
-th2(:,:,:)=te2(:,:,:)
-ti2(:,:,:)=tf2(:,:,:)
 
 !!! CM call test_min_max('tg2  ','In convdiff    ',tg2,size(tg2))
 !!! CM call test_min_max('th2  ','In convdiff    ',th2,size(th2))
@@ -279,7 +320,6 @@ endif
 !!! CM call test_min_max('te2  ','In convdiff    ',te2,size(te2))
 !!! CM call test_min_max('tf2  ','In convdiff    ',tf2,size(tf2))
 
-
 ta2(:,:,:)=ta2(:,:,:)+td2(:,:,:)
 tb2(:,:,:)=tb2(:,:,:)+te2(:,:,:)
 tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
@@ -288,24 +328,20 @@ tc2(:,:,:)=tc2(:,:,:)+tf2(:,:,:)
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-! ! Compute bulk shear contribution
-! ! td2, te2, tf2 avaiable as work vectors
+! Compute bulk shear contribution
+! td2, te2, tf2 avaiable as work vectors
 call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
+tb2 = tb2 - 2._mytype * ONETHIRD * te2
 
 !WORK X-PENCILS
 call transpose_y_to_x(ta2,ta1)
 call transpose_y_to_x(tb2,tb1)
 call transpose_y_to_x(tc2,tc1) !diff
-call transpose_y_to_x(tg2,td1)
-call transpose_y_to_x(th2,te1)
-call transpose_y_to_x(ti2,tf1) !conv
+call transpose_y_to_x(tg2,tg1)
+call transpose_y_to_x(th2,th1)
+call transpose_y_to_x(ti2,ti1) !conv
 
 call transpose_y_to_x(divu2, divu1)
-
-tg1(:,:,:)=td1(:,:,:)
-th1(:,:,:)=te1(:,:,:)
-ti1(:,:,:)=tf1(:,:,:)
 
 !DIFFUSIVE TERMS IN X
 call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
@@ -320,17 +356,17 @@ tc1(:,:,:)=tc1(:,:,:)+tf1(:,:,:)
 ! td1, te1, tf1 available as work vectors
 ! TODO need to check ffzp, and whether last terms should be 1 or 0
 call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
+ta1 = ta1 - 2._mytype * ONETHIRD * td1
 
 !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
 !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
 !th1(:,:,:)=th1(:,:,:)-2./18.*ux1(:,:,:)
 
 
-!FINAL SUM: DIFF TERMS + CONV TERMS
-ta1(:,:,:)=xnu*ta1(:,:,:)-tg1(:,:,:)
-tb1(:,:,:)=xnu*tb1(:,:,:)-th1(:,:,:)
-tc1(:,:,:)=xnu*tc1(:,:,:)-ti1(:,:,:)
+!INTERMEDIATE SUM: DIFF TERMS + CONV TERMS
+ta1 = xnu * ta1 - tg1
+tb1 = xnu * tb1 - th1
+tc1 = xnu * tc1 - ti1
 
 !! Compute cross-shear
 ! NB ta1,tb1,tc1 cannot be touched!
@@ -606,7 +642,8 @@ end subroutine scalar
 !!--------------------------------------------------------------------
 SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
-     uz3, rho3, divu3, di3, ta3, tb3, epsi)
+     uz3, rho3, divu3, di3, ta3, tb3, &
+     epsi)
   
   USE param
   USE variables
@@ -636,12 +673,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
   tb1 = ux1 * tb1
 
-  ! ! Advection term (conservative)
-  ! ta1 = rho1 * ux1
-  ! CALL derx (tb1, ta1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx (rho u)
-  ! CALL derx (ta1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0) ! ddx u
-  ! tb1 = tb1 - rho1 * ta1 ! ddx(rho u) - rho ddx u
-
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
   CALL transpose_x_to_y(uy1, uy2)
@@ -656,12 +687,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
   tb2 = uy2 * tb2
 
-  ! ! Advection term (conservative)
-  ! ta2 = rho2 * uy2
-  ! CALL dery (tb2, ta2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy (rho v)
-  ! CALL dery (ta2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0) ! ddy v
-  ! tb2 = tb2 - rho2 * ta2 ! ddy(rho v) - rho ddy v
-
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
   CALL transpose_y_to_z(uz2, uz3)
@@ -674,12 +699,6 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   ! Advection term (non-conservative)
   CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
   tb3 = uz3 * tb3
-
-  ! ! Advection term (conservative)
-  ! ta3 = rho3 * uz3
-  ! CALL derz (tb3, ta3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz (rho w)
-  ! CALL derz (ta3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0) ! ddz w
-  ! tb3 = tb3 - rho3 * ta3 ! ddz (rho w) - rho ddz w
 
   ! We can now add div u
   tb3 = tb3 + rho3 * divu3
@@ -702,6 +721,11 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   !! MMS Source term
   CALL density_source_mmsT2d(ta1)
+
+  ! Now store velocity as momentum
+  ux1 = rho1 * ux1
+  uy1 = rho1 * uy1
+  uz1 = rho1 * uz1
   
   !------------------------------------------------------------------------
   ! TIME ADVANCEMENT
@@ -784,9 +808,10 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
+  !CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
+  temperature1 = pressure0 / rho1
 
-  ! Calculate divergence of velocity
+  ! Calculate second derivative of temperature
   CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
 
   ! Transpose to Y
@@ -798,9 +823,10 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
+  !CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
+  temperature2 = pressure0 / rho2
 
-  ! Calculate divergence of velocity
+  ! Calculate second derivative of temperature
   IF(istret.NE.0) THEN
     CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
     CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
@@ -825,9 +851,10 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   !-------------------------------------------------------------------
 
   ! Update temperature
-  CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
+  !CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
+  temperature3 = pressure0 / rho3
 
-  ! Calculate divergence of velocity
+  ! Calculate second derivative of temperature
   CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
   divu3 = divu3 + ta3
   divu3 = (xnu / pr) * divu3
@@ -837,13 +864,14 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   ! divu3 = divu3 / (rho3 * temperature3)
   invpressure0 = 1._mytype / pressure0
   divu3 = invpressure0 * divu3 ! rho*T = pressure0 = constant (in space)
+  !divu3 = divu3 / (rho3 * temperature3) ! Alternative to above (probably slower and less accurate)
 
   !-------------------------------------------------------------------
   ! XXX Density and temperature fields are now up to date in all
   !     pencils.
   !     Divergence of velocity is only known in Z pencil.
   !-------------------------------------------------------------------
-  
+
 ENDSUBROUTINE calc_divu
 
 !!--------------------------------------------------------------------
@@ -904,6 +932,8 @@ SUBROUTINE density_source_mmsT2d(mms)
   REAL(mytype) :: press0
   REAL(mytype) :: SrhoX, SrhoY, SrhoZ
   REAL(mytype) :: MMSource
+  REAL(mytype) :: SINX, SINY, SINZ
+  REAL(mytype) :: COSX, COSY, COSZ
 
   press0 = 1._mytype
   rho0 = 2._mytype
@@ -918,7 +948,14 @@ SUBROUTINE density_source_mmsT2d(mms)
         x = float(i + xstart(1) - 2) * dx
         xspec = (2._mytype * PI) * (x / xlx)
 
-        rhomms = rho0 + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        SINX = SIN(xspec)
+        SINY = SIN(yspec)
+        SINZ = SIN(zspec)
+        COSX = COS(xspec)
+        COSY = COS(yspec)
+        COSZ = COS(zspec)
+
+        rhomms = rho0 + SINX * SINY * SINZ
         Tmms = press0 / rhomms
 
         !!
@@ -926,27 +963,27 @@ SUBROUTINE density_source_mmsT2d(mms)
         !!
 
         ! d/dx( d/dx T )
-        SrhoX = rhomms * SIN(xspec)
-        SrhoX = SrhoX + 2._mytype * ((COS(xspec))**2) * SIN(yspec) * SIN(zspec)
-        SrhoX = SrhoX * SIN(yspec) * SIN(zspec) / (xlx**2)
+        SrhoX = rhomms * SINX
+        SrhoX = SrhoX + 2._mytype * COSX**2 * SINY * SINZ
+        SrhoX = SrhoX * SINY * SINZ / (xlx**2)
 
         ! d/dy( d/dy T )
-        SrhoY = rhomms * SIN(yspec)
-        SrhoY = SrhoY + 2._mytype * ((COS(yspec))**2) * SIN(xspec) * SIN(zspec)
-        SrhoY = SrhoY * SIN(xspec) * SIN(zspec) / (yly**2)
+        SrhoY = rhomms * SINY
+        SrhoY = SrhoY + 2._mytype * SINX * COSY**2 * SINZ
+        SrhoY = SrhoY * SINX * SINZ / (yly**2)
 
         ! d/dz( d/dz T )
-        SrhoZ = rhomms * SIN(zspec)
-        SrhoZ = SrhoZ + 2._mytype * ((COS(zspec))**2) * SIN(xspec) * SIN(yspec)
-        SrhoZ = SrhoZ * SIN(xspec) * SIN(yspec) / (zlz**2)
+        SrhoZ = rhomms * SINZ
+        SrhoZ = SrhoZ + 2._mytype * SINX * SINY * COSZ**2
+        SrhoZ = SrhoZ * SINX * SINY / (zlz**2)
 
         MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = 4._mytype * (PI**2) * MMSource * (press0 / (rhomms**3))
+        MMSource = (4._mytype * PI**2 * press0 / rhomms**3) * MMSource
 
         !!
         !! Compute divu = (1 / (Re Pr T)) * nabla.nabla T / rho
         !!
-        MMSource = MMSource * (xnu / (pr * Tmms)) / rhomms
+        MMSource = MMSource * (xnu / (pr * (rhomms * Tmms)))
 
         !!
         !! Finally: S_rho = rho * divu
@@ -990,10 +1027,15 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
   REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
 
+  REAL(mytype) :: umms, vmms, wmms
+  REAL(mytype) :: dudxmms, dudymms, dudzmms
+  REAL(mytype) :: dvdxmms, dvdymms, dvdzmms
+  REAL(mytype) :: dwdxmms, dwdymms, dwdzmms
   REAL(mytype) :: rhomms, rho_0
+  REAL(mytype) :: divumms
   REAL(mytype) :: press0
   REAL(mytype) :: Tmms
-  REAL(mytype) :: MMSource
+  REAL(mytype) :: MMSource, MMSourceAdv, MMSourceDiff, MMIN
 
   REAL(mytype) :: SINX, SINY, SINZ, SINHALFX, SINHALFY, SINHALFZ
   REAL(mytype) :: COSX, COSY, COSZ, COSHALFX, COSHALFY, COSHALFZ
@@ -1024,20 +1066,45 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
         COSHALFY = COS(0.5_mytype * yspec)
         COSHALFZ = COS(0.5_mytype * zspec)
 
+        umms =              (xlx / (2._mytype * PI)) * SINX * COSY * COSZ
+        vmms =              (yly / (2._mytype * PI)) * COSX * SINY * COSZ
+        wmms = -2._mytype * (zlz / (2._mytype * PI)) * COSX * COSY * SINZ
+
+	dudxmms =                COSX * COSY * COSZ
+	dudymms = -(xlx / yly) * SINX * SINY * COSZ
+	dudzmms = -(xlx / zlz) * SINX * COSY * SINZ
+
+	dvdxmms = -(yly / xlx) * SINX * SINY * COSZ
+	dvdymms =                COSX * COSY * COSZ
+	dvdzmms = -(yly / zlz) * COSX * SINY * SINZ
+
+	dwdxmms =  2._mytype * (zlz / xlx) * SINX * COSY * SINZ
+	dwdymms =  2._mytype * (zlz / yly) * COSX * SINY * SINZ
+	dwdzmms = -2._mytype *               COSX * COSY * COSZ
+
         rhomms = rho_0 + SINX * SINY * SINZ
         Tmms = press0 / rhomms
-
+        divumms = (rhomms * SINX + 2._mytype * COSX**2 * SINY * SINZ) &
+             * SINY * SINZ / xlx**2 &
+             + (rhomms * SINY + 2._mytype * SINX * COSY**2 * SINZ) &
+             * SINX * SINZ / yly**2 &
+             + (rhomms * SINZ + 2._mytype * SINX * SINY * COSZ**2) &
+             * SINX * SINY / zlz**2
+        divumms = (4._mytype * PI**2 * press0 / rhomms**3) * divumms
+        divumms = ((xnu / (pr * (rhomms * Tmms))) * divumms)
+        
         !! XMOM
 
+        ! Advection
+        MMSource = 8._mytype * (SINHALFY**4 - SINHALFY**2) &
+             - 4._mytype * (SINHALFZ**4 - SINHALFZ**2) + 1._mytype
+        MMSource = (xlx / (2._mytype * PI)) * rhomms * MMSource * SINX * COSX
+        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+
         ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = 8._mytype * (SINHALFY**4) - 8._mytype * (SINHALFY**2) &
-             - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
-        MMSource = MMSource * COSX
-        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
-        MMSource = MMSource + 4._mytype * (PI**2) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSY * COSZ
-        MMSource = (SINX / (2._mytype * PI * (1._mytype / xnu) * (xlx * yly**2 * zlz**2))) &
-             * MMSource
+        MMSource = (2._mytype * PI * xnu / (xlx * yly**2 * zlz**2)) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
+             * SINX * COSY * COSZ
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
         ! The bulk component of viscous stress tensor
@@ -1054,22 +1121,23 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
              - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
         MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
         MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
-             * xlx**3 * yly**2 * zlz**2 * rhomms**4))
+             * xlx**3 * yly**2 * zlz**2 * rhomms**4)) * MMSource
         mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
 
         !! YMOM
 
-        ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = 8._mytype * (SINHALFX**4) - 8._mytype * (SINHALFX**2) &
-             - 4._mytype * (SINHALFZ**4) + 4._mytype * (SINHALFZ**2) + 1._mytype
-        MMSource = MMSource * COSY
-        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
-        MMSource = MMSource + 4._mytype * (PI**2) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSX * COSZ
-        MMSource = (SINY / (2._mytype * PI * (1._mytype / xnu) * (xlx**2 * yly * zlz**2))) &
-             * MMSource
+        ! Advection
+        MMSource = 8._mytype * (SINHALFX**4 - SINHALFX**2) &
+             - 4._mytype * (SINHALFZ**4 - SINHALFZ**2) + 1._mytype
+        MMSource = (yly / (2._mytype * PI)) * rhomms * MMSource * SINY * COSY
         mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
 
+        ! The first half of the viscous stress tensor (grad u + grad^T u)
+        MMSource = (2._mytype * PI * xnu / (xlx**2 * yly * zlz**2)) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
+             * COSX * SINY * COSZ
+        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+        
         ! The bulk component of viscous stress tensor
         MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINZ &
              + 2._mytype * xlx**2 * yly**2 * rhomms &
@@ -1089,15 +1157,16 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
 
         !! ZMOM
 
+        ! Advection
+        MMSource = 4._mytype * ((SINHALFX**4 - SINHALFX**2) &
+             + (SINHALFY**4 - SINHALFY**2)) + 2._mytype
+        MMSource = (zlz / PI) * rhomms * MMSource * SINZ * COSZ
+        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
+         
         ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = 4._mytype * (SINHALFX**4) - 4._mytype * (SINHALFX**2) &
-             + 4._mytype * (SINHALFY**4) - 4._mytype * (SINHALFY**2) + 2._mytype
-        MMSource = MMSource * COSZ
-        MMSource = (1._mytype / xnu) * (xlx**2 * yly**2 * zlz**2) * rhomms * MMSource
-        MMSource = MMSource - 4._mytype * (PI**2) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) * COSX * COSY
-        MMSource = (SINZ / (PI * (1._mytype / xnu) * (xlx**2 * yly**2 * zlz))) &
-             * MMSource
+        MMSource = -(4._mytype * PI * XNU / (xlx**2 * yly**2 * zlz)) &
+             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
+             * COSX * COSY * SINZ
         mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
 
         ! The bulk component of viscous stress tensor
@@ -1115,6 +1184,11 @@ SUBROUTINE momentum_source_mmsT3b(mmsx1, mmsy1, mmsz1)
         MMSource = (16._mytype * PI**3 * COSZ / (3._mytype * (pr / xnu**2) &
              * xlx**2 * yly**2 * zlz**3 * rhomms**4)) * MMSource
         mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
+
+        ! Correction for quasi-skew symmetry
+        mmsx1(i,j,k) = mmsx1(i,j,k) + 0.5_mytype * umms * rhomms * divumms
+        mmsy1(i,j,k) = mmsy1(i,j,k) + 0.5_mytype * vmms * rhomms * divumms
+        mmsz1(i,j,k) = mmsz1(i,j,k) + 0.5_mytype * wmms * rhomms * divumms
 
       ENDDO ! End loop over i
     ENDDO ! End loop over j
