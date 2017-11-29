@@ -31,145 +31,144 @@
 !################################################################################
 
 PROGRAM incompact3d
+  
+  USE decomp_2d
+  USE decomp_2d_poisson
+  use decomp_2d_io
+  USE variables
+  USE param
+  USE var
+  USE MPI
+  USE IBM
+  USE derivX
+  USE derivZ
 
-USE decomp_2d
-USE decomp_2d_poisson
-use decomp_2d_io
-USE variables
-USE param
-USE var
-USE MPI
-USE IBM
-USE derivX
-USE derivZ
+  implicit none
 
-implicit none
+  integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
+  real(mytype) :: x,y,z,tmp1
+  double precision :: t1,t2
+  character(len=20) :: filename
 
-integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
-real(mytype) :: x,y,z,tmp1
-double precision :: t1,t2
-character(len=20) :: filename
+  TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
 
-TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
+  CALL MPI_INIT(code)
+  call decomp_2d_init(nx,ny,nz,p_row,p_col)
+  !start from 1 == true
+  call init_coarser_mesh_statS(nstat,nstat,nstat,.true.)
+  call init_coarser_mesh_statV(nvisu,nvisu,nvisu,.true.)
+  call parameter()
 
-CALL MPI_INIT(code)
-call decomp_2d_init(nx,ny,nz,p_row,p_col)
-!start from 1 == true
-call init_coarser_mesh_statS(nstat,nstat,nstat,.true.)
-call init_coarser_mesh_statV(nvisu,nvisu,nvisu,.true.)
-call parameter()
+  call init_variables
 
-call init_variables
-
-call schemes()
+  call schemes()
 
 !!! CM call test_min_max('di2  ','In main        ',di2,size(di2))
 
-if (nclx==0) then
-   bcx=0
-else
-   bcx=1
-endif
-if (ncly==0) then
-   bcy=0
-else
-   bcy=1
-endif
-if (nclz==0) then
-   bcz=0
-else
-   bcz=1
-endif
+  if (nclx==0) then
+    bcx=0
+  else
+    bcx=1
+  endif
+  if (ncly==0) then
+    bcy=0
+  else
+    bcy=1
+  endif
+  if (nclz==0) then
+    bcz=0
+  else
+    bcz=1
+  endif
 
-call decomp_2d_poisson_init(bcx,bcy,bcz)
+  call decomp_2d_poisson_init(bcx,bcy,bcz)
 
-call decomp_info_init(nxm,nym,nzm,phG)
+  call decomp_info_init(nxm,nym,nzm,phG)
 
 !!! CM call test_min_max('di2  ','In main 1      ',di2,size(di2))
 
-!if you want to collect 100 snapshots randomly on 50000 time steps
-!call collect_data() !it will generate 100 random time steps
+  !if you want to collect 100 snapshots randomly on 50000 time steps
+  !call collect_data() !it will generate 100 random time steps
 
-if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
-     gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
-if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
-     px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
+  if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
+       gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
+  if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
+       px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
-! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
-!          and Z pencils.
-!          X->Y->Z
-call calc_divu(ta1,rho1,temperature1,di1,&
-     ta2,tb2,tc2,rho2,temperature2,di2,&
-     divu3,ta3,rho3,temperature3,di3,&
-     pressure0)
+  ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
+  !          and Z pencils.
+  !          X->Y->Z
+  call calc_divu(ta1,rho1,temperature1,di1,&
+       ta2,tb2,tc2,rho2,temperature2,di2,&
+       divu3,ta3,rho3,temperature3,di3,&
+       pressure0)
 
-call test_speed_min_max(ux1,uy1,uz1)
-call test_density_min_max(rho1)
-! call test_density_min_max(rho1)
-! call test_temperature_min_max(temperature1)
-if (iscalar==1) call test_scalar_min_max(phi1)
+  call test_speed_min_max(ux1,uy1,uz1)
+  call test_density_min_max(rho1)
+  ! call test_density_min_max(rho1)
+  ! call test_temperature_min_max(temperature1)
+  if (iscalar==1) call test_scalar_min_max(phi1)
 
-!array for stat to zero
-umean=0._mytype;vmean=0._mytype;wmean=0._mytype
-uumean=0._mytype;vvmean=0._mytype;wwmean=0._mytype
-uvmean=0._mytype;uwmean=0._mytype;vwmean=0._mytype
-phimean=0._mytype;phiphimean=0._mytype
+  !array for stat to zero
+  umean=0._mytype;vmean=0._mytype;wmean=0._mytype
+  uumean=0._mytype;vvmean=0._mytype;wwmean=0._mytype
+  uvmean=0._mytype;uwmean=0._mytype;vwmean=0._mytype
+  phimean=0._mytype;phiphimean=0._mytype
 
 !!! CM call test_min_max('di2  ','In main 2      ',di2,size(di2))
 
-t1 = MPI_WTIME()
+  t1 = MPI_WTIME()
 
-!div: nx ny nz --> nxm ny nz --> nxm nym nz --> nxm nym nzm
-call decomp_info_init(nxm, nym, nzm, ph1)
-call decomp_info_init(nxm, ny, nz, ph4)
+  !div: nx ny nz --> nxm ny nz --> nxm nym nz --> nxm nym nzm
+  call decomp_info_init(nxm, nym, nzm, ph1)
+  call decomp_info_init(nxm, ny, nz, ph4)
 
-!gradp: nxm nym nzm -> nxm nym nz --> nxm ny nz --> nx ny nz
-call decomp_info_init(nxm, ny, nz, ph2)  
-call decomp_info_init(nxm, nym, nz, ph3) 
+  !gradp: nxm nym nzm -> nxm nym nz --> nxm ny nz --> nx ny nz
+  call decomp_info_init(nxm, ny, nz, ph2)  
+  call decomp_info_init(nxm, nym, nz, ph3) 
 
-itime=0
-call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-     ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-     ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+  itime=0
+  call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+       ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+       ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
-! call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-!      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-!      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+  ! call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+  !      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+  !      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
-do itime=ifirst,ilast
+  do itime=ifirst,ilast
 
-   t=(itime-1)*dt
-   if (nrank==0) then
-
+    t=(itime-1)*dt
+    if (nrank==0) then
       write(*,1001) itime,t
 1001  format('Time step =',i7,', Time unit =',F9.3)
-   endif
+    endif
 
 
 !!! CM call test_min_max('di2  ','In main 4      ',di2,size(di2))
-   do itr=1,iadvance_time
-
+    do itr=1,iadvance_time
+      
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain velocity: ux = u etc.
       !-----------------------------------------------------------------------------------
 
       if (nclx.eq.2) then
-         call inflow (ux1,uy1,uz1,phi1) !X PENCILS
-         call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
+        call inflow (ux1,uy1,uz1,phi1) !X PENCILS
+        call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
       endif
 
       !X-->Y-->Z-->Y-->X
       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
-           
+
       if (iscalar==1) then
-         call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-              uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
-              uz3,phi3,di3,ta3,tb3,&
-              ep1) 
+        call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
+             uz3,phi3,di3,ta3,tb3,&
+             ep1) 
       endif
 
       ! Update density
@@ -183,7 +182,7 @@ do itime=ifirst,ilast
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
       !-----------------------------------------------------------------------------------
-      
+
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
       !      This updates the temperature field using the density field.
       !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
@@ -253,45 +252,45 @@ do itime=ifirst,ilast
       call test_density_min_max(rho1)
       if (iscalar==1) call test_scalar_min_max(phi1)
 
-   enddo ! End sub-timesteps
+    enddo ! End sub-timesteps
 
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
 !!$        uvmean,uwmean,vwmean,phiphimean,tmean)
 
-   if (mod(itime,isave)==0) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
-        px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
-     
-   if (mod(itime,imodulo)==0) then
-     call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-          ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-          ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
-     call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
-          ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
-   endif
+    if (mod(itime,isave)==0) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
+         px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
 
-   ! if (mod(itime,10)==0) then
-   !   call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-   !        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-   !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
-   ! endif
+    if (mod(itime,imodulo)==0) then
+      call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+           ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+      call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
+           ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
+    endif
 
-   ! ! MMS: compare errors
-   ! CALL eval_error_rho(rho1)
-   ! CALL eval_error_vel(ux1,uy1,uz1)
+    ! if (mod(itime,10)==0) then
+    !   call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+    !        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+    !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+    ! endif
 
-enddo
+    ! ! MMS: compare errors
+    ! CALL eval_error_rho(rho1)
+    ! CALL eval_error_vel(ux1,uy1,uz1)
 
-t2=MPI_WTIME()-t1
-call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
-                   MPI_COMM_WORLD,code)
-if (nrank==0) print *,'time per time_step: ', &
-     t1/float(nproc)/(ilast-ifirst+1),' seconds'
-if (nrank==0) print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
-if (nrank==0) print *,'Mapping p_row*p_col=',p_row,p_col
+  enddo
+
+  t2=MPI_WTIME()-t1
+  call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
+       MPI_COMM_WORLD,code)
+  if (nrank==0) print *,'time per time_step: ', &
+       t1/float(nproc)/(ilast-ifirst+1),' seconds'
+  if (nrank==0) print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
+  if (nrank==0) print *,'Mapping p_row*p_col=',p_row,p_col
 
 
-!call decomp_2d_poisson_finalize
-call decomp_2d_finalize
-CALL MPI_FINALIZE(code)
+  !call decomp_2d_poisson_finalize
+  call decomp_2d_finalize
+  CALL MPI_FINALIZE(code)
 
 end PROGRAM incompact3d
