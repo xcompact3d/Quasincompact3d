@@ -90,8 +90,8 @@ PROGRAM incompact3d
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
 
-  if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
-       gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
+  if (ilit==0) call init(ux1,uy1,uz1,rho1,ep1,phi1,&
+       gx1,gy1,gz1,rhos1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0)  
   if (ilit==1) call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
        px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,0)
 
