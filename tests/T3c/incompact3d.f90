@@ -159,86 +159,86 @@ PROGRAM incompact3d
         call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
       endif
 
-      !X-->Y-->Z-->Y-->X
-      call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+     !X-->Y-->Z-->Y-->X
+     call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+          ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+          ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
-      if (iscalar==1) then
-        call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-             uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
-             uz3,phi3,di3,ta3,tb3,&
-             ep1) 
-      endif
+     if (iscalar==1) then
+       call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+            uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
+            uz3,phi3,di3,ta3,tb3,&
+            ep1) 
+     endif
 
-      ! Update density
-      !    X->Y->Z->Y->X
-      ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
-      !     transpose operations by operating on Z->Y->X.
-      ! XXX Replaces velocities with momentum.
-      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
-           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-           uz3,rho3,divu3,di3,ta3,tb3,ep1)
+     ! Update density
+     !    X->Y->Z->Y->X
+     ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+     !     transpose operations by operating on Z->Y->X.
+     ! XXX Replaces velocities with momentum.
+     call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
+          uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+          uz3,rho3,divu3,di3,ta3,tb3,ep1)
 
-      !-----------------------------------------------------------------------------------
-      ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
-      !-----------------------------------------------------------------------------------
+     !-----------------------------------------------------------------------------------
+     ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
+     !-----------------------------------------------------------------------------------
 
-      ! LMN: Calculate new divergence of velocity using new density/temperature field.
-      !      This updates the temperature field using the density field.
-      !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
-      !      upto date.
-      !
-      !    X->Y->Z
-      call calc_divu(tg1,rho1,temperature1,di1,&
-           ta2,tb2,tc2,rho2,temperature2,di2,&
-           divu3,ta3,rho3,temperature3,di3,&
-           pressure0)
+     ! LMN: Calculate new divergence of velocity using new density/temperature field.
+     !      This updates the temperature field using the density field.
+     !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
+     !      upto date.
+     !
+     !    X->Y->Z
+     call calc_divu(tg1,rho1,temperature1,di1,&
+          ta2,tb2,tc2,rho2,temperature2,di2,&
+          divu3,ta3,rho3,temperature3,di3,&
+          pressure0)
 
-      !X PENCILS
-      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
+     !  !X PENCILS
+     !  call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
 
-!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
+!!! C! M call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
+!!! C! M call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
+!!! C! M call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
-      call pre_correc(ux1,uy1,uz1)
+     !  call pre_correc(ux1,uy1,uz1)
 
-!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
+!!! C! M call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
+!!! C! M call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
+!!! C! M call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
-!!$      if (ivirt==1) then !solid body old school
-!!$         !we are in X-pencil
-!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
-!!$         call body(ux1,uy1,uz1,ep1)
-!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
-!!$      endif
+!!$  !     if (ivirt==1) then !solid body old school
+!!$  !        !we are in X-pencil
+!!$  !        call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
+!!$  !        call body(ux1,uy1,uz1,ep1)
+!!$  !        call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
+!!$  !     endif
 
-      !X-->Y-->Z
-      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
-           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
+     !  !X-->Y-->Z
+     !  call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+     !       td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+     !       nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
-      ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-      call extrapol_rhotrans(rho1,rhos1,rhoss1,drhodt1)
-      call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+     !  ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
+     !  call extrapol_rhotrans(rho1,rhos1,rhoss1,drhodt1)
+     !  call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
 
-!!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
+!!! C! M call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
+!!! C! M call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
+!!! C! M call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
 
-      !POISSON Z-->Z 
-      call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+     !  !POISSON Z-->Z 
+     !  call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
 
-!!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
+!!! C! M call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-      !Z-->Y-->X
-      call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-           ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+     !  !Z-->Y-->X
+     !  call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+     !       ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
 
-      !X PENCILS
-      call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
+     !  !X PENCILS
+     !  call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
 
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain velocity: ux = u etc.
@@ -252,6 +252,17 @@ PROGRAM incompact3d
       call test_speed_min_max(ux1,uy1,uz1)
       call test_density_min_max(rho1)
       if (iscalar==1) call test_scalar_min_max(phi1)
+
+      ! Advance subtimestep
+      if ((nscheme.eq.1).or.(nscheme.eq.2)) then
+        !! AB2 or RK3
+        if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
+          (nscheme.eq.2.and.itr.eq.1)) then
+          t = t + gdt(itr)
+        else
+          t = t + adt(itr)
+        endif
+      endif
 
     enddo ! End sub-timesteps
 
@@ -275,9 +286,9 @@ PROGRAM incompact3d
     !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
     ! endif
 
-    ! ! MMS: compare errors
-    ! CALL eval_error_rho(rho1)
-    ! CALL eval_error_vel(ux1,uy1,uz1)
+    ! MMS: compare errors
+    CALL eval_error_rho(rho1)
+    CALL eval_error_vel(ux1,uy1,uz1)
 
   enddo
 

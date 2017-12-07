@@ -339,6 +339,7 @@ real(mytype) :: u_disturb, v_disturb, disturb_decay
 
 REAL(mytype) :: rho, rhoa, rhob, scal
 REAL(mytype) :: wavnum, omega
+REAL(mytype) :: t_init
 
 bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
 byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -361,24 +362,28 @@ if (itype.eq.1) then
   rhob = 1._mytype
   wavnum = 2._mytype
   omega = 2._mytype
+
+  t_init = 0._mytype
   
   do k=1,xsize(3)
-    z = float(k + xstart(3) - 2) * dz
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     do j=1,xsize(2)
-      y = float(j + xstart(2) - 2) * dy
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       do i=1,xsize(1)
-        x = float(i + xstart(1) - 2) * dx
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
         scal = (1._mytype + rhoa / rhob) + (1._mytype - rhoa / rhob) &
-             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t)
+             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init)
         scal = (1._mytype + SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
-             * COS(PI * omega * t)) / scal
+             * COS(PI * omega * t_init)) / scal
         rho = 1._mytype / (scal / rhob + (1._mytype - scal) / rhoa)
+        rho = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
+		* SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
         
         ux1(i,j,k) = -((rhob - rhoa) / rho) * (omega / (4._mytype * wavnum)) &
-             * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t)
+             * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t_init)
         uy1(i,j,k) = -((rhob - rhoa) / rho) * (omega / (4._mytype * wavnum)) &
-             * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t)
+             * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t_init)
         uz1(i,j,k) = 0._mytype
       enddo
     enddo
@@ -556,6 +561,7 @@ integer (kind=MPI_OFFSET_KIND) :: disp
 
 REAL(mytype) :: scal, rhoa, rhob
 REAL(mytype) :: wavnum, omega
+REAL(mytype) :: t_init
 
 if (iin.eq.0) then !set initial fields to zero
   do k=1,xsize(3)
@@ -613,20 +619,23 @@ if (iin.eq.1) then !generation of a random noise
    rhob = 1._mytype
    wavnum = 2._mytype
    omega = 2._mytype
+   t_init = 0._mytype
    
    ! LMN: set density
    do k = 1, xsize(3)
-     z = float(k + xstart(3) - 2) * dz
+     z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
      do j = 1, xsize(2)
        y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
        do i = 1, xsize(1)
-         x = float(i + xstart(1) - 2) * dx
+         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
          scal = (1._mytype + rhoa / rhob) + (1._mytype - rhoa / rhob) &
-              * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t)
+              * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init)
          scal = (1._mytype + SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
-              * COS(PI * omega * t)) / scal
+              * COS(PI * omega * t_init)) / scal
          rho1(i, j, k) = 1._mytype / (scal / rhob + (1._mytype - scal) / rhoa)
+         rho1(i, j, k) = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
+		* SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
