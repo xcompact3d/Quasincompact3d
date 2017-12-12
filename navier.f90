@@ -191,11 +191,11 @@ real(mytype) :: invrho
 
 nxyz=xsize(1)*xsize(2)*xsize(3)
 
-do ijk=1,nxyz
-  invrho = 1 / rho(ijk,1,1)
-  ux(ijk,1,1)=(-px(ijk,1,1)+ux(ijk,1,1)) * invrho
-  uy(ijk,1,1)=(-py(ijk,1,1)+uy(ijk,1,1)) * invrho
-  uz(ijk,1,1)=(-pz(ijk,1,1)+uz(ijk,1,1)) * invrho
+do ijk=1, nxyz
+  invrho = 1 / rho(ijk, 1, 1)
+  ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
+  uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
+  uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
 enddo
 
 if (itype==2) then !channel flow
@@ -209,112 +209,155 @@ end subroutine corgp
 
 !*********************************************************
 !
-subroutine inflow (ux,uy,uz,phi)
-!  
 !*********************************************************
+subroutine inflow (ux, uy, uz, rho, phi)
+  
+  USE param
+  USE IBM
+  USE variables
+  USE decomp_2d
 
-USE param
-USE IBM
-USE variables
-USE decomp_2d
+  implicit none
 
-implicit none
+  integer :: k, j
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
+  real(mytype) :: r1, r2, r3, y, um
 
-integer  :: k,j
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,phi
-real(mytype) :: r1,r2,r3,y,um
+  call ecoule(ux, uy, uz)
 
-call ecoule(ux,uy,uz)
+  call random_number(bxo)
+  call random_number(byo)
+  call random_number(bzo)
 
-call random_number(bxo)
-call random_number(byo)
-call random_number(bzo)
-
-if (iin.eq.1) then  
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      bxx1(j,k)=bxx1(j,k)+bxo(j,k)*noise1
-      bxy1(j,k)=bxy1(j,k)+byo(j,k)*noise1
-      bxz1(j,k)=bxz1(j,k)+bzo(j,k)*noise1
-   enddo
-   enddo
-   if (iscalar==1) then
-      do k=1,xsize(3)
-      do j=1,xsize(2)
-         phi(1,j,k)=1._mytype
+  if (iin.eq.1) then  
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        bxx1(j, k) = bxx1(j, k)+bxo(j, k) * noise1
+        bxy1(j, k) = bxy1(j, k)+byo(j, k) * noise1
+        bxz1(j, k) = bxz1(j, k)+bzo(j, k) * noise1
       enddo
-      enddo
-   endif
-endif
+    enddo
 
-return
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        rho(1, j, k) = 1._mytype
+      enddo
+    enddo
+
+    if (iscalar==1) then
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          phi(1, j, k) = 1._mytype
+        enddo
+      enddo
+    endif
+  endif
+
+  return
 end subroutine inflow 
 
 !*********************************************************
 !
-subroutine outflow (ux,uy,uz,phi)
-!
 !*********************************************************
+subroutine outflow (ux, uy, uz, rho, phi)
+  
+  USE param
+  USE variables
+  USE decomp_2d
+  USE MPI
 
-USE param
-USE variables
-USE decomp_2d
-USE MPI
+  implicit none
 
-implicit none
+  integer :: j, k, i,  code
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
+  real(mytype) :: udx, udy, udz, uddx, uddy, uddz, uxmax, &
+       uxmin, vphase, cx, coef, uxmax1, uxmin1, volflux
+  real(mytype) :: Ay
 
-integer :: j,k,i, code
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,phi
-real(mytype) :: udx,udy,udz,uddx,uddy,uddz,uxmax,&
-     uxmin,vphase,cx,coef,uxmax1,uxmin1
+  !! Compute 'convective velocity' at outlet
+  udx = 1._mytype / dx
+  udy = 1._mytype / dy
+  udz = 1._mytype / dz
+  uddx = 0.5_mytype / dx
+  uddy = 0.5_mytype / dy
+  uddz = 0.5_mytype / dz
 
+  ! If inlet velocity specified in terms of u1 and u2
+  cx = 0.5_mytype * (u1 + u2) * gdt(itr) * udx
 
+  uxmax = -1609._mytype
+  uxmin = 1609._mytype
+  do k = 1, xsize(3)
+    do j = 1, xsize(2)
+      if (ux(nx - 1, j, k).gt.uxmax) uxmax = ux(nx - 1, j, k)
+      if (ux(nx - 1, j, k).lt.uxmin) uxmin = ux(nx - 1, j, k)
+    enddo
+  enddo
+  call MPI_ALLREDUCE(uxmax, uxmax1, 1, real_type, MPI_MAX, MPI_COMM_WORLD, code)
+  call MPI_ALLREDUCE(uxmin, uxmin1, 1, real_type, MPI_MIN, MPI_COMM_WORLD, code)
+  vphase = 0.5_mytype * (uxmax1 + uxmin1)
+  cx = vphase * gdt(itr) * udx
 
-udx=1._mytype/dx
-udy=1._mytype/dy
-udz=1._mytype/dz
-uddx=0.5_mytype/dx
-uddy=0.5_mytype/dy
-uddz=0.5_mytype/dz
-cx=0.5_mytype*(u1+u2)*gdt(itr)*udx
+  !! Compute inlet volume-flux
+  volflux = 0._mytype
+  do k = 1, xsize(3)
+    do j = 1, xsize(2) - 1
+      if (istret.eq.0) then
+        Ay = yly / (ny - 1)
+      else
+        Ay = (yp(j + 1) - yp(j))
+      endif
+      volflux = volflux + 0.5_mytype * (ux(1, j, k) + ux(1, j + 1, k)) * Ay
+    enddo
+  enddo
+  volflux = volflux / (yly * xsize(3))
+  call MPI_ALLREDUCE(MPI_IN_PLACE, volflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+  cx = volflux * gdt(itr) * udx
 
-
-uxmax=-1609._mytype
-uxmin=1609._mytype
-do k=1,xsize(3)
-do j=1,xsize(2)
-   if (ux(nx-1,j,k).gt.uxmax) uxmax=ux(nx-1,j,k)
-   if (ux(nx-1,j,k).lt.uxmin) uxmin=ux(nx-1,j,k)
-enddo
-enddo
-call MPI_ALLREDUCE(uxmax,uxmax1,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
-call MPI_ALLREDUCE(uxmin,uxmin1,1,real_type,MPI_MIN,MPI_COMM_WORLD,code)
-vphase=0.5_mytype*(uxmax1+uxmin1)
-cx=vphase*gdt(itr)*udx
-
-
-if (itype.ne.9) then
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      bxxn(j,k)=ux(nx,j,k)-cx*(ux(nx,j,k)-ux(nx-1,j,k))
-      bxyn(j,k)=uy(nx,j,k)-cx*(uy(nx,j,k)-uy(nx-1,j,k))
-      bxzn(j,k)=uz(nx,j,k)-cx*(uz(nx,j,k)-uz(nx-1,j,k))
-   enddo
-   enddo
-   if (iscalar==1) then
-      do k=1,xsize(3)
-      do j=1,xsize(2)
-         phi(nx,j,k)=phi(nx,j,k)-cx*(phi(nx,j,k)-phi(nx-1,j,k))
+  if (itype.ne.9) then
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        bxxn(j, k) = rho(nx, j, k) * ux(nx, j, k) &
+             - cx * (rho(nx, j, k) * ux(nx, j, k) - rho(nx - 1, j, k) * ux(nx - 1, j, k))
+        bxyn(j, k) = rho(nx, j, k) * uy(nx, j, k) &
+             - cx * (rho(nx, j, k) * uy(nx, j, k) - rho(nx - 1, j, k) * uy(nx - 1, j, k))
+        bxzn(j, k) = rho(nx, j, k) * uz(nx, j, k) &
+             - cx * (rho(nx, j, k) * uz(nx, j, k) - rho(nx - 1, j, k) * uz(nx - 1, j, k))
       enddo
+    enddo
+    
+    if (iscalar.eq.1) then
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          phi(nx, j, k) = rho(nx, j, k) * phi(nx, j, k) &
+               - cx * (rho(nx, j, k) * phi(nx, j, k) - rho(nx - 1, j, k) * phi(nx - 1, j, k))
+        enddo
       enddo
-   endif
-else
-print *,'NOT READY'
-stop
-endif
+    endif
 
+    ! Update density and other variables
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        rho(nx, j, k) = rho(nx, j, k) - cx * (rho(nx, j, k) - rho(nx - 1, j, k))
 
-return
+        bxxn(j, k) = bxxn(j, k) / rho(nx, j, k)
+        bxyn(j, k) = bxyn(j, k) / rho(nx, j, k)
+        bxzn(j, k) = bxzn(j, k) / rho(nx, j, k)
+      enddo
+    enddo
+    if (iscalar.eq.1) then
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          phi(nx, j, k) = phi(nx, j, k) / rho(nx, j, k)
+        enddo
+      enddo
+    endif
+  else
+    print *, 'NOT READY'
+    stop
+  endif
+
+  return
 end subroutine outflow 
 
 !**********************************************************************
@@ -1123,179 +1166,179 @@ end subroutine body
 
 !****************************************************************************
 !
-subroutine pre_correc(ux,uy,uz)
-!
 !****************************************************************************
-
-USE decomp_2d
-USE variables
-USE param
-USE var
-USE MPI
-
-
-implicit none
-
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
-integer :: i,j,k,code
-real(mytype) :: ut,ut1,utt,ut11
-integer, dimension(2) :: dims, dummy_coords
-logical, dimension(2) :: dummy_periods
-
-if (itime==1) then
-   dpdyx1=0._mytype
-   dpdzx1=0._mytype
-   dpdyxn=0._mytype
-   dpdzxn=0._mytype
-endif
+subroutine pre_correc(ux,uy,uz,rho)
+  
+  USE decomp_2d
+  USE variables
+  USE param
+  USE var
+  USE MPI
 
 
-!we are in X pencils:
-do k=1,xsize(3)
-do j=1,xsize(2)
-   dpdyx1(j,k)=dpdyx1(j,k)*gdt(itr)
-   dpdzx1(j,k)=dpdzx1(j,k)*gdt(itr)
-   dpdyxn(j,k)=dpdyxn(j,k)*gdt(itr)
-   dpdzxn(j,k)=dpdzxn(j,k)*gdt(itr)
-enddo
-enddo
+  implicit none
 
-if (xstart(3)==1) then
-   do j=1,xsize(2)
-   do i=1,xsize(1)
-      dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
-      dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
-   enddo
-   enddo
-endif
-if (xend(3)==nz) then
-   do j=1,xsize(2)
-   do i=1,xsize(1)
-      dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
-      dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
-   enddo
-   enddo
-endif
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho
+  integer :: i,j,k,code
+  real(mytype) :: ut,ut1,utt,ut11
+  integer, dimension(2) :: dims, dummy_coords
+  logical, dimension(2) :: dummy_periods
 
-if (xstart(2)==1) then
-   do k=1,xsize(3)
-   do i=1,xsize(1)
-      dpdxy1(i,k)=dpdxy1(i,k)*gdt(itr)
-      dpdzy1(i,k)=dpdzy1(i,k)*gdt(itr)
-   enddo
-   enddo
-endif
-if (xend(2)==ny) then
-   do k=1,xsize(3)
-   do i=1,xsize(1)
-      dpdxyn(i,k)=dpdxyn(i,k)*gdt(itr)
-      dpdzyn(i,k)=dpdzyn(i,k)*gdt(itr)
-   enddo
-   enddo
-endif
+  if (itime==1) then
+    dpdyx1=0._mytype
+    dpdzx1=0._mytype
+    dpdyxn=0._mytype
+    dpdzxn=0._mytype
+  endif
 
-!Computatation of the flow rate Inflow/Outflow
-!we are in X pencils:
-if (nclx==2) then
-   ut1=0._mytype
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      ut1=ut1+bxx1(j,k)
-   enddo
-   enddo
-   ut1=ut1/xsize(2)/xsize(3)
-   call MPI_ALLREDUCE(ut1,ut11,1,real_type,MPI_SUM,MPI_COMM_WORLD,code)
-   ut11=ut11/nproc
-   ut=0._mytype
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      ut=ut+bxxn(j,k)
-   enddo
-   enddo
-   ut=ut/xsize(2)/xsize(3)
-   call MPI_ALLREDUCE(ut,utt,1,real_type,MPI_SUM,MPI_COMM_WORLD,code)
-   utt=utt/nproc
+  !we are in X pencils:
+  do k=1,xsize(3)
+    do j=1,xsize(2)
+      dpdyx1(j,k)=dpdyx1(j,k)*gdt(itr)
+      dpdzx1(j,k)=dpdzx1(j,k)*gdt(itr)
+      dpdyxn(j,k)=dpdyxn(j,k)*gdt(itr)
+      dpdzxn(j,k)=dpdzxn(j,k)*gdt(itr)
+    enddo
+  enddo
 
-   if (nrank==0) print *,'FLOW RATE I/O',ut11,utt
-
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      bxxn(j,k)=bxxn(j,k)-utt+ut11
-   enddo
-   enddo
-endif
-
-!********NCLX==2*************************************
-!****************************************************
-if (nclx.eq.2) then
-   do k=1,xsize(3)
-   do j=1,xsize(2)
-      ux(1 ,j,k)=bxx1(j,k)
-      uy(1 ,j,k)=bxy1(j,k)+dpdyx1(j,k)
-      uz(1 ,j,k)=bxz1(j,k)+dpdzx1(j,k)
-      ux(nx,j,k)=bxxn(j,k)
-      uy(nx,j,k)=bxyn(j,k)+dpdyxn(j,k)
-      uz(nx,j,k)=bxzn(j,k)+dpdzxn(j,k)
-   enddo
-   enddo
-endif
-!****************************************************
-!********NCLY==2*************************************
-!****************************************************
-!WE ARE IN X PENCIL!!!!!!
-if (ncly==2) then
-   if (itype.eq.2) then
-
-   ! determine the processor grid in use
-   call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
-         dims, dummy_periods, dummy_coords, code)
-
-   if (dims(1)==1) then
-      do k=1,xsize(3)
+  if (xstart(3)==1) then
+    do j=1,xsize(2)
       do i=1,xsize(1)
-         ux(i,1,k)=0._mytype+dpdxy1(i,k)
-         uy(i,1,k)=0._mytype
-         uz(i,1,k)=0._mytype+dpdzy1(i,k)
+        dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
+        dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
       enddo
-      enddo
-      do k=1,xsize(3)
+    enddo
+  endif
+  if (xend(3)==nz) then
+    do j=1,xsize(2)
       do i=1,xsize(1)
-         ux(i,xsize(2),k)=0._mytype+dpdxyn(i,k)
-         uy(i,xsize(2),k)=0._mytype
-         uz(i,xsize(2),k)=0._mytype+dpdzyn(i,k)
+        dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
+        dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
       enddo
+    enddo
+  endif
+
+  if (xstart(2)==1) then
+    do k=1,xsize(3)
+      do i=1,xsize(1)
+        dpdxy1(i,k)=dpdxy1(i,k)*gdt(itr)
+        dpdzy1(i,k)=dpdzy1(i,k)*gdt(itr)
       enddo
-   else
-!find j=1 and j=ny
-      if (xstart(2)==1) then
-         do k=1,xsize(3)
-         do i=1,xsize(1)
+    enddo
+  endif
+  if (xend(2)==ny) then
+    do k=1,xsize(3)
+      do i=1,xsize(1)
+        dpdxyn(i,k)=dpdxyn(i,k)*gdt(itr)
+        dpdzyn(i,k)=dpdzyn(i,k)*gdt(itr)
+      enddo
+    enddo
+  endif
+
+  ! Computatation of the flow rate Inflow/Outflow
+  ! XXX ux, etc contain momentum, bxx contain velocity
+  ! we are in X pencils:
+  if (nclx==2) then
+    ut1 = 0._mytype
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        ut1 = ut1 + bxx1(j, k)
+      enddo
+    enddo
+    ut1 = ut1 / (xsize(2) * xsize(3))
+    call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+    ut11 = ut11 / nproc
+    ut  =  0._mytype
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        ut = ut + bxxn(j, k)
+      enddo
+    enddo
+    ut = ut / (xsize(2) * xsize(3))
+    call MPI_ALLREDUCE(ut, utt, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+    utt = utt / nproc
+
+    if (nrank==0) print *, 'FLOW RATE I/O [m^3 / s]', ut11, utt
+
+    do k=1, xsize(3)
+      do j=1, xsize(2)
+        bxxn(j, k) = bxxn(j, k) - (utt + ut11)
+      enddo
+    enddo
+  endif
+
+  !********NCLX==2*************************************
+  !****************************************************
+  if (nclx.eq.2) then
+    do k=1, xsize(3)
+      do j=1, xsize(2)
+        ux(1 , j, k)=rho(1 , j, k)*bxx1(j, k)
+        uy(1 , j, k)=rho(1 , j, k)*bxy1(j, k)+dpdyx1(j, k)
+        uz(1 , j, k)=rho(1 , j, k)*bxz1(j, k)+dpdzx1(j, k)
+        ux(nx, j, k)=rho(nx, j, k)*bxxn(j, k)
+        uy(nx, j, k)=rho(nx, j, k)*bxyn(j, k)+dpdyxn(j, k)
+        uz(nx, j, k)=rho(nx, j, k)*bxzn(j, k)+dpdzxn(j, k)
+      enddo
+    enddo
+  endif
+  !****************************************************
+  !********NCLY==2*************************************
+  !****************************************************
+  !WE ARE IN X PENCIL!!!!!!
+  if (ncly==2) then
+    if (itype.eq.2) then
+
+      ! determine the processor grid in use
+      call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
+           dims, dummy_periods, dummy_coords, code)
+
+      if (dims(1)==1) then
+        do k=1,xsize(3)
+          do i=1,xsize(1)
             ux(i,1,k)=0._mytype+dpdxy1(i,k)
             uy(i,1,k)=0._mytype
             uz(i,1,k)=0._mytype+dpdzy1(i,k)
-         enddo
-         enddo
-      endif
-!      print *,nrank,xstart(2),ny-(nym/p_row)
-       if (ny-(nym/dims(1))==xstart(2)) then
-         do k=1,xsize(3)
-         do i=1,xsize(1)
+          enddo
+        enddo
+        do k=1,xsize(3)
+          do i=1,xsize(1)
             ux(i,xsize(2),k)=0._mytype+dpdxyn(i,k)
             uy(i,xsize(2),k)=0._mytype
             uz(i,xsize(2),k)=0._mytype+dpdzyn(i,k)
-         enddo
-         enddo
+          enddo
+        enddo
+      else
+        !find j=1 and j=ny
+        if (xstart(2)==1) then
+          do k=1,xsize(3)
+            do i=1,xsize(1)
+              ux(i,1,k)=0._mytype+dpdxy1(i,k)
+              uy(i,1,k)=0._mytype
+              uz(i,1,k)=0._mytype+dpdzy1(i,k)
+            enddo
+          enddo
+        endif
+        !      print *,nrank,xstart(2),ny-(nym/p_row)
+        if (ny-(nym/dims(1))==xstart(2)) then
+          do k=1,xsize(3)
+            do i=1,xsize(1)
+              ux(i,xsize(2),k)=0._mytype+dpdxyn(i,k)
+              uy(i,xsize(2),k)=0._mytype
+              uz(i,xsize(2),k)=0._mytype+dpdzyn(i,k)
+            enddo
+          enddo
+        endif
+
       endif
- 
-   endif
-   endif
-endif
-!****************************************************
-!********NCLZ==2*************************************
-!****************************************************
-!****************************************************
+    endif
+  endif
+  !****************************************************
+  !********NCLZ==2*************************************
+  !****************************************************
+  !****************************************************
 
-!##################################################### 
+  !##################################################### 
 
-return
+  return
 end subroutine pre_correc

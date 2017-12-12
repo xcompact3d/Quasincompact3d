@@ -163,8 +163,8 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       if (nclx.eq.2) then
-        call inflow (ux1,uy1,uz1,phi1) !X PENCILS
-        call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
+        call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
+        call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
 
       !X-->Y-->Z-->Y-->X
@@ -222,7 +222,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
-      call pre_correc(ux1,uy1,uz1)
+      call pre_correc(ux1,uy1,uz1,rho1)
 
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
