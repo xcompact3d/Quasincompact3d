@@ -450,8 +450,9 @@ end subroutine convdiff
 
 !************************************************************
 !
-subroutine scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
-     uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,epsi)
+subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
+     uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
+     uz3,rho3,phi3,di3,ta3,tb3,epsi)
 !
 !************************************************************
 
@@ -461,10 +462,10 @@ USE decomp_2d
 
 implicit none
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,phi1,phis1,&
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,phis1,&
                                               phiss1,di1,ta1,tb1,tc1,td1,epsi
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,phi2,di2,ta2,tb2,tc2,td2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,phi3,di3,ta3,tb3
+real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2
+real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,di3,ta3,tb3
 
 integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nxyz
 real(mytype) :: x,y,z
@@ -475,7 +476,7 @@ nvect3=zsize(1)*zsize(2)*zsize(3)
 
 !X PENCILS
 do ijk=1,nvect1
-   ta1(ijk,1,1)=ux1(ijk,1,1)*phi1(ijk,1,1)
+   ta1(ijk,1,1)=rho1(ijk,1,1)*phi1(ijk,1,1)*ux1(ijk,1,1)
 enddo
 call derx (tb1,ta1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
 call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
@@ -483,10 +484,11 @@ call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
 call transpose_x_to_y(phi1,phi2)
 call transpose_x_to_y(uy1,uy2)
 call transpose_x_to_y(uz1,uz2)
+call transpose_x_to_y(rho1,rho2)
 
 !Y PENCILS
 do ijk=1,nvect2
-   ta2(ijk,1,1)=uy2(ijk,1,1)*phi2(ijk,1,1)
+   ta2(ijk,1,1)=rho2(ijk,1,1)*phi2(ijk,1,1)*uy2(ijk,1,1)
 enddo
 call dery (tb2,ta2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
 if (istret.ne.0) then 
@@ -505,10 +507,11 @@ endif
 
 call transpose_y_to_z(phi2,phi3)
 call transpose_y_to_z(uz2,uz3)
+call transpose_y_to_z(rho2,rho3)
 
 !Z PENCILS
 do ijk=1,nvect3
-   ta3(ijk,1,1)=uz3(ijk,1,1)*phi3(ijk,1,1)
+   ta3(ijk,1,1)=rho3(ijk,1,1)*phi3(ijk,1,1)*uz3(ijk,1,1)
 enddo
 call derz (tb3,ta3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
 call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
@@ -532,7 +535,8 @@ do ijk=1,nvect1
 enddo
  
 do ijk=1,nvect1
-   ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1) 
+  ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1)
+  phi1(ijk,1,1) = rho1(ijk,1,1)*phi1(ijk,1,1)
 enddo
 
 !TIME ADVANCEMENT

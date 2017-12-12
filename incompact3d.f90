@@ -46,6 +46,7 @@ PROGRAM incompact3d
   implicit none
 
   integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
+  integer :: ijk, nvect1
   real(mytype) :: x,y,z,tmp1
   double precision :: t1,t2
   character(len=20) :: filename
@@ -143,6 +144,8 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
+  nvect1 = xsize(1) * xsize(2) * xsize(3)
+
   do itime=ifirst,ilast
 
     t=(itime-1)*dt
@@ -169,11 +172,14 @@ PROGRAM incompact3d
            ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
-        call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-             uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
-             uz3,phi3,di3,ta3,tb3,&
-             ep1) 
       if (iscalar.eq.1) then
+        !---------------------------------------------------------------------------------
+        ! XXX After this phi1 contains rho*phi
+        !---------------------------------------------------------------------------------
+        call scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
+             uz3,rho3,phi3,di3,ta3,tb3,&
+             ep1)
       endif
 
       ! Update density
@@ -184,6 +190,15 @@ PROGRAM incompact3d
       call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
+
+      if (iscalar.eq.1) then
+        !---------------------------------------------------------------------------------
+        ! XXX Convert phi1 back into scalar.
+        !---------------------------------------------------------------------------------
+        do ijk = 1, nvect1
+          phi1(ijk, 1, 1) = phi1(ijk, 1, 1) / rho1(ijk, 1 ,1)
+        enddo
+      endif
 
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
