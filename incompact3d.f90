@@ -65,17 +65,17 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main        ',di2,size(di2))
 
-  if (nclx==0) then
+  if (nclx.eq.0) then
     bcx=0
   else
     bcx=1
   endif
-  if (ncly==0) then
+  if (ncly.eq.0) then
     bcy=0
   else
     bcy=1
   endif
-  if (nclz==0) then
+  if (nclz.eq.0) then
     bcz=0
   else
     bcz=1
@@ -90,10 +90,13 @@ PROGRAM incompact3d
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
 
-  if (ilit==0) call init(ux1,uy1,uz1,rho1,ep1,phi1,&
-       gx1,gy1,gz1,rhos1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0)  
-  if (ilit==1) call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
-       px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,0)
+  if (ilit.eq.0) then
+    call init(ux1,uy1,uz1,rho1,ep1,phi1,gx1,gy1,gz1,rhos1,phis1,&
+         hx1,hy1,hz1,rhoss1,phiss1,pressure0)
+  else
+    call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
+         px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,0)
+  endif
 
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
@@ -107,7 +110,9 @@ PROGRAM incompact3d
   call test_density_min_max(rho1)
   ! call test_density_min_max(rho1)
   ! call test_temperature_min_max(temperature1)
-  if (iscalar==1) call test_scalar_min_max(phi1)
+  if (iscalar.eq.1) then
+    call test_scalar_min_max(phi1)
+  endif
 
   !array for stat to zero
   umean=0._mytype;vmean=0._mytype;wmean=0._mytype
@@ -141,7 +146,7 @@ PROGRAM incompact3d
   do itime=ifirst,ilast
 
     t=(itime-1)*dt
-    if (nrank==0) then
+    if (nrank.eq.0) then
       write(*,1001) itime,t
 1001  format('Time step =',i7,', Time unit =',F9.3)
     endif
@@ -164,11 +169,11 @@ PROGRAM incompact3d
            ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
-      if (iscalar==1) then
         call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
              uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
              uz3,phi3,di3,ta3,tb3,&
              ep1) 
+      if (iscalar.eq.1) then
       endif
 
       ! Update density
@@ -208,7 +213,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
-!!$      if (ivirt==1) then !solid body old school
+!!$      if (ivirt.eq.1) then !solid body old school
 !!$         !we are in X-pencil
 !!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
 !!$         call body(ux1,uy1,uz1,ep1)
@@ -251,17 +256,21 @@ PROGRAM incompact3d
 
       call test_speed_min_max(ux1,uy1,uz1)
       call test_density_min_max(rho1)
-      if (iscalar==1) call test_scalar_min_max(phi1)
+      if (iscalar.eq.1) then
+        call test_scalar_min_max(phi1)
+      endif
 
     enddo ! End sub-timesteps
 
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
 !!$        uvmean,uwmean,vwmean,phiphimean,tmean)
 
-    if (mod(itime,isave)==0) call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
-         px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,1)
+    if (mod(itime,isave).eq.0) then
+      call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
+           px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,1)
+    endif
 
-    if (mod(itime,imodulo)==0) then
+    if (mod(itime,imodulo).eq.0) then
       call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
@@ -269,7 +278,7 @@ PROGRAM incompact3d
            ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
     endif
 
-    ! if (mod(itime,10)==0) then
+    ! if (mod(itime,10).eq.0) then
     !   call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     !        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
     !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
@@ -284,14 +293,15 @@ PROGRAM incompact3d
   t2=MPI_WTIME()-t1
   call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
        MPI_COMM_WORLD,code)
-  if (nrank==0) print *,'time per time_step: ', &
-       t1/float(nproc)/(ilast-ifirst+1),' seconds'
-  if (nrank==0) print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
-  if (nrank==0) print *,'Mapping p_row*p_col=',p_row,p_col
-
+  if (nrank.eq.0) then
+    print *,'time per time_step: ', &
+         t1/float(nproc)/(ilast-ifirst+1),' seconds'
+    print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
+    print *,'Mapping p_row*p_col=',p_row,p_col
+  endif
 
   !call decomp_2d_poisson_finalize
   call decomp_2d_finalize
-  CALL MPI_FINALIZE(code)
+  call MPI_FINALIZE(code)
 
 end PROGRAM incompact3d
