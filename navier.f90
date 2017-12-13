@@ -952,6 +952,14 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   INTEGER :: subitr
 
+  IF (nrhoscheme.EQ.0) THEN
+    IF (nrank.EQ.0) THEN
+      PRINT *, "nrhoscheme=0 corresponds to variable-coefficient Poisson equation"
+      PRINT *, "Shoul not be extrapolating drhodt!!!"
+      STOP
+    ENDIF
+  ENDIF
+
   IF (nscheme.EQ.1) THEN
     !! AB2
     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
@@ -963,38 +971,42 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
     drhodt1 = drhodt1 / dt
   ELSE IF (nscheme.EQ.2) THEN
     !! RK3
-    
-    ! !! Straightforward approximation:
-    ! !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
-    ! !                                       = rhos1
-    ! drhodt1 = rhos1
 
-    ! !! Alternative approximation:
-    ! !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
-    ! drhodt1 = drhodt1 + rho1
-    ! drhodt1 = drhodt1 / gdt(itr)
-
-    !! Golanski
-    IF (itime.GT.1) THEN
-      drhodt1 = rhoss1
-      DO subitr = 1, itr
-        !! TODO Check should it be gdt(itr) or gdt(subitr)?
-        !
-        !  Golanski2005 write:
-        !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
-        !  which is what is implemented. However could it be a
-        !  typo, i.e. should it be gamma_k -> gamma_l giving
-        !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
-        !  in which case it should be gdt(subitr)
-        drhodt1 = drhodt1 + gdt(itr) * (rhoss1 - rhos01) / dt
-      ENDDO
-    ELSE
+    IF (nrhoscheme.EQ.1) THEN
+      !! Straightforward approximation:
+      !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
+      !                                       = rhos1
+      drhodt1 = rhos1
+    ELSE IF (nrhoscheme.EQ.2) THEN
+      !! Alternative approximation:
+      !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
       drhodt1 = drhodt1 + rho1
       drhodt1 = drhodt1 / gdt(itr)
+    ELSE
+      !! Golanski
+      IF (itime.GT.1) THEN
+        drhodt1 = rhoss1
+        DO subitr = 1, itr
+          !! TODO Check should it be gdt(itr) or gdt(subitr)?
+          !
+          !  Golanski2005 write:
+          !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
+          !  which is what is implemented. However could it be a
+          !  typo, i.e. should it be gamma_k -> gamma_l giving
+          !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
+          !  in which case it should be gdt(subitr)
+          drhodt1 = drhodt1 + gdt(itr) * (rhoss1 - rhos01) / dt
+        ENDDO
+      ELSE
+        drhodt1 = drhodt1 + rho1
+        drhodt1 = drhodt1 / gdt(itr)
+      ENDIF
     ENDIF
   ELSE
-    PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
-    STOP
+    IF (nrank.EQ.0) THEN
+      PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
+      STOP
+    ENDIF
   ENDIF
   
 ENDSUBROUTINE extrapol_rhotrans
