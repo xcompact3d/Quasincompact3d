@@ -32,7 +32,7 @@
 
 !********************************************************************
 !
-subroutine  intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1)
+subroutine  intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
 ! 
 !********************************************************************
 
@@ -44,11 +44,19 @@ implicit none
 
 integer :: ijk,nxyz
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx,gy,gz
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx,hy,hz
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1
 
 nxyz=xsize(1)*xsize(2)*xsize(3)
+
+!! First, convert velocity to momentum
+do ijk = 1, nxyz
+  ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
+  uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
+  uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
+enddo
 
 if ((nscheme.eq.1).or.(nscheme.eq.2)) then
 if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
@@ -168,6 +176,79 @@ endif
 
 return
 end subroutine intt
+
+!********************************************************************
+!********************************************************************
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
+
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+    !! AB2 or RK3
+
+    ! First store -rho1 in drhodt1 incase we use simple extrapolation
+    drhodt1 = -rho1
+
+    IF (nscheme.EQ.1) THEN
+      !! AB2
+      rhos01 = rhoss1
+      rhoss1 = rho1
+    ENDIF
+    
+    IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
+         (nscheme.EQ.2.AND.itr.EQ.1)) THEN
+      rho1 = rho1 + gdt(itr) * tg1
+
+      IF (nscheme.EQ.2) THEN
+        !! RK3
+        rhos01 = rhoss1
+        rhoss1 = tg1
+      ENDIF
+    ELSE
+      rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1
+    ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+    !! RK4
+    !! XXX Not implemented!
+    IF (nrank.EQ.0) THEN
+      PRINT  *, 'LMN: RK4 not ready'
+    ENDIF
+    STOP
+  ELSE
+    !! AB3
+    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+      IF (nrank.EQ.0) THEN
+        PRINT  *, 'start with Euler', itime
+      ENDIF
+      rho1 = rho1 + dt * tg1
+    ELSE
+      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+          PRINT *, 'then with AB2', itime
+        ENDIF
+        rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * tg1)
+      ELSE
+        rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1 + cdt(itr) &
+             * rhoss1
+      ENDIF
+
+      !! Update oldold stage
+      rhoss1 = rhos1
+    ENDIF
+  ENDIF
+
+  !! Update old stage
+  rhos1 = tg1
+
+ENDSUBROUTINE inttdensity
 
 !********************************************************************
 !
@@ -310,6 +391,12 @@ subroutine outflow (ux, uy, uz, rho, phi)
   cx = volflux * gdt(itr) * udx
 
   if (itype.ne.9) then
+    !! XXX Update density last as we are imposing
+    !
+    !        ddt (rho phi) + C ddn (rho phi) = 0
+    !      phi = 1, u, etc. so that
+    !
+    !        phi^{k+1} = (rho^k -dt C ddn (rho phi)^k) / rho^{k+1}
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         bxxn(j, k) = rho(nx, j, k) * ux(nx, j, k) &

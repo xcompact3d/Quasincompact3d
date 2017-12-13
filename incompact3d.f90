@@ -189,10 +189,29 @@ PROGRAM incompact3d
       ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
       !     transpose operations by operating on Z->Y->X.
       ! XXX Replaces velocities with momentum.
+      ! XXX tg1 contains the density forcing term.
       call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,rhos01,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
 
+      !X PENCILS
+      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,rho1)
+
+      !-----------------------------------------------------------------------------------
+      ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
+      !-----------------------------------------------------------------------------------
+
+!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
+
+      call pre_correc(ux1,uy1,uz1,rho1)
+
+!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
+
+      call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
       if (iscalar.eq.1) then
         !---------------------------------------------------------------------------------
         ! XXX Convert phi1 back into scalar.
@@ -201,10 +220,6 @@ PROGRAM incompact3d
           phi1(ijk, 1, 1) = phi1(ijk, 1, 1) / rho1(ijk, 1 ,1)
         enddo
       endif
-
-      !-----------------------------------------------------------------------------------
-      ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
-      !-----------------------------------------------------------------------------------
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
       !      This updates the temperature field using the density field.
@@ -216,19 +231,6 @@ PROGRAM incompact3d
            ta2,tb2,tc2,rho2,temperature2,di2,&
            divu3,ta3,rho3,temperature3,di3,&
            pressure0)
-
-      !X PENCILS
-      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
-
-!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
-
-      call pre_correc(ux1,uy1,uz1,rho1)
-
-!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
 !!$      if (ivirt.eq.1) then !solid body old school
 !!$         !we are in X-pencil
