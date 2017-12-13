@@ -235,11 +235,6 @@ subroutine inflow (ux, uy, uz, rho, phi)
         bxx1(j, k) = bxx1(j, k)+bxo(j, k) * noise1
         bxy1(j, k) = bxy1(j, k)+byo(j, k) * noise1
         bxz1(j, k) = bxz1(j, k)+bzo(j, k) * noise1
-      enddo
-    enddo
-
-    do k = 1, xsize(3)
-      do j = 1, xsize(2)
         rho(1, j, k) = 1._mytype
       enddo
     enddo
