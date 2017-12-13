@@ -190,7 +190,7 @@ PROGRAM incompact3d
       !     transpose operations by operating on Z->Y->X.
       ! XXX Replaces velocities with momentum.
       ! XXX tg1 contains the density forcing term.
-      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,rhos01,di1,tg1,th1,ti1,td1,&
+      call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
 

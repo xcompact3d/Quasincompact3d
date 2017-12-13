@@ -613,7 +613,7 @@ end subroutine scalar
 !!              and transpose temperature array when we do this with
 !!              density anyway.
 !!--------------------------------------------------------------------
-SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, rhos01, di1, ta1, tb1, tc1, td1, drhodt1,&
+SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
      uz3, rho3, divu3, di3, ta3, tb3, &
      epsi)
@@ -625,7 +625,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, rhos01, di1, ta1, tb1, tc
   IMPLICIT NONE
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
   
