@@ -51,6 +51,9 @@ PROGRAM incompact3d
   double precision :: t1,t2
   character(len=20) :: filename
 
+  integer :: converged
+  integer :: poissiter
+
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
 
   CALL MPI_INIT(code)
@@ -244,18 +247,46 @@ PROGRAM incompact3d
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
-      ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-      call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
-      call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
-
+      
+      !-----------------------------------------------------------------------------------
+      ! Solution of the Poisson equation
+      converged = 0
+      poissiter = 0
+      do while(converged.eq.0)
+        if (nrhoscheme.eq.0) then
+          if (nrank.eq.0) then
+            print *, "Var-coeff Poisson not yet implemented!"
+            STOP
+          endif
+        else
+          ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
+          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+          call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+        endif
+        
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
-
-      !POISSON Z-->Z 
-      call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
-
+        
+        !POISSON Z-->Z 
+        call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+        
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
+
+        if (nrhoscheme.ne.0) then
+          converged = 1
+        else
+          !! Var-coeff Poisson, probably want to test convergence here
+          CONTINUE
+        endif
+
+        poissiter = poissiter + 1
+      enddo
+
+      if (nrank.eq.0) then
+        print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+      endif
+      !-----------------------------------------------------------------------------------
 
       !Z-->Y-->X
       call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
