@@ -613,7 +613,7 @@ end subroutine scalar
 !!              and transpose temperature array when we do this with
 !!              density anyway.
 !!--------------------------------------------------------------------
-SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
+SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, rhos01, di1, ta1, tb1, tc1, td1, drhodt1,&
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
      uz3, rho3, divu3, di3, ta3, tb3, &
      epsi)
@@ -625,7 +625,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   IMPLICIT NONE
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
   
@@ -708,9 +708,25 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
+
+    ! First store -rho1 in drhodt1 incase we use simple extrapolation
+    drhodt1 = -rho1
+
+    IF (nscheme.EQ.1) THEN
+      !! AB2
+      rhos01 = rhoss1
+      rhoss1 = rho1
+    ENDIF
+    
     IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
       rho1 = rho1 + gdt(itr) * ta1
+
+      IF (nscheme.EQ.2) THEN
+        !! RK3
+        rhos01 = rhoss1
+        rhoss1 = ta1
+      ENDIF
     ELSE
       rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1
     ENDIF

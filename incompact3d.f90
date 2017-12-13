@@ -189,7 +189,7 @@ PROGRAM incompact3d
       ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
       !     transpose operations by operating on Z->Y->X.
       ! XXX Replaces velocities with momentum.
-      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
+      call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,rhos01,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
            uz3,rho3,divu3,di3,ta3,tb3,ep1)
 
@@ -243,7 +243,7 @@ PROGRAM incompact3d
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
       ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-      call extrapol_rhotrans(rho1,rhos1,rhoss1,drhodt1)
+      call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
       call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
 
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))

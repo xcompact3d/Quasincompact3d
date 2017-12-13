@@ -859,19 +859,61 @@ end subroutine divergence
 !              equation at time k+1.
 !        NOTE: All input and output in X-pencils.
 !********************************************************************
-SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, drhodt1)
+SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
 
+  USE param
   USE decomp_2d
   USE variables
   
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
+  INTEGER :: subitr
 
-  !! Straightforward approximation:
-  !!   ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
-  !!                                      = rhos1
-  drhodt1 = rhos1
+  IF (nscheme.EQ.1) THEN
+    !! AB2
+    IF (itime.EQ.1.AND.ilit.EQ.0) THEN
+      drhodt1 = drhodt1 + rho1
+    ELSE
+      drhodt1 = 3._mytype * rho1 - 4._mytype * rhoss1 + rhos01
+      drhodt1 = 0.5_mytype * drhodt1
+    ENDIF
+    drhodt1 = drhodt1 / dt
+  ELSE IF (nscheme.EQ.2) THEN
+    !! RK3
+    
+    ! !! Straightforward approximation:
+    ! !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
+    ! !                                       = rhos1
+    ! drhodt1 = rhos1
+
+    ! !! Alternative approximation:
+    ! !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
+    ! drhodt1 = drhodt1 + rho1
+    ! drhodt1 = drhodt1 / gdt(itr)
+
+    !! Golanski
+    IF (itime.GT.1) THEN
+      drhodt1 = rhoss1
+      DO subitr = 1, itr
+        !! TODO Check should it be gdt(itr) or gdt(subitr)?
+        !
+        !  Golanski2005 write:
+        !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
+        !  which is what is implemented. However could it be a
+        !  typo, i.e. should it be gamma_k -> gamma_l giving
+        !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
+        !  in which case it should be gdt(subitr)
+        drhodt1 = drhodt1 + gdt(itr) * (rhoss1 - rhos01) / dt
+      ENDDO
+    ELSE
+      drhodt1 = drhodt1 + rho1
+      drhodt1 = drhodt1 / gdt(itr)
+    ENDIF
+  ELSE
+    PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
+    STOP
+  ENDIF
   
 ENDSUBROUTINE extrapol_rhotrans
 
@@ -1259,11 +1301,13 @@ subroutine pre_correc(ux,uy,uz,rho)
     call MPI_ALLREDUCE(ut, utt, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
     utt = utt / nproc
 
-    if (nrank==0) print *, 'FLOW RATE I/O [m^3 / s]', ut11, utt
+    if (nrank.eq.0) then
+      print *, 'FLOW RATE I/O [m^3 / s]', ut11, utt
+    endif
 
     do k=1, xsize(3)
       do j=1, xsize(2)
-        bxxn(j, k) = bxxn(j, k) - (utt + ut11)
+        bxxn(j, k) = bxxn(j, k) - (utt - ut11)
       enddo
     enddo
   endif
