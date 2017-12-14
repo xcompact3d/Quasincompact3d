@@ -1480,3 +1480,119 @@ subroutine pre_correc(ux,uy,uz,rho)
 
   return
 end subroutine pre_correc
+
+!*******************************************************
+!*******************************************************
+SUBROUTINE pre_correc_tractionfree(ux1, uy1, uz1, rho1, ta1, pp1, di1,&
+     ta2, pp2, di2,&
+     ta3, pp3, di3,&
+     nxmsize, nymsize, nzmsize, ph2, ph3)
+
+  USE MPI
+  USE decomp_2d
+  USE param
+  USE variables
+
+  IMPLICIT NONE
+
+  INTEGER :: nxmsize, nymsize, nzmsize
+  TYPE(DECOMP_INFO) :: ph2, ph3
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
+
+  REAL(mytype), DIMENSION(ph3%zst(1):ph3%zen(1), ph3%zst(2):ph3%zen(2), nzmsize), INTENT(IN) :: pp3
+  REAL(mytype), DIMENSION(ph3%zst(1):ph3%zen(1), ph3%zst(2):ph3%zen(2), zsize(3)) :: ta3, di3
+  REAL(mytype), DIMENSION(ph3%yst(1):ph3%yen(1), nymsize, ysize(3)) :: ta2
+  REAL(mytype), DIMENSION(ph3%yst(1):ph3%yen(1), ysize(2), ysize(3)) :: pp2, di2
+  REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: ta1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: pp1, di1
+
+  INTEGER :: i, j, k, i_slipcollar
+  REAL(mytype) :: x, y, z
+  REAL(mytype) :: p0
+  REAL(mytype) :: ue
+  REAL(mytype) :: l_slipcollar
+
+  !! Set length of slip collar.
+  !  For x >= xlx - l_slipcollar, the boundary is treated
+  !  as a free-slip plane
+  l_slipcollar = 0.1_mytype * xlx
+  DO i = 1, xsize(1)
+    x = (i + xstart(1) - 2) * dx
+    IF (x.LT.(xlx - l_slipcollar)) THEN
+      i_slipcollar = i
+    ELSE
+      EXIT
+    ENDIF
+  ENDDO
+  
+  !!=====================================================
+  ! First interpolate pressure to primary grid
+  CALL interiz6(ta3, pp3, di3, sz, cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6,&
+       (ph3%zen(1) - ph3%zst(1) + 1), (ph3%zen(2) - ph3%zst(2) + 1), nzmsize, zsize(3), 1)
+  CALL transpose_z_to_y(ta3, ta2, ph3)
+  CALL interiy6(pp2, ta2, di2, sy, cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6,&
+       (ph3%yen(1) - ph3%yst(1) + 1), nymsize, ysize(2), ysize(3), 1)
+  CALL transpose_y_to_x(pp2, ta1, ph2)
+  CALL interi6(pp1, ta1, di1, sx, cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6,&
+       nxmsize, xsize(1), xsize(2), xsize(3), 1)
+  ! The pressure field on the main mesh is in pp1
+  
+  !!=====================================================
+  ! Evaluate reference pressure (using x=xlx as reference
+  ! plane)
+  !!=====================================================
+  ! Use Bernoulli to evaluate velocity crossing boundary
+  IF (ncly.EQ.2) THEN
+    DO k = 1,xsize(3)
+      DO i = 1, i_slipcollar
+        x = (i + xstart(1) - 2) * dx
+        
+        ue = p0
+        ! Add gravity
+        
+        ue = ue - pp1(i, 1, k)
+        ue = ue * (2._mytype / rho1(i, 1, k))
+        ue = MAX(ue, 0._mytype)
+        ue = SQRT(ue)
+        uy1(i, 1, k) = ue
+
+        ue = p0
+        ! Add gravity
+        
+        ue = ue - pp1(i, xsize(2), k)
+        ue = ue * (2._mytype / rho1(i, xsize(2), k))
+        ue = MAX(ue, 0._mytype)
+        ue = SQRT(ue)
+        uy1(i, xsize(2), k) = -ue
+      ENDDO
+    ENDDO
+  ENDIF
+  IF (nclz.EQ.2) THEN
+    DO j = 1, xsize(2)
+      DO i = 1, i_slipcollar
+        x = (i + xstart(1) - 2) * dx
+
+        ue = p0
+        ! Add gravity
+        
+        ue = ue - pp1(i, j, 1)
+        ue = ue * (2._mytype / rho1(i, j, 1))
+        ue = MAX(ue, 0._mytype)
+        ue = SQRT(ue)
+        uz1(i, j, 1) = ue
+
+        ue = p0
+        ! Add gravity
+        
+        ue = ue - pp1(i, j, xsize(3))
+        ue = ue * (2._mytype / rho1(i, j, xsize(3)))
+        ue = MAX(ue, 0._mytype)
+        ue = SQRT(ue)
+        uz1(i, j, xsize(3)) = -ue
+      ENDDO
+    ENDDO
+  ENDIF
+ENDSUBROUTINE pre_correc_tractionfree
+
