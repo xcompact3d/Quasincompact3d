@@ -4,11 +4,13 @@
 1.0             #xlx  # Lx (Size of the box in x-direction)
 1.0             #yly  # Ly (Size of the box in y-direction) 
 1.0              #zlz  # Lz (Size of the box in z-direction) 
-400.   #re   # Reynolds number
-1.     #pr   # Prandtl number
-1.     #sc   # Schmidt number (if passive scalar)
-1.0    #u1   # u1 (max velocity) (for inflow condition)
-1.0    #u2   # u2 (min velocity) (for inflow condition) 
+400.   #re    # Reynolds number
+1.     #pr    # Prandtl number
+1.     #sc    # Schmidt number (if passive scalar)
+1.0    #u1    # u1 (max velocity) (for inflow condition)
+1.0    #u2    # u2 (min velocity) (for inflow condition)
+1.0    #dens1 # dens1 (max density) (for inflow condition)
+1.0    #dens2 # dens2 (min density) (for inflow condition)
 0.0    #noise# Turbulence intensity (1=100%) !! Initial condition
 0.0    #noise1# Turbulence intensity (1=100%) !! Inflow condition
 0.002   #dt   # Time step
