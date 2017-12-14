@@ -95,11 +95,11 @@ PROGRAM incompact3d
   !call collect_data() !it will generate 100 random time steps
 
   if (ilit.eq.0) then
-    call init(ux1,uy1,uz1,rho1,ep1,phi1,gx1,gy1,gz1,rhos1,phis1,&
-         hx1,hy1,hz1,rhoss1,phiss1,pressure0)
+    call init(ux1,uy1,uz1,rho1,ep1,phi1,&
+         gx1,gy1,gz1,rhos1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0)
   else
-    call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
-         px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,0)
+    call restart(ux1,uy1,uz1,rho1,temperature1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
+         px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0,phG,0)
   endif
 
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
@@ -320,7 +320,7 @@ PROGRAM incompact3d
 
     if (mod(itime,isave).eq.0) then
       call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
-           px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,phG,1)
+           px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0,phG,1)
     endif
 
     if (mod(itime,imodulo).eq.0) then
