@@ -95,6 +95,7 @@ PROGRAM incompact3d
   !call collect_data() !it will generate 100 random time steps
 
   if (ilit.eq.0) then
+    t = 0._mytype
     call init(ux1,uy1,uz1,rho1,ep1,phi1,&
          gx1,gy1,gz1,rhos1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0)
   else
