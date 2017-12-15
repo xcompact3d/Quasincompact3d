@@ -457,8 +457,9 @@ end subroutine convdiff
 
 !************************************************************
 !
-subroutine scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
-     uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,epsi)
+subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
+     uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
+     uz3,rho3,phi3,di3,ta3,tb3,epsi)
 !
 !************************************************************
 
@@ -468,10 +469,10 @@ USE decomp_2d
 
 implicit none
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,phi1,phis1,&
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,phis1,&
                                               phiss1,di1,ta1,tb1,tc1,td1,epsi
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,phi2,di2,ta2,tb2,tc2,td2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,phi3,di3,ta3,tb3
+real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2
+real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,di3,ta3,tb3
 
 integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nxyz
 real(mytype) :: x,y,z
@@ -482,7 +483,7 @@ nvect3=zsize(1)*zsize(2)*zsize(3)
 
 !X PENCILS
 do ijk=1,nvect1
-   ta1(ijk,1,1)=ux1(ijk,1,1)*phi1(ijk,1,1)
+   ta1(ijk,1,1)=rho1(ijk,1,1)*phi1(ijk,1,1)*ux1(ijk,1,1)
 enddo
 call derx (tb1,ta1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
 call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
@@ -490,10 +491,11 @@ call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
 call transpose_x_to_y(phi1,phi2)
 call transpose_x_to_y(uy1,uy2)
 call transpose_x_to_y(uz1,uz2)
+call transpose_x_to_y(rho1,rho2)
 
 !Y PENCILS
 do ijk=1,nvect2
-   ta2(ijk,1,1)=uy2(ijk,1,1)*phi2(ijk,1,1)
+   ta2(ijk,1,1)=rho2(ijk,1,1)*phi2(ijk,1,1)*uy2(ijk,1,1)
 enddo
 call dery (tb2,ta2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
 if (istret.ne.0) then 
@@ -512,10 +514,11 @@ endif
 
 call transpose_y_to_z(phi2,phi3)
 call transpose_y_to_z(uz2,uz3)
+call transpose_y_to_z(rho2,rho3)
 
 !Z PENCILS
 do ijk=1,nvect3
-   ta3(ijk,1,1)=uz3(ijk,1,1)*phi3(ijk,1,1)
+   ta3(ijk,1,1)=rho3(ijk,1,1)*phi3(ijk,1,1)*uz3(ijk,1,1)
 enddo
 call derz (tb3,ta3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
 call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
@@ -539,7 +542,8 @@ do ijk=1,nvect1
 enddo
  
 do ijk=1,nvect1
-   ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1) 
+  ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1)
+  phi1(ijk,1,1) = rho1(ijk,1,1)*phi1(ijk,1,1)
 enddo
 
 !TIME ADVANCEMENT
@@ -616,7 +620,7 @@ end subroutine scalar
 !!              and transpose temperature array when we do this with
 !!              density anyway.
 !!--------------------------------------------------------------------
-SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, &
+SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
      uz3, rho3, divu3, di3, ta3, tb3, &
      epsi)
@@ -628,7 +632,7 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, rhos1, rhoss1, di1, ta1, tb1, tc1, td1, 
   IMPLICIT NONE
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
   
@@ -702,84 +706,8 @@ REAL(mytype) :: tnext
   
   ta1 = -tb1
 
-  !! MMS Source term
-  CALL density_source_mms(ta1)
-
-  ! ! Now store velocity as momentum
-  ! ux1 = rho1 * ux1
-  ! uy1 = rho1 * uy1
-  ! uz1 = rho1 * uz1
-  
-  !------------------------------------------------------------------------
-  ! TIME ADVANCEMENT
-
-  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
-    !! AB2 or RK3
-    IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
-         (nscheme.EQ.2.AND.itr.EQ.1)) THEN
-      rho1 = rho1 + gdt(itr) * ta1
-    ELSE
-      rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1
-    ENDIF
-  ELSE IF (nscheme.EQ.3) THEN
-    !! RK4
-    !! XXX Not implemented!
-    IF (nrank.EQ.0) THEN
-      PRINT  *, 'LMN: RK4 not ready'
-    ENDIF
-    STOP
-  ELSE
-    !! AB3
-    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
-      IF (nrank.EQ.0) THEN
-        PRINT  *, 'start with Euler', itime
-      ENDIF
-      rho1 = rho1 + dt * ta1
-    ELSE
-      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
-        IF (nrank.EQ.0) THEN
-          PRINT *, 'then with AB2', itime
-        ENDIF
-        rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * ta1)
-      ELSE
-        rho1 = rho1 + adt(itr) * ta1 + bdt(itr) * rhos1 + cdt(itr) &
-             * rhoss1
-      ENDIF
-
-      !! Update oldold stage
-      rhoss1 = rhos1
-    ENDIF
-  ENDIF
-
-  !! Update old stage
-  rhos1 = ta1
-
-      ! XXX Temporary: move velocity forward in time
-      if ((nscheme.eq.1).or.(nscheme.eq.2)) then
-        !! AB2 or RK3
-        if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
-          (nscheme.eq.2.and.itr.eq.1)) then
-          tnext = t + gdt(itr)
-        else
-          tnext = t + adt(itr)
-        endif
-      endif
-      do k = 1,xsize(3)
-      do j = 1,xsize(2)
-      do i = 1,xsize(1)
-        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
-        y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-        ux1(i,j,k) = 2._mytype * (5._mytype - 1._mytype) * SIN(PI * 2._mytype * y) &
-            * SIN(PI * 2._mytype * tnext) * COS(PI * 2._mytype * x) & 
-            / (2._mytype * 2._mytype * ((1._mytype + 5._mytype) + (1._mytype - 5._mytype) &
-            * SIN(PI * 2._mytype * x) * SIN(PI * 2._mytype * y) * COS(PI * 2._mytype * tnext)))
-        uy1(i,j,k) = 2._mytype * (5._mytype - 1._mytype) * SIN(PI * 2._mytype * x) &
-            * SIN(PI * 2._mytype * tnext) * COS(PI * 2._mytype * y) &
-            / (2._mytype * 2._mytype * ((1._mytype + 5._mytype) + (1._mytype - 5._mytype) &
-            * SIN(PI * 2._mytype * x) * SIN(PI * 2._mytype * y) * COS(PI * 2._mytype * tnext)))
-      enddo
-      enddo
-      enddo
+  ! !! MMS Source term
+  ! CALL density_source_mms(ta1)
   
 ENDSUBROUTINE density
 

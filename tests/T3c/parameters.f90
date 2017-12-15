@@ -68,7 +68,9 @@ read (10,*) re
 read (10,*) pr
 read (10,*) sc
 read (10,*) u1 
-read (10,*) u2 
+read (10,*) u2
+read (10,*) dens1
+read (10,*) dens2
 read (10,*) noise 
 read (10,*) noise1
 read (10,*) dt
@@ -83,6 +85,7 @@ read (10,*) iin
 read (10,*) ifirst
 read (10,*) ilast
 read (10,*) nscheme
+read (10,*) nrhoscheme
 read (10,*) istret
 read (10,*) beta
 read (10,*) iskew
@@ -129,8 +132,9 @@ write(*,1101) nx,ny,nz
 write(*,1103) xlx,yly,zlz 
 write(*,1102) nclx,ncly,nclz 
 write(*,1104) u1,u2 
-write(*,1105) re
-write(*,1106) dt
+write(*,1105) dens1,dens2 
+write(*,1106) re
+write(*,1107) dt
 write(*,1112) pr
 if (nscheme.eq.1) print *,'Temporal scheme   : Adams-bashforth 4'
 if (nscheme.eq.2) print *,'Temporal scheme   : Runge-Kutta 3'
@@ -143,7 +147,7 @@ endif
 if (ivirt.eq.0) print *,'Immersed boundary : off'
 if (ivirt.eq.1) then
    print *,'Immersed boundary : on old school'
-   write(*,1107) cex,cey,cez
+   write(*,1108) cex,cey,cez
    write(*,1110) ra
 endif
 if (ivirt.eq.2) then
@@ -155,9 +159,10 @@ endif
  1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')
  1103 format(' Domain dimension  : (lx,ly,lz)=(',F6.1,',',F6.1,',',F6.1,')')
  1104 format(' High and low speed: u1=',F6.2,' and u2=',F6.2)
- 1105 format(' Reynolds number Re: ',F15.8)
- 1106 format(' Time step dt      : ',F15.8)
- 1107 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
+ 1105 format(' High and low density: dens1=',F6.2,' and dens2=',F6.2)
+ 1106 format(' Reynolds number Re: ',F15.8)
+ 1107 format(' Time step dt      : ',F15.8)
+ 1108 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
  1110 format(' Object length     : ',F6.2)
  1112 format(' Prandtl number    : ',F6.2)
  1113 format(' Schmidt number    : ',F6.2)

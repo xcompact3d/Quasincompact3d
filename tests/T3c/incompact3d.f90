@@ -46,9 +46,13 @@ PROGRAM incompact3d
   implicit none
 
   integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
+  integer :: ijk, nvect1
   real(mytype) :: x,y,z,tmp1
   double precision :: t1,t2
   character(len=20) :: filename
+
+  integer :: converged
+  integer :: poissiter
 
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
 
@@ -65,17 +69,17 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main        ',di2,size(di2))
 
-  if (nclx==0) then
+  if (nclx.eq.0) then
     bcx=0
   else
     bcx=1
   endif
-  if (ncly==0) then
+  if (ncly.eq.0) then
     bcy=0
   else
     bcy=1
   endif
-  if (nclz==0) then
+  if (nclz.eq.0) then
     bcz=0
   else
     bcz=1
@@ -90,10 +94,14 @@ PROGRAM incompact3d
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
 
-  if (ilit==0) call init(ux1,uy1,uz1,rho1,rhos1,rhoss1,ep1,phi1,&
-       gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1,pressure0)  
-  if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
-       px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
+  if (ilit.eq.0) then
+    t = 0._mytype
+    call init(ux1,uy1,uz1,rho1,ep1,phi1,&
+         gx1,gy1,gz1,rhos1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0)
+  else
+    call restart(ux1,uy1,uz1,rho1,temperature1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
+         px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0,phG,0)
+  endif
 
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
@@ -107,7 +115,9 @@ PROGRAM incompact3d
   call test_density_min_max(rho1)
   ! call test_density_min_max(rho1)
   ! call test_temperature_min_max(temperature1)
-  if (iscalar==1) call test_scalar_min_max(phi1)
+  if (iscalar.eq.1) then
+    call test_scalar_min_max(phi1)
+  endif
 
   !array for stat to zero
   umean=0._mytype;vmean=0._mytype;wmean=0._mytype
@@ -131,6 +141,8 @@ PROGRAM incompact3d
   call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
+  call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
+       ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
 
   ! call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   !      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
@@ -138,10 +150,12 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
+  nvect1 = xsize(1) * xsize(2) * xsize(3)
+
   do itime=ifirst,ilast
 
     t=(itime-1)*dt
-    if (nrank==0) then
+    if (nrank.eq.0) then
       write(*,1001) itime,t
 1001  format('Time step =',i7,', Time unit =',F9.3)
     endif
@@ -155,90 +169,135 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       if (nclx.eq.2) then
-        call inflow (ux1,uy1,uz1,phi1) !X PENCILS
-        call outflow(ux1,uy1,uz1,phi1) !X PENCILS 
+        call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
+        call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
 
-     !X-->Y-->Z-->Y-->X
-     call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-          ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-          ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+      !X-->Y-->Z-->Y-->X
+      call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+           ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
-     if (iscalar==1) then
-       call scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-            uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,&
-            uz3,phi3,di3,ta3,tb3,&
-            ep1) 
-     endif
+      if (iscalar.eq.1) then
+        !---------------------------------------------------------------------------------
+        ! XXX After this phi1 contains rho*phi
+        !---------------------------------------------------------------------------------
+        call scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
+             uz3,rho3,phi3,di3,ta3,tb3,&
+             ep1)
+      endif
 
-     ! Update density
-     !    X->Y->Z->Y->X
-     ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
-     !     transpose operations by operating on Z->Y->X.
-     ! XXX Replaces velocities with momentum.
-     call density(ux1,uy1,uz1,rho1,rhos1,rhoss1,di1,tg1,th1,ti1,td1,&
-          uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-          uz3,rho3,divu3,di3,ta3,tb3,ep1)
+      ! Update density
+      !    X->Y->Z->Y->X
+      ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+      !     transpose operations by operating on Z->Y->X.
+      ! XXX Replaces velocities with momentum.
+      ! XXX tg1 contains the density forcing term.
+      call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
+           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+           uz3,rho3,divu3,di3,ta3,tb3,ep1)
 
-     !-----------------------------------------------------------------------------------
-     ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
-     !-----------------------------------------------------------------------------------
+      !X PENCILS
+      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,rho1)
 
-     ! LMN: Calculate new divergence of velocity using new density/temperature field.
-     !      This updates the temperature field using the density field.
-     !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
-     !      upto date.
-     !
-     !    X->Y->Z
-     call calc_divu(tg1,rho1,temperature1,di1,&
-          ta2,tb2,tc2,rho2,temperature2,di2,&
-          divu3,ta3,rho3,temperature3,di3,&
-          pressure0)
+      !-----------------------------------------------------------------------------------
+      ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
+      !-----------------------------------------------------------------------------------
 
-     !  !X PENCILS
-     !  call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1) 
+!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
-!!! C! M call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
-!!! C! M call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
-!!! C! M call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
+      call pre_correc(ux1,uy1,uz1,rho1)
+      ! call pre_correc(ux1, uy1, uz1, rho1, td1, te1, di1, &
+      !      ta2, tb2, di2, &
+      !      ta3, pp3, di3, nxmsize, nymsize, nzmsize, ph2, ph3)
 
-     !  call pre_correc(ux1,uy1,uz1)
+!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
-!!! C! M call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
-!!! C! M call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
-!!! C! M call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
+      call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
+      if (iscalar.eq.1) then
+        !---------------------------------------------------------------------------------
+        ! XXX Convert phi1 back into scalar.
+        !---------------------------------------------------------------------------------
+        do ijk = 1, nvect1
+          phi1(ijk, 1, 1) = phi1(ijk, 1, 1) / rho1(ijk, 1 ,1)
+        enddo
+      endif
 
-!!$  !     if (ivirt==1) then !solid body old school
-!!$  !        !we are in X-pencil
-!!$  !        call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
-!!$  !        call body(ux1,uy1,uz1,ep1)
-!!$  !        call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
-!!$  !     endif
+      ! LMN: Calculate new divergence of velocity using new density/temperature field.
+      !      This updates the temperature field using the density field.
+      !      After this rho1,rho2,rho3,temperature1,temperature2,temperature3 are all
+      !      upto date.
+      !
+      !    X->Y->Z
+      call calc_divu(tg1,rho1,temperature1,di1,&
+           ta2,tb2,tc2,rho2,temperature2,di2,&
+           divu3,ta3,rho3,temperature3,di3,&
+           pressure0)
 
-     !  !X-->Y-->Z
-     !  call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-     !       td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
-     !       nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
+!!$      if (ivirt.eq.1) then !solid body old school
+!!$         !we are in X-pencil
+!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
+!!$         call body(ux1,uy1,uz1,ep1)
+!!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
+!!$      endif
 
-     !  ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-     !  call extrapol_rhotrans(rho1,rhos1,rhoss1,drhodt1)
-     !  call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+      !X-->Y-->Z
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
-!!! C! M call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
-!!! C! M call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
-!!! C! M call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
+      
+      !-----------------------------------------------------------------------------------
+      ! Solution of the Poisson equation
+      converged = 0
+      poissiter = 0
+      do while(converged.eq.0)
+        if (nrhoscheme.eq.0) then
+          if (nrank.eq.0) then
+            print *, "Var-coeff Poisson not yet implemented!"
+            STOP
+          endif
+        else
+          ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
+          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+          call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+        endif
+        
+!!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
+!!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
+!!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
+        
+        !POISSON Z-->Z 
+        call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+        
+!!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-     !  !POISSON Z-->Z 
-     !  call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+        if (nrhoscheme.ne.0) then
+          converged = 1
+        else
+          !! Var-coeff Poisson, probably want to test convergence here
+          CONTINUE
+        endif
 
-!!! C! M call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
+        poissiter = poissiter + 1
+      enddo
 
-     !  !Z-->Y-->X
-     !  call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-     !       ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+      if (nrank.eq.0) then
+        print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+      endif
+      !-----------------------------------------------------------------------------------
 
-     !  !X PENCILS
-     !  call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
+      !Z-->Y-->X
+      call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+           ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+
+      !X PENCILS
+      call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
 
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain velocity: ux = u etc.
@@ -251,17 +310,8 @@ PROGRAM incompact3d
 
       call test_speed_min_max(ux1,uy1,uz1)
       call test_density_min_max(rho1)
-      if (iscalar==1) call test_scalar_min_max(phi1)
-
-      ! Advance subtimestep
-      if ((nscheme.eq.1).or.(nscheme.eq.2)) then
-        !! AB2 or RK3
-        if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
-          (nscheme.eq.2.and.itr.eq.1)) then
-          t = t + gdt(itr)
-        else
-          t = t + adt(itr)
-        endif
+      if (iscalar.eq.1) then
+        call test_scalar_min_max(phi1)
       endif
 
     enddo ! End sub-timesteps
@@ -269,10 +319,12 @@ PROGRAM incompact3d
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
 !!$        uvmean,uwmean,vwmean,phiphimean,tmean)
 
-    if (mod(itime,isave)==0) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
-         px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
+    if (mod(itime,isave).eq.0) then
+      call restart(ux1,uy1,uz1,rho1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,&
+           px1,py1,pz1,phis1,hx1,hy1,hz1,rhoss1,phiss1,pressure0,phG,1)
+    endif
 
-    if (mod(itime,imodulo)==0) then
+    if (mod(itime,imodulo).eq.0) then
       call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
@@ -280,29 +332,30 @@ PROGRAM incompact3d
            ta3,di3,nxmsize,nymsize,nzmsize,phG,ph2,ph3,uvisu)
     endif
 
-    ! if (mod(itime,10)==0) then
+    ! if (mod(itime,10).eq.0) then
     !   call VISU_INSTB(ux1,uy1,uz1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     !        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
     !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
     ! endif
 
-    ! MMS: compare errors
-    CALL eval_error_rho(rho1)
-    CALL eval_error_vel(ux1,uy1,uz1)
+    ! ! MMS: compare errors
+    ! CALL eval_error_rho(rho1)
+    ! CALL eval_error_vel(ux1,uy1,uz1)
 
   enddo
 
   t2=MPI_WTIME()-t1
   call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
        MPI_COMM_WORLD,code)
-  if (nrank==0) print *,'time per time_step: ', &
-       t1/float(nproc)/(ilast-ifirst+1),' seconds'
-  if (nrank==0) print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
-  if (nrank==0) print *,'Mapping p_row*p_col=',p_row,p_col
-
+  if (nrank.eq.0) then
+    print *,'time per time_step: ', &
+         t1/float(nproc)/(ilast-ifirst+1),' seconds'
+    print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
+    print *,'Mapping p_row*p_col=',p_row,p_col
+  endif
 
   !call decomp_2d_poisson_finalize
   call decomp_2d_finalize
-  CALL MPI_FINALIZE(code)
+  call MPI_FINALIZE(code)
 
 end PROGRAM incompact3d

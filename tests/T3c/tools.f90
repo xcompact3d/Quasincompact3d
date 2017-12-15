@@ -182,8 +182,8 @@ end subroutine test_speed_min_max
 
 !*******************************************************************
 !
-subroutine restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,px1,py1,pz1,phis1,&
-                   hx1,hy1,hz1,phiss1,phG,irestart)
+subroutine restart(ux1,uy1,uz1,rho1,temperature1,ep1,pp3,phi1,gx1,gy1,gz1,rhos1,px1,py1,pz1,phis1,&
+                   hx1,hy1,hz1,rhoss1,phiss1,pressure0,phG,irestart)
 !
 !*******************************************************************
 
@@ -196,13 +196,16 @@ USE MPI
 implicit none
 
 TYPE(DECOMP_INFO) :: phG
-integer :: i,j,k,irestart,nzmsize,fh,ierror,code
+integer :: i,j,k,ijk,irestart,nzmsize,fh,ierror,code
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1
+real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: rho1,temperature1
+real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: rhos1,rhoss1
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: px1,py1,pz1
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: phi1, phis1, phiss1
 real(mytype), dimension(phG%zst(1):phG%zen(1),phG%zst(2):phG%zen(2),phG%zst(3):phG%zen(3)) :: pp3
+real(mytype) :: pressure0
 integer (kind=MPI_OFFSET_KIND) :: filesize, disp
 real(mytype) :: xdt
 integer, dimension(2) :: dims, dummy_coords
@@ -220,9 +223,12 @@ if (iscalar==0) then
          call decomp_2d_write_var(fh,disp,1,ux1)
          call decomp_2d_write_var(fh,disp,1,uy1)
          call decomp_2d_write_var(fh,disp,1,uz1)
+         call decomp_2d_write_var(fh,disp,1,rho1)
+         call decomp_2d_write_var(fh,disp,1,temperature1)
          call decomp_2d_write_var(fh,disp,1,gx1)
          call decomp_2d_write_var(fh,disp,1,gy1)
          call decomp_2d_write_var(fh,disp,1,gz1)
+         call decomp_2d_write_var(fh,disp,1,rhos1)
          call decomp_2d_write_var(fh,disp,1,px1)
          call decomp_2d_write_var(fh,disp,1,py1)
          call decomp_2d_write_var(fh,disp,1,pz1)
@@ -237,9 +243,12 @@ if (iscalar==0) then
          call decomp_2d_read_var(fh,disp,1,ux1)   
          call decomp_2d_read_var(fh,disp,1,uy1)
          call decomp_2d_read_var(fh,disp,1,uz1)
+         call decomp_2d_read_var(fh,disp,1,rho1)
+         call decomp_2d_read_var(fh,disp,1,temperature1)
          call decomp_2d_read_var(fh,disp,1,gx1)
          call decomp_2d_read_var(fh,disp,1,gy1)
          call decomp_2d_read_var(fh,disp,1,gz1)
+         call decomp_2d_read_var(fh,disp,1,rhos1)
          call decomp_2d_read_var(fh,disp,1,px1)
          call decomp_2d_read_var(fh,disp,1,py1)
          call decomp_2d_read_var(fh,disp,1,pz1)
@@ -257,12 +266,16 @@ if (iscalar==0) then
          call decomp_2d_write_var(fh,disp,1,ux1)
          call decomp_2d_write_var(fh,disp,1,uy1)
          call decomp_2d_write_var(fh,disp,1,uz1)
+         call decomp_2d_write_var(fh,disp,1,rho1)
+         call decomp_2d_write_var(fh,disp,1,temperature1)
          call decomp_2d_write_var(fh,disp,1,gx1)
          call decomp_2d_write_var(fh,disp,1,gy1)
          call decomp_2d_write_var(fh,disp,1,gz1)
+         call decomp_2d_write_var(fh,disp,1,rhos1)
          call decomp_2d_write_var(fh,disp,1,hx1)
          call decomp_2d_write_var(fh,disp,1,hy1)
          call decomp_2d_write_var(fh,disp,1,hz1)
+         call decomp_2d_write_var(fh,disp,1,rhoss1)
          call decomp_2d_write_var(fh,disp,1,px1)
          call decomp_2d_write_var(fh,disp,1,py1)
          call decomp_2d_write_var(fh,disp,1,pz1)
@@ -277,12 +290,16 @@ if (iscalar==0) then
          call decomp_2d_read_var(fh,disp,1,ux1)   
          call decomp_2d_read_var(fh,disp,1,uy1)
          call decomp_2d_read_var(fh,disp,1,uz1)
+         call decomp_2d_read_var(fh,disp,1,rho1)
+         call decomp_2d_read_var(fh,disp,1,temperature1)
          call decomp_2d_read_var(fh,disp,1,gx1)
          call decomp_2d_read_var(fh,disp,1,gy1)
          call decomp_2d_read_var(fh,disp,1,gz1)
+         call decomp_2d_read_var(fh,disp,1,rhos1)
          call decomp_2d_read_var(fh,disp,1,hx1)
          call decomp_2d_read_var(fh,disp,1,hy1)
          call decomp_2d_read_var(fh,disp,1,hz1)
+         call decomp_2d_read_var(fh,disp,1,rhoss1)
          call decomp_2d_read_var(fh,disp,1,px1)
          call decomp_2d_read_var(fh,disp,1,py1)
          call decomp_2d_read_var(fh,disp,1,pz1)
@@ -302,9 +319,12 @@ if (nscheme.ne.4) then
          call decomp_2d_write_var(fh,disp,1,ux1)
          call decomp_2d_write_var(fh,disp,1,uy1)
          call decomp_2d_write_var(fh,disp,1,uz1)
+         call decomp_2d_write_var(fh,disp,1,rho1)
+         call decomp_2d_write_var(fh,disp,1,temperature1)
          call decomp_2d_write_var(fh,disp,1,gx1)
          call decomp_2d_write_var(fh,disp,1,gy1)
          call decomp_2d_write_var(fh,disp,1,gz1)
+         call decomp_2d_write_var(fh,disp,1,rhos1)
          call decomp_2d_write_var(fh,disp,1,px1)
          call decomp_2d_write_var(fh,disp,1,py1)
          call decomp_2d_write_var(fh,disp,1,pz1)
@@ -321,9 +341,12 @@ if (nscheme.ne.4) then
          call decomp_2d_read_var(fh,disp,1,ux1)   
          call decomp_2d_read_var(fh,disp,1,uy1)
          call decomp_2d_read_var(fh,disp,1,uz1)
+         call decomp_2d_read_var(fh,disp,1,rho1)
+         call decomp_2d_read_var(fh,disp,1,temperature1)
          call decomp_2d_read_var(fh,disp,1,gx1)
          call decomp_2d_read_var(fh,disp,1,gy1)
          call decomp_2d_read_var(fh,disp,1,gz1)
+         call decomp_2d_read_var(fh,disp,1,rhos1)
          call decomp_2d_read_var(fh,disp,1,px1)
          call decomp_2d_read_var(fh,disp,1,py1)
          call decomp_2d_read_var(fh,disp,1,pz1)
@@ -343,12 +366,16 @@ if (nscheme.ne.4) then
          call decomp_2d_write_var(fh,disp,1,ux1)
          call decomp_2d_write_var(fh,disp,1,uy1)
          call decomp_2d_write_var(fh,disp,1,uz1)
+         call decomp_2d_write_var(fh,disp,1,rho1)
+         call decomp_2d_write_var(fh,disp,1,temperature1)
          call decomp_2d_write_var(fh,disp,1,gx1)
          call decomp_2d_write_var(fh,disp,1,gy1)
          call decomp_2d_write_var(fh,disp,1,gz1)
+         call decomp_2d_write_var(fh,disp,1,rhos1)
          call decomp_2d_write_var(fh,disp,1,hx1)
          call decomp_2d_write_var(fh,disp,1,hy1)
          call decomp_2d_write_var(fh,disp,1,hz1)
+         call decomp_2d_write_var(fh,disp,1,rhoss1)
          call decomp_2d_write_var(fh,disp,1,px1)
          call decomp_2d_write_var(fh,disp,1,py1)
          call decomp_2d_write_var(fh,disp,1,pz1)
@@ -366,12 +393,17 @@ if (nscheme.ne.4) then
          call decomp_2d_read_var(fh,disp,1,ux1)   
          call decomp_2d_read_var(fh,disp,1,uy1)
          call decomp_2d_read_var(fh,disp,1,uz1)
+         call decomp_2d_read_var(fh,disp,1,rho1)
+         call decomp_2d_read_var(fh,disp,1,temperature1)
          call decomp_2d_read_var(fh,disp,1,gx1)
          call decomp_2d_read_var(fh,disp,1,gy1)
          call decomp_2d_read_var(fh,disp,1,gz1)
+         call decomp_2d_read_var(fh,disp,1,rhos1)
          call decomp_2d_read_var(fh,disp,1,hx1)
          call decomp_2d_read_var(fh,disp,1,hy1)
          call decomp_2d_read_var(fh,disp,1,hz1)
+         call decomp_2d_read_var(fh,disp,1,hz1)
+         call decomp_2d_read_var(fh,disp,1,rhoss1)
          call decomp_2d_read_var(fh,disp,1,px1)
          call decomp_2d_read_var(fh,disp,1,py1)
          call decomp_2d_read_var(fh,disp,1,pz1)
@@ -384,7 +416,7 @@ if (nscheme.ne.4) then
    endif
 endif
 
-if (irestart==0) then
+if (irestart==0) then ! We are READING data
 ! reconstruction of the dp/dx, dp/dy and dp/dz from px1,py1 and pz1
 ! Temporal scheme (1:AB2, 2: RK3, 3:RK4, 4:AB3)
    if (nscheme==1) xdt=adt(1)+bdt(1)
@@ -459,6 +491,16 @@ if (irestart==0) then
 
 
    if (nrank==0) print *,'reconstruction pressure gradients done!'
+
+   !! Reconstruct thermodynamic pressure from density and
+   !  temperature fields.
+   pressure0 = 0._mytype
+   do ijk = 1, xsize(1) * xsize(2) * xsize(3)
+     pressure0 = pressure0 + rho1(ijk, 1, 1) * temperature1(ijk, 1, 1)
+   enddo
+   pressure0 = pressure0 / float(xsize(1) * xsize(2) * xsize(3))
+   call MPI_Allreduce(MPI_IN_PLACE, pressure0, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierror)
+   pressure0 = pressure0 / float(nproc)
 endif
 
 if (irestart==0) then
