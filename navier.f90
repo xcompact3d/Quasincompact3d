@@ -987,15 +987,11 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       IF (itime.GT.1) THEN
         drhodt1 = rhoss1
         DO subitr = 1, itr
-          !! TODO Check should it be gdt(itr) or gdt(subitr)?
-          !
-          !  Golanski2005 write:
-          !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
-          !  which is what is implemented. However could it be a
-          !  typo, i.e. should it be gamma_k -> gamma_l giving
-          !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
-          !  in which case it should be gdt(subitr)
-          drhodt1 = drhodt1 + gdt(itr) * (rhoss1 - rhos01) / dt
+          ! XXX It appears that Golanski2005 contains a typo.
+          !     The approximation should be:
+          !       drhodt approx F^n + sum^k_l=1 gamma_l (F^n - F^{n-1})
+          !     note, Golanski2005 write gamma_k rather than gamma_l
+          drhodt1 = drhodt1 + gdt(subitr) * (rhoss1 - rhos01) / dt
         ENDDO
       ELSE
         drhodt1 = drhodt1 + rho1
