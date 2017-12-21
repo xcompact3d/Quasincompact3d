@@ -462,7 +462,7 @@ real(mytype) :: r1,r2,r3,r
 real(mytype) :: uh,ud,um,xv,bruit1
 real(mytype) :: u_disturb, v_disturb, disturb_decay
 
-REAL(mytype) :: rho, rhoa, rhob, scal
+REAL(mytype) :: rho, rhoa, rhob
 REAL(mytype) :: wavnum, omega
 REAL(mytype) :: t_init
 
@@ -497,13 +497,8 @@ if (itype.eq.1) then
       do i=1,xsize(1)
         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-        scal = (1._mytype + rhoa / rhob) + (1._mytype - rhoa / rhob) &
-             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init)
-        scal = (1._mytype + SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
-             * COS(PI * omega * t_init)) / scal
-        rho = 1._mytype / (scal / rhob + (1._mytype - scal) / rhoa)
         rho = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
-		* SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
+             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
         
         ux1(i,j,k) = -((rhob - rhoa) / rho) * (omega / (4._mytype * wavnum)) &
              * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t_init)
@@ -687,7 +682,7 @@ integer :: k,j,i,fh,ierror,ii
 integer :: code
 integer (kind=MPI_OFFSET_KIND) :: disp
 
-REAL(mytype) :: scal, rhoa, rhob
+REAL(mytype) :: rhoa, rhob
 REAL(mytype) :: wavnum, omega
 REAL(mytype) :: t_init
 
@@ -757,13 +752,8 @@ if (iin.eq.1) then !generation of a random noise
        do i = 1, xsize(1)
          x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-         scal = (1._mytype + rhoa / rhob) + (1._mytype - rhoa / rhob) &
-              * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init)
-         scal = (1._mytype + SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
-              * COS(PI * omega * t_init)) / scal
-         rho1(i, j, k) = 1._mytype / (scal / rhob + (1._mytype - scal) / rhoa)
          rho1(i, j, k) = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
-		* SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
+              * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
@@ -979,6 +969,10 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   INTEGER :: subitr
 
+  INTEGER :: i, j, k
+  REAL(mytype) :: x, y, z
+  REAL(mytype) :: tnext
+
   IF (nrhoscheme.EQ.0) THEN
     IF (nrank.EQ.0) THEN
       PRINT *, "nrhoscheme=0 corresponds to variable-coefficient Poisson equation"
@@ -1022,7 +1016,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
           !  typo, i.e. should it be gamma_k -> gamma_l giving
           !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
           !  in which case it should be gdt(subitr)
-          drhodt1 = drhodt1 + gdt(itr) * (rhoss1 - rhos01) / dt
+          drhodt1 = drhodt1 + gdt(subitr) * (rhoss1 - rhos01) / dt
         ENDDO
       ELSE
         drhodt1 = drhodt1 + rho1
@@ -1035,6 +1029,21 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       STOP
     ENDIF
   ENDIF
+
+  ! !! Set drhodt using MMS
+  ! tnext = t + gdt(itr)
+  ! DO k = 1, xsize(3)
+  !   z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
+  !   DO j = 1, xsize(2)
+  !     y = (j + xstart(2) - 2) * dy - yly / 2._mytype
+  !     DO i = 1, xsize(1)
+  !       x = (i + xstart(1) - 2) * dx - xlx / 2._mytype
+
+  !       drhodt1(i, j, k) = 0.5_mytype * (PI * 2._mytype) * (5._mytype - 1._mytype) &
+  !            * SIN(PI * 2._mytype * x) * SIN(PI * 2._mytype * y) * SIN(PI * 2._mytype * tnext)
+  !     ENDDO
+  !   ENDDO
+  ! ENDDO
   
 ENDSUBROUTINE extrapol_rhotrans
 

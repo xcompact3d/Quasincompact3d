@@ -1123,13 +1123,13 @@ SUBROUTINE eval_error_vel(ux1_num, uy1_num, uz1_num)
       DO i = 1, xsize(1)
         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-	rho_exact = ((rhoa + rhob) + (rhob - rhoa) * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
-		* COS(PI * omega * t)) / 2._mytype
+        rho_exact = ((rhoa + rhob) + (rhob - rhoa) * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
+             * COS(PI * omega * t)) / 2._mytype
 
         ux1_exact(i,j,k) = ((rhob - rhoa) / rho_exact) * (-omega / (4._mytype * wavnum)) &
-		* COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t)
+             * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t)
         uy1_exact(i,j,k) = ((rhob - rhoa) / rho_exact) * (-omega / (4._mytype * wavnum)) &
-		* SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t)
+             * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t)
         uz1_exact(i,j,k) = 0._mytype
       ENDDO
     ENDDO
@@ -1174,9 +1174,8 @@ SUBROUTINE eval_error_rho(rho_num)
       y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       DO i = 1, xsize(1)
         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
-        rho_exact(i, j, k) = ((rhoa + rhob) + (rhob - rhoa) &
-             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t)) &
-             / 2._mytype
+        rho_exact(i, j, k) = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
+             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t))
       ENDDO
     ENDDO
   ENDDO

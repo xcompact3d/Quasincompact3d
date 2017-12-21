@@ -51,7 +51,7 @@ PROGRAM incompact3d
   double precision :: t1,t2
   character(len=20) :: filename
 
-  integer :: converged
+  logical :: converged
   integer :: poissiter
 
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
@@ -192,7 +192,6 @@ PROGRAM incompact3d
       !    X->Y->Z->Y->X
       ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
       !     transpose operations by operating on Z->Y->X.
-      ! XXX Replaces velocities with momentum.
       ! XXX tg1 contains the density forcing term.
       call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
            uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
@@ -210,7 +209,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
       call pre_correc(ux1,uy1,uz1,rho1)
-      ! call pre_correc(ux1, uy1, uz1, rho1, td1, te1, di1, &
+      ! call pre_correc_tractionfree(ux1, uy1, uz1, rho1, td1, te1, di1, &
       !      ta2, tb2, di2, &
       !      ta3, pp3, di3, nxmsize, nymsize, nzmsize, ph2, ph3)
 
@@ -251,12 +250,11 @@ PROGRAM incompact3d
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
-      
       !-----------------------------------------------------------------------------------
       ! Solution of the Poisson equation
-      converged = 0
+      converged = .FALSE.
       poissiter = 0
-      do while(converged.eq.0)
+      do while(converged.eqv..FALSE.)
         if (nrhoscheme.eq.0) then
           if (nrank.eq.0) then
             print *, "Var-coeff Poisson not yet implemented!"
@@ -278,7 +276,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
         if (nrhoscheme.ne.0) then
-          converged = 1
+          converged = .TRUE.
         else
           !! Var-coeff Poisson, probably want to test convergence here
           CONTINUE
@@ -314,6 +312,8 @@ PROGRAM incompact3d
         call test_scalar_min_max(phi1)
       endif
 
+      ! Move time to end of substep
+      t = t + gdt(itr)
     enddo ! End sub-timesteps
 
 !!$   call STATISTIC(ux1,uy1,uz1,phi1,ta1,umean,vmean,wmean,phimean,uumean,vvmean,wwmean,&
@@ -338,9 +338,9 @@ PROGRAM incompact3d
     !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
     ! endif
 
-    ! ! MMS: compare errors
-    ! CALL eval_error_rho(rho1)
-    ! CALL eval_error_vel(ux1,uy1,uz1)
+    ! MMS: compare errors
+    CALL eval_error_rho(rho1)
+    CALL eval_error_vel(ux1,uy1,uz1)
 
   enddo
 
