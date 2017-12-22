@@ -850,70 +850,70 @@ call interi6(tc1,tf1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
 
 !we are in X pencils:
 do k=1,xsize(3)
-do j=1,xsize(2)
-   dpdyx1(j,k)=tb1(1,j,k)/gdt(itr)
-   dpdzx1(j,k)=tc1(1,j,k)/gdt(itr)
-   dpdyxn(j,k)=tb1(nx,j,k)/gdt(itr)
-   dpdzxn(j,k)=tc1(nx,j,k)/gdt(itr)
-enddo
+  do j=1,xsize(2)
+    dpdyx1(j,k)=tb1(1,j,k)/gdt(itr)
+    dpdzx1(j,k)=tc1(1,j,k)/gdt(itr)
+    dpdyxn(j,k)=tb1(nx,j,k)/gdt(itr)
+    dpdzxn(j,k)=tc1(nx,j,k)/gdt(itr)
+  enddo
 enddo
 
 
 if (xstart(3)==1) then
-   do j=1,xsize(2)
-   do i=1,xsize(1)
+  do j=1,xsize(2)
+    do i=1,xsize(1)
       dpdxz1(i,j)=ta1(i,j,1)/gdt(itr)
       dpdyz1(i,j)=tb1(i,j,1)/gdt(itr)
-   enddo
-   enddo
+    enddo
+  enddo
 endif
 if (xend(3)==nz) then
-   do j=1,xsize(2)
-   do i=1,xsize(1)
+  do j=1,xsize(2)
+    do i=1,xsize(1)
       dpdxzn(i,j)=ta1(i,j,nz)/gdt(itr)
       dpdyzn(i,j)=tb1(i,j,nz)/gdt(itr)
-   enddo
-   enddo
+    enddo
+  enddo
 endif
 
-   ! determine the processor grid in use
-   call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
-         dims, dummy_periods, dummy_coords, code)
+! determine the processor grid in use
+call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
+     dims, dummy_periods, dummy_coords, code)
 
-   if (dims(1)==1) then
-      do k=1,xsize(3)
-      do i=1,xsize(1)
+if (dims(1)==1) then
+  do k=1,xsize(3)
+    do i=1,xsize(1)
       dpdxy1(i,k)=ta1(i,1,k)/gdt(itr)
       dpdzy1(i,k)=tc1(i,1,k)/gdt(itr)
-      enddo
-      enddo
-      do k=1,xsize(3)
+    enddo
+  enddo
+  do k=1,xsize(3)
+    do i=1,xsize(1)
+      dpdxyn(i,k)=ta1(i,xsize(2),k)/gdt(itr)
+      dpdzyn(i,k)=tc1(i,xsize(2),k)/gdt(itr)
+    enddo
+  enddo
+else
+  !find j=1 and j=ny
+  if (xstart(2)==1) then
+    do k=1,xsize(3)
       do i=1,xsize(1)
-      dpdxyn(i,k)=ta1(i,xsize(2),k)/gdt(itr)
-      dpdzyn(i,k)=tc1(i,xsize(2),k)/gdt(itr)
+        dpdxy1(i,k)=ta1(i,1,k)/gdt(itr)
+        dpdzy1(i,k)=tc1(i,1,k)/gdt(itr)
       enddo
+    enddo
+  endif
+  !      print *,nrank,xstart(2),ny-(nym/p_row)
+  if (ny-(nym/dims(1))==xstart(2)) then
+    do k=1,xsize(3)
+      do i=1,xsize(1)
+        dpdxyn(i,k)=ta1(i,xsize(2),k)/gdt(itr)
+        dpdzyn(i,k)=tc1(i,xsize(2),k)/gdt(itr)
       enddo
-   else
-!find j=1 and j=ny
-      if (xstart(2)==1) then
-         do k=1,xsize(3)
-         do i=1,xsize(1)
-      dpdxy1(i,k)=ta1(i,1,k)/gdt(itr)
-      dpdzy1(i,k)=tc1(i,1,k)/gdt(itr)
-         enddo
-         enddo
-      endif
-!      print *,nrank,xstart(2),ny-(nym/p_row)
-       if (ny-(nym/dims(1))==xstart(2)) then
-         do k=1,xsize(3)
-         do i=1,xsize(1)
-      dpdxyn(i,k)=ta1(i,xsize(2),k)/gdt(itr)
-      dpdzyn(i,k)=tc1(i,xsize(2),k)/gdt(itr)
-         enddo
-         enddo
-      endif
-
-   endif
+    enddo
+  endif
+  
+endif
 
 
 return
