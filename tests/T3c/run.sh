@@ -38,3 +38,6 @@ do
 						cd ${CWD}
 				done
 done
+
+# Run postprocessing
+./postproc.py 
