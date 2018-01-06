@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 N = [8,
 		 16,
 		 32,
-		 64
+		 64,
+		 128
 ] # Mesh size definition
 T = [200,
 		 400,
@@ -53,8 +54,8 @@ def main():
 						errs[var][n][t] += float(row.split()[4])
 
 				# Compute avg error
-				errs[var][n][t] /= float(t)
-				print var + str(n) + "-" + str(t) + ": " + str(errs[var][n][t])
+				errs[var][n][t] /= math.sqrt(float(t))
+				#print var + str(n) + "-" + str(t) + ": " + str(errs[var][n][t])
 
 	# Log errors
 	with open (DATADIR + "err.log", "w") as logfile:
@@ -89,17 +90,19 @@ def main():
 				tctr += 1
 			nctr += 1
 
-		for n in N:
-			for t in T:
-				print var + str(n) + "-" + str(t) + ": " + str(pt[var][n][t]) + " (dt)"
-		for t in T:
-			for n in N:
-				print var + str(n) + "-" + str(t) + ": " + str(pn[var][n][t]) + " (dx)"
+		# for n in N:
+		# 	for t in T:
+		# 		print var + str(n) + "-" + str(t) + ": " + str(pt[var][n][t]) + " (dt)"
+		# for t in T:
+		# 	for n in N:
+		# 		print var + str(n) + "-" + str(t) + ": " + str(pn[var][n][t]) + " (dx)"
 
 	# Error plots
 	pltvar = {}
 	varctr = 0
 	plt.figure(figsize=(5.0, 3.5))
+	plt.plot([N[0], N[-1]], [0.5, 0.5 / float((2**6)**(len(N) - 1))],
+					 color="black", lw=2) # 6th order convergence line
 	for var in VARS:
 		pltvar[var] = {}
 		for t in T:
@@ -126,6 +129,8 @@ def main():
 
 	varctr = 0
 	plt.figure(figsize=(5.0, 3.5))
+	plt.plot([T[0], T[-1]], [0.5, 0.5 / float((2**2)**(len(T) - 1))],
+					 color="black", lw=2) # 2nd order convergence line
 	for var in VARS:
 		pltvar[var] = {}
 		for n in N:
