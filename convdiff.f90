@@ -32,413 +32,418 @@
 
 !********************************************************************
 !
+! 
+!********************************************************************
 subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
      ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
      ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
-! 
-!********************************************************************
-USE param
-USE variables
-USE decomp_2d
 
-USE MPI
+  USE param
+  USE variables
+  USE decomp_2d
 
-implicit none
+  USE MPI
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ux2,uy2,uz2 
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ux3,uy3,uz3
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
+  implicit none
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ux2,uy2,uz2 
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ux3,uy3,uz3
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: rho2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: rho3
 
-real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
-real(mytype) :: tb1min, tb1min1, tb1max, tb1max1
-real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
 
-integer :: ijk,nvect1,nvect2,nvect3,i,j,k
-integer :: code
-real(mytype) :: x,y,z
+  real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
+  real(mytype) :: tb1min, tb1min1, tb1max, tb1max1
+  real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
 
-real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
+  integer :: ijk,nvect1,nvect2,nvect3,i,j,k
+  integer :: code
+  real(mytype) :: x,y,z
 
-nvect1=xsize(1)*xsize(2)*xsize(3)
-nvect2=ysize(1)*ysize(2)*ysize(3)
-nvect3=zsize(1)*zsize(2)*zsize(3)
+  real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
+
+  nvect1=xsize(1)*xsize(2)*xsize(3)
+  nvect2=ysize(1)*ysize(2)*ysize(3)
+  nvect3=zsize(1)*zsize(2)*zsize(3)
 
 !!! CM call test_min_max('ux1  ','In convdiff    ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In convdiff    ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In convdiff    ',uz1,size(uz1))
 
-if (iskew==0) then !UROTU!
-!WORK X-PENCILS
-   call derx (ta1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call derx (tb1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call transpose_x_to_y(ux1,ux2)
-   call transpose_x_to_y(uy1,uy2)
-   call transpose_x_to_y(uz1,uz2)
-   call transpose_x_to_y(ta1,ta2)
-   call transpose_x_to_y(tb1,tb2)
-!WORK Y-PENCILS
-   call dery (tc2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
-   call dery (td2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
-   call transpose_y_to_z(ux2,ux3)
-   call transpose_y_to_z(uy2,uy3)
-   call transpose_y_to_z(uz2,uz3)
-   call transpose_y_to_z(ta2,ta3)
-   call transpose_y_to_z(tb2,tb3)
-   call transpose_y_to_z(tc2,tc3)
-   call transpose_y_to_z(td2,td3)
-!WORK Z-PENCILS
-   call derz (te3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   call derz (tf3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   do ijk=1,nvect3
+  if (iskew==0) then !UROTU!
+    !WORK X-PENCILS
+    call derx (ta1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (tb1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call transpose_x_to_y(ux1,ux2)
+    call transpose_x_to_y(uy1,uy2)
+    call transpose_x_to_y(uz1,uz2)
+    call transpose_x_to_y(ta1,ta2)
+    call transpose_x_to_y(tb1,tb2)
+    
+    !WORK Y-PENCILS
+    call dery (tc2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+    call dery (td2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+    call transpose_y_to_z(ux2,ux3)
+    call transpose_y_to_z(uy2,uy3)
+    call transpose_y_to_z(uz2,uz3)
+    call transpose_y_to_z(ta2,ta3)
+    call transpose_y_to_z(tb2,tb3)
+    call transpose_y_to_z(tc2,tc3)
+    call transpose_y_to_z(td2,td3)
+    
+    !WORK Z-PENCILS
+    call derz (te3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (tf3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    do ijk=1,nvect3
       ta3(ijk,1,1)=uz3(ijk,1,1)*(te3(ijk,1,1)-tb3(ijk,1,1))-&
            uy3(ijk,1,1)*(ta3(ijk,1,1)-tc3(ijk,1,1))
       tb3(ijk,1,1)=ux3(ijk,1,1)*(ta3(ijk,1,1)-tc3(ijk,1,1))-&
            uz3(ijk,1,1)*(td3(ijk,1,1)-tf3(ijk,1,1))
       tc3(ijk,1,1)=uy3(ijk,1,1)*(td3(ijk,1,1)-tf3(ijk,1,1))-&
            ux3(ijk,1,1)*(te3(ijk,1,1)-tb3(ijk,1,1))
-   enddo
-else !SKEW!
-  !WORK X-PENCILS
-  td1(:,:,:) = rho1(:,:,:) * ux1(:,:,:) * ux1(:,:,:)
-  te1(:,:,:) = rho1(:,:,:) * uy1(:,:,:) * ux1(:,:,:)
-  tf1(:,:,:) = rho1(:,:,:) * uz1(:,:,:) * ux1(:,:,:)
-   
-   call derx (tg1,td1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call derx (th1,te1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (ti1,tf1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-   call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    enddo
+  else !SKEW!
+    !WORK X-PENCILS
+    td1(:,:,:) = rho1(:,:,:) * ux1(:,:,:) * ux1(:,:,:)
+    te1(:,:,:) = rho1(:,:,:) * uy1(:,:,:) * ux1(:,:,:)
+    tf1(:,:,:) = rho1(:,:,:) * uz1(:,:,:) * ux1(:,:,:)
 
-   ta1(:,:,:) = tg1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
-   tb1(:,:,:) = th1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * te1(:,:,:)
-   tc1(:,:,:) = ti1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * tf1(:,:,:)
-   
-   ! Quasi-skew symmetric terms
-   call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-   ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-   tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-   tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    call derx (tg1,td1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (th1,te1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (ti1,tf1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
-   call transpose_x_to_y(ux1,ux2)
-   call transpose_x_to_y(uy1,uy2)
-   call transpose_x_to_y(uz1,uz2)
-   call transpose_x_to_y(ta1,ta2)
-   call transpose_x_to_y(tb1,tb2)
-   call transpose_x_to_y(tc1,tc2)
+    ta1(:,:,:) = tg1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
+    tb1(:,:,:) = th1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * te1(:,:,:)
+    tc1(:,:,:) = ti1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * tf1(:,:,:)
 
-   call transpose_x_to_y(rho1,rho2)
-   !WORK Y-PENCILS
-   td2(:,:,:) = rho2(:,:,:) * ux2(:,:,:) * uy2(:,:,:)
-   te2(:,:,:) = rho2(:,:,:) * uy2(:,:,:) * uy2(:,:,:)
-   tf2(:,:,:) = rho2(:,:,:) * uz2(:,:,:) * uy2(:,:,:)
-   
-   call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
-   call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-   call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
-   call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
-   call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-   call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    ! Quasi-skew symmetric terms
+    call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
 
-   ta2(:,:,:) = ta2(:,:,:) + tg2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * td2(:,:,:)
-   tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
-   tc2(:,:,:) = tc2(:,:,:) + ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:)
+    call transpose_x_to_y(ux1,ux2)
+    call transpose_x_to_y(uy1,uy2)
+    call transpose_x_to_y(uz1,uz2)
+    call transpose_x_to_y(ta1,ta2)
+    call transpose_x_to_y(tb1,tb2)
+    call transpose_x_to_y(tc1,tc2)
 
-   ! Quasi-skew symmetric terms
-   call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-   ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-   tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-   tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    call transpose_x_to_y(rho1,rho2)
+    
+    !WORK Y-PENCILS
+    td2(:,:,:) = rho2(:,:,:) * ux2(:,:,:) * uy2(:,:,:)
+    te2(:,:,:) = rho2(:,:,:) * uy2(:,:,:) * uy2(:,:,:)
+    tf2(:,:,:) = rho2(:,:,:) * uz2(:,:,:) * uy2(:,:,:)
 
-   call transpose_y_to_z(ux2,ux3)
-   call transpose_y_to_z(uy2,uy3)
-   call transpose_y_to_z(uz2,uz3)
-   call transpose_y_to_z(ta2,ta3)
-   call transpose_y_to_z(tb2,tb3)
-   call transpose_y_to_z(tc2,tc3)
+    call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
+    call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0) 
+    call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
 
-   call transpose_y_to_z(rho2,rho3)
-   !WORK Z-PENCILS
-   td3(:,:,:) = rho3(:,:,:) * ux3(:,:,:) * uz3(:,:,:)
-   te3(:,:,:) = rho3(:,:,:) * uy3(:,:,:) * uz3(:,:,:)
-   tf3(:,:,:) = rho3(:,:,:) * uz3(:,:,:) * uz3(:,:,:)
-   
-   call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-   call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-   call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    ta2(:,:,:) = ta2(:,:,:) + tg2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * td2(:,:,:)
+    tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
+    tc2(:,:,:) = tc2(:,:,:) + ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:)
 
-   ta3(:,:,:) = ta3(:,:,:) + tg3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * td3(:,:,:)
-   tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:)
-   tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
+    ! Quasi-skew symmetric terms
+    call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
 
-   ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
-   call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-   ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
-        * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-   tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
-        * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-   tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
-        * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+    call transpose_y_to_z(ux2,ux3)
+    call transpose_y_to_z(uy2,uy3)
+    call transpose_y_to_z(uz2,uz3)
+    call transpose_y_to_z(ta2,ta3)
+    call transpose_y_to_z(tb2,tb3)
+    call transpose_y_to_z(tc2,tc3)
 
-   ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
-   tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
-   tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
-endif
-!ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
+    call transpose_y_to_z(rho2,rho3)
+    
+    !WORK Z-PENCILS
+    td3(:,:,:) = rho3(:,:,:) * ux3(:,:,:) * uz3(:,:,:)
+    te3(:,:,:) = rho3(:,:,:) * uy3(:,:,:) * uz3(:,:,:)
+    tf3(:,:,:) = rho3(:,:,:) * uz3(:,:,:) * uz3(:,:,:)
+
+    call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+
+    ta3(:,:,:) = ta3(:,:,:) + tg3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * td3(:,:,:)
+    tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:)
+    tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
+
+    ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
+    call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
+         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+    tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
+         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+    tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
+         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+
+    ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
+    tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
+    tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
+  endif
+  !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
 !!! CM call test_min_max('td3  ','In convdiff    ',td3,size(td3))
 !!! CM call test_min_max('te3  ','In convdiff    ',te3,size(te3))
 !!! CM call test_min_max('tf3  ','In convdiff    ',tf3,size(tf3))
 
-tg3(:,:,:) = ta3(:,:,:)
-th3(:,:,:) = tb3(:,:,:)
-ti3(:,:,:) = tc3(:,:,:)
+  tg3(:,:,:) = ta3(:,:,:)
+  th3(:,:,:) = tb3(:,:,:)
+  ti3(:,:,:) = tc3(:,:,:)
 
-!DIFFUSIVE TERMS IN Z
-call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
+  !DIFFUSIVE TERMS IN Z
+  call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
 
-!! Compute bulk shear contribution
-! tg3, th3, ti3 available as work vectors
-! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derz(tf3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * tf3(:,:,:)
+  !! Compute bulk shear contribution
+  ! tg3, th3, ti3 available as work vectors
+  ! TODO need to check ffzp, and whether last terms should be 1 or 0
+  call derz(tf3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * tf3(:,:,:)
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
 !!! CM call test_min_max('tc3  ','In convdiff    ',tc3,size(tc3))
 
-!WORK Y-PENCILS
-call transpose_z_to_y(ta3,ta2)
-call transpose_z_to_y(tb3,tb2)
-call transpose_z_to_y(tc3,tc2)
-call transpose_z_to_y(tg3,tg2)
-call transpose_z_to_y(th3,th2)
-call transpose_z_to_y(ti3,ti2)
+  !WORK Y-PENCILS
+  call transpose_z_to_y(ta3,ta2)
+  call transpose_z_to_y(tb3,tb2)
+  call transpose_z_to_y(tc3,tc2)
+  call transpose_z_to_y(tg3,tg2)
+  call transpose_z_to_y(th3,th2)
+  call transpose_z_to_y(ti3,ti2)
 
-call transpose_z_to_y(divu3, divu2)
+  call transpose_z_to_y(divu3, divu2)
 
 !!! CM call test_min_max('tg2  ','In convdiff    ',tg2,size(tg2))
 !!! CM call test_min_max('th2  ','In convdiff    ',th2,size(th2))
 !!! CM call test_min_max('ti2  ','In convdiff    ',ti2,size(ti2))
 
-!DIFFUSIVE TERMS IN Y
-!-->for ux
-if (istret.ne.0) then 
-   call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-   call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-   do k=1,ysize(3)
-   do j=1,ysize(2)
-   do i=1,ysize(1)
-      td2(i,j,k)=td2(i,j,k)*pp2y(j)-pp4y(j)*te2(i,j,k)
-   enddo
-   enddo
-   enddo
-else
+  !DIFFUSIVE TERMS IN Y
+  !-->for ux
+  if (istret.ne.0) then 
+    call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+    call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    do k=1,ysize(3)
+      do j=1,ysize(2)
+        do i=1,ysize(1)
+          td2(i,j,k)=td2(i,j,k)*pp2y(j)-pp4y(j)*te2(i,j,k)
+        enddo
+      enddo
+    enddo
+  else
 !!! CM    call test_min_max('ux2  ','In convdiff    ',ux2,size(ux2))
 !!! CM    call test_min_max('di2  ','In convdiff    ',di2,size(di2))
 !!! CM    write(*,*) ysize(1),ysize(2),ysize(3)
-   call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
-endif
+    call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
+  endif
 
 !!! CM call test_min_max('td2  ','In convdiff    ',td2,size(td2))
 
-!-->for uy
-if (istret.ne.0) then 
-   call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0)
-   call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-   do k=1,ysize(3)
-   do j=1,ysize(2)
-   do i=1,ysize(1)
-      te2(i,j,k)=te2(i,j,k)*pp2y(j)-pp4y(j)*tf2(i,j,k)
-   enddo
-   enddo
-   enddo
-else
-   call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0) 
-endif
-!-->for uz
-if (istret.ne.0) then 
-   call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-   call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-   do k=1,ysize(3)
-   do j=1,ysize(2)
-   do i=1,ysize(1)
-      tf2(i,j,k)=tf2(i,j,k)*pp2y(j)-pp4y(j)*tj2(i,j,k)
-   enddo
-   enddo
-   enddo
-else
-   call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
-endif
+  !-->for uy
+  if (istret.ne.0) then 
+    call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0)
+    call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    do k=1,ysize(3)
+      do j=1,ysize(2)
+        do i=1,ysize(1)
+          te2(i,j,k)=te2(i,j,k)*pp2y(j)-pp4y(j)*tf2(i,j,k)
+        enddo
+      enddo
+    enddo
+  else
+    call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0) 
+  endif
+  !-->for uz
+  if (istret.ne.0) then 
+    call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+    call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    do k=1,ysize(3)
+      do j=1,ysize(2)
+        do i=1,ysize(1)
+          tf2(i,j,k)=tf2(i,j,k)*pp2y(j)-pp4y(j)*tj2(i,j,k)
+        enddo
+      enddo
+    enddo
+  else
+    call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
+  endif
 
 !!! CM call test_min_max('td2  ','In convdiff    ',td2,size(td2))
 !!! CM call test_min_max('te2  ','In convdiff    ',te2,size(te2))
 !!! CM call test_min_max('tf2  ','In convdiff    ',tf2,size(tf2))
 
-ta2(:,:,:) = ta2(:,:,:) + td2(:,:,:)
-tb2(:,:,:) = tb2(:,:,:) + te2(:,:,:)
-tc2(:,:,:) = tc2(:,:,:) + tf2(:,:,:)
+  ta2(:,:,:) = ta2(:,:,:) + td2(:,:,:)
+  tb2(:,:,:) = tb2(:,:,:) + te2(:,:,:)
+  tc2(:,:,:) = tc2(:,:,:) + tf2(:,:,:)
 
 !!! CM call test_min_max('ta2  ','In convdiff    ',ta2,size(ta2))
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-!! Compute bulk shear contribution
-! td2, te2, tf2 avaiable as work vectors
-call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
+  !! Compute bulk shear contribution
+  ! td2, te2, tf2 avaiable as work vectors
+  call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * te2(:,:,:)
 
-!WORK X-PENCILS
-call transpose_y_to_x(ta2,ta1)
-call transpose_y_to_x(tb2,tb1)
-call transpose_y_to_x(tc2,tc1) !diff
-call transpose_y_to_x(tg2,tg1)
-call transpose_y_to_x(th2,th1)
-call transpose_y_to_x(ti2,ti1) !conv
+  !WORK X-PENCILS
+  call transpose_y_to_x(ta2,ta1)
+  call transpose_y_to_x(tb2,tb1)
+  call transpose_y_to_x(tc2,tc1) !diff
+  call transpose_y_to_x(tg2,tg1)
+  call transpose_y_to_x(th2,th1)
+  call transpose_y_to_x(ti2,ti1) !conv
 
-call transpose_y_to_x(divu2, divu1)
+  call transpose_y_to_x(divu2, divu1)
 
-!DIFFUSIVE TERMS IN X
-call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
-call derxx (te1,uy1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
-call derxx (tf1,uz1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  !DIFFUSIVE TERMS IN X
+  call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
+  call derxx (te1,uy1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  call derxx (tf1,uz1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
 
-ta1(:,:,:) = ta1(:,:,:) + td1(:,:,:)
-tb1(:,:,:) = tb1(:,:,:) + te1(:,:,:)
-tc1(:,:,:) = tc1(:,:,:) + tf1(:,:,:)
+  ta1(:,:,:) = ta1(:,:,:) + td1(:,:,:)
+  tb1(:,:,:) = tb1(:,:,:) + te1(:,:,:)
+  tc1(:,:,:) = tc1(:,:,:) + tf1(:,:,:)
 
-!! Compute bulk shear contribution
-! td1, te1, tf1 available as work vectors
-! TODO need to check ffzp, and whether last terms should be 1 or 0
-call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
+  !! Compute bulk shear contribution
+  ! td1, te1, tf1 available as work vectors
+  ! TODO need to check ffzp, and whether last terms should be 1 or 0
+  call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * td1(:,:,:)
 
-!if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
-!tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
-!th1(:,:,:)=th1(:,:,:)-2./18.*ux1(:,:,:)
+  !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
+  !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
+  !th1(:,:,:)=th1(:,:,:)-2./18.*ux1(:,:,:)
 
-!INTERMEDIATE SUM: DIFF TERMS + CONV TERMS
-ta1(:,:,:) = xnu * ta1(:,:,:) - tg1(:,:,:)
-tb1(:,:,:) = xnu * tb1(:,:,:) - th1(:,:,:)
-tc1(:,:,:) = xnu * tc1(:,:,:) - ti1(:,:,:)
+  !INTERMEDIATE SUM: DIFF TERMS + CONV TERMS
+  ta1(:,:,:) = xnu * ta1(:,:,:) - tg1(:,:,:)
+  tb1(:,:,:) = xnu * tb1(:,:,:) - th1(:,:,:)
+  tc1(:,:,:) = xnu * tc1(:,:,:) - ti1(:,:,:)
 
-!! Compute cross-shear
-! NB ta1,tb1,tc1 cannot be touched!
-! NB u2,u3 have already been updated, no need to transpose velocities!
+  !! Compute cross-shear
+  ! NB ta1,tb1,tc1 cannot be touched!
+  ! NB u2,u3 have already been updated, no need to transpose velocities!
 
-! X - accumulate d(v,w)dx terms
-call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  ! X - accumulate d(v,w)dx terms
+  call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
 
-call transpose_x_to_y(te1, te2) ! te2 contains dvdx
-call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
+  call transpose_x_to_y(te1, te2) ! te2 contains dvdx
+  call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
 
-! Y - accumulate dwdy terms
-call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  ! Y - accumulate dwdy terms
+  call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
 
-call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
-call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
+  call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
+  call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
 
-! Z - accumulate ddz terms
-call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-call derz(tb3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  ! Z - accumulate ddz terms
+  call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  call derz(tb3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
 
-! Z - compute ddz(dwdx, dwdy, dwdz)
-call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  ! Z - compute ddz(dwdx, dwdy, dwdz)
+  call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
 
-call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
-call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
-call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
+  call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
+  call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
+  call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
 
-call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
-call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
+  call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
+  call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
 
-! Y - compute ddy(dvdx, dvdy, dvdz)
+  ! Y - compute ddy(dvdx, dvdy, dvdz)
 
-call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
 
-td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
-te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
-tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
+  td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
+  te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
+  tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
 
-call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
-call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
-call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
+  call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
+  call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
+  call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
 
-call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
 
-call transpose_y_to_x(td2, th1) ! tg1 contains dudy
-call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
+  call transpose_y_to_x(td2, th1) ! tg1 contains dudy
+  call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
 
-! X - compute ddx(dudx, dudy, dudz)
+  ! X - compute ddx(dudx, dudy, dudz)
 
-! First make some room to work!
-ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
-tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
-tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
+  ! First make some room to work!
+  ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
+  tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
+  tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
 
-call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
 
-call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+  call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
 
-!! Finish off adding cross-stresses to shear stress
-ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
-tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
-tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
+  !! Finish off adding cross-stresses to shear stress
+  ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
+  tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
+  tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
 
-!! MMS Source term
-call momentum_source_mms(ta1,tb1,tc1)
+  !! MMS Source term
+  call momentum_source_mms(ta1,tb1,tc1)
 
-! ta1max=-1.e30_mytype
-! ta1min=+1.e30_mytype
-! tb1max=-1.e30_mytype
-! tb1min=+1.e30_mytype
-! tc1max=-1.e30_mytype
-! tc1min=+1.e30_mytype
+  ! ta1max=-1.e30_mytype
+  ! ta1min=+1.e30_mytype
+  ! tb1max=-1.e30_mytype
+  ! tb1min=+1.e30_mytype
+  ! tc1max=-1.e30_mytype
+  ! tc1min=+1.e30_mytype
 
-! do k=xstart(3),xend(3)
-!    do j=xstart(2),xend(2)
-!       do i=xstart(1),xend(1)
-!          if (ta1(i,j,k).gt.ta1max) ta1max=ta1(i,j,k)
-!          if (ta1(i,j,k).lt.ta1min) ta1min=ta1(i,j,k)
-!          if (tb1(i,j,k).gt.tb1max) tb1max=tb1(i,j,k)
-!          if (tb1(i,j,k).lt.tb1min) tb1min=tb1(i,j,k)
-!          if (tc1(i,j,k).gt.tc1max) tc1max=tc1(i,j,k)
-!          if (tc1(i,j,k).lt.tc1min) tc1min=tc1(i,j,k)
-!       enddo
-!    enddo
-! enddo
+  ! do k=xstart(3),xend(3)
+  !    do j=xstart(2),xend(2)
+  !       do i=xstart(1),xend(1)
+  !          if (ta1(i,j,k).gt.ta1max) ta1max=ta1(i,j,k)
+  !          if (ta1(i,j,k).lt.ta1min) ta1min=ta1(i,j,k)
+  !          if (tb1(i,j,k).gt.tb1max) tb1max=tb1(i,j,k)
+  !          if (tb1(i,j,k).lt.tb1min) tb1min=tb1(i,j,k)
+  !          if (tc1(i,j,k).gt.tc1max) tc1max=tc1(i,j,k)
+  !          if (tc1(i,j,k).lt.tc1min) tc1min=tc1(i,j,k)
+  !       enddo
+  !    enddo
+  ! enddo
 
-! call MPI_REDUCE(ta1max,ta1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-! call MPI_REDUCE(ta1min,ta1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
-! call MPI_REDUCE(tb1max,tb1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-! call MPI_REDUCE(tb1min,tb1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
-! call MPI_REDUCE(tc1max,tc1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-! call MPI_REDUCE(tc1min,tc1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(ta1max,ta1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(ta1min,ta1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(tb1max,tb1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(tb1min,tb1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(tc1max,tc1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+  ! call MPI_REDUCE(tc1min,tc1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
 
 !!! CM if (nrank==0) then
 !!! CM    write(*,*) 'In convdiff ta1',ta1max1,ta1min1
@@ -451,139 +456,139 @@ end subroutine convdiff
 
 !************************************************************
 !
+!
+!************************************************************
 subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
      uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
      uz3,rho3,phi3,di3,ta3,tb3,epsi)
-!
-!************************************************************
 
-USE param
-USE variables
-USE decomp_2d
+  USE param
+  USE variables
+  USE decomp_2d
 
-implicit none
+  implicit none
 
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,phis1,&
-                                              phiss1,di1,ta1,tb1,tc1,td1,epsi
-real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2
-real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,di3,ta3,tb3
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,phis1,&
+       phiss1,di1,ta1,tb1,tc1,td1,epsi
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,di3,ta3,tb3
 
-integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nxyz
-real(mytype) :: x,y,z
+  integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nxyz
+  real(mytype) :: x,y,z
 
-nvect1=xsize(1)*xsize(2)*xsize(3)
-nvect2=ysize(1)*ysize(2)*ysize(3)
-nvect3=zsize(1)*zsize(2)*zsize(3)
+  nvect1=xsize(1)*xsize(2)*xsize(3)
+  nvect2=ysize(1)*ysize(2)*ysize(3)
+  nvect3=zsize(1)*zsize(2)*zsize(3)
 
-!X PENCILS
-do ijk=1,nvect1
-   ta1(ijk,1,1)=rho1(ijk,1,1)*phi1(ijk,1,1)*ux1(ijk,1,1)
-enddo
-call derx (tb1,ta1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  !X PENCILS
+  do ijk=1,nvect1
+    ta1(ijk,1,1)=rho1(ijk,1,1)*phi1(ijk,1,1)*ux1(ijk,1,1)
+  enddo
+  call derx (tb1,ta1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+  call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
 
-call transpose_x_to_y(phi1,phi2)
-call transpose_x_to_y(uy1,uy2)
-call transpose_x_to_y(uz1,uz2)
-call transpose_x_to_y(rho1,rho2)
+  call transpose_x_to_y(phi1,phi2)
+  call transpose_x_to_y(uy1,uy2)
+  call transpose_x_to_y(uz1,uz2)
+  call transpose_x_to_y(rho1,rho2)
 
-!Y PENCILS
-do ijk=1,nvect2
-   ta2(ijk,1,1)=rho2(ijk,1,1)*phi2(ijk,1,1)*uy2(ijk,1,1)
-enddo
-call dery (tb2,ta2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-if (istret.ne.0) then 
-   call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-   call dery (tc2,phi2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-   do k=1,ysize(3)
-   do j=1,ysize(2)
-   do i=1,ysize(1)
-      ta2(i,j,k)=ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
-   enddo
-   enddo
-   enddo
-else
-   call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
-endif
-
-call transpose_y_to_z(phi2,phi3)
-call transpose_y_to_z(uz2,uz3)
-call transpose_y_to_z(rho2,rho3)
-
-!Z PENCILS
-do ijk=1,nvect3
-   ta3(ijk,1,1)=rho3(ijk,1,1)*phi3(ijk,1,1)*uz3(ijk,1,1)
-enddo
-call derz (tb3,ta3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-
-call transpose_z_to_y(ta3,tc2)
-call transpose_z_to_y(tb3,td2)
-
-!Y PENCILS ADD TERMS
-do ijk=1,nvect2
-   tc2(ijk,1,1)=tc2(ijk,1,1)+ta2(ijk,1,1)
-   td2(ijk,1,1)=td2(ijk,1,1)+tb2(ijk,1,1)
-enddo
-
-call transpose_y_to_x(tc2,tc1)
-call transpose_y_to_x(td2,td1)
-
-!X PENCILS ADD TERMS
-do ijk=1,nvect1
-   ta1(ijk,1,1)=ta1(ijk,1,1)+tc1(ijk,1,1) !SECOND DERIVATIVE
-   tb1(ijk,1,1)=tb1(ijk,1,1)+td1(ijk,1,1) !FIRST DERIVATIVE
-enddo
- 
-do ijk=1,nvect1
-  ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1)
-  phi1(ijk,1,1) = rho1(ijk,1,1)*phi1(ijk,1,1)
-enddo
-
-!TIME ADVANCEMENT
-nxyz=xsize(1)*xsize(2)*xsize(3)  
-
-if ((nscheme.eq.1).or.(nscheme.eq.2)) then
-   if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
-        (nscheme.eq.2.and.itr.eq.1)) then
-      do ijk=1,nxyz
-         phi1(ijk,1,1)=gdt(itr)*ta1(ijk,1,1)+phi1(ijk,1,1)
-         phis1(ijk,1,1)=ta1(ijk,1,1)          
+  !Y PENCILS
+  do ijk=1,nvect2
+    ta2(ijk,1,1)=rho2(ijk,1,1)*phi2(ijk,1,1)*uy2(ijk,1,1)
+  enddo
+  call dery (tb2,ta2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+  if (istret.ne.0) then 
+    call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+    call dery (tc2,phi2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    do k=1,ysize(3)
+      do j=1,ysize(2)
+        do i=1,ysize(1)
+          ta2(i,j,k)=ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
+        enddo
       enddo
-   else
+    enddo
+  else
+    call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
+  endif
+
+  call transpose_y_to_z(phi2,phi3)
+  call transpose_y_to_z(uz2,uz3)
+  call transpose_y_to_z(rho2,rho3)
+
+  !Z PENCILS
+  do ijk=1,nvect3
+    ta3(ijk,1,1)=rho3(ijk,1,1)*phi3(ijk,1,1)*uz3(ijk,1,1)
+  enddo
+  call derz (tb3,ta3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+  call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+
+  call transpose_z_to_y(ta3,tc2)
+  call transpose_z_to_y(tb3,td2)
+
+  !Y PENCILS ADD TERMS
+  do ijk=1,nvect2
+    tc2(ijk,1,1)=tc2(ijk,1,1)+ta2(ijk,1,1)
+    td2(ijk,1,1)=td2(ijk,1,1)+tb2(ijk,1,1)
+  enddo
+
+  call transpose_y_to_x(tc2,tc1)
+  call transpose_y_to_x(td2,td1)
+
+  !X PENCILS ADD TERMS
+  do ijk=1,nvect1
+    ta1(ijk,1,1)=ta1(ijk,1,1)+tc1(ijk,1,1) !SECOND DERIVATIVE
+    tb1(ijk,1,1)=tb1(ijk,1,1)+td1(ijk,1,1) !FIRST DERIVATIVE
+  enddo
+
+  do ijk=1,nvect1
+    ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1)
+    phi1(ijk,1,1) = rho1(ijk,1,1)*phi1(ijk,1,1)
+  enddo
+
+  !TIME ADVANCEMENT
+  nxyz=xsize(1)*xsize(2)*xsize(3)  
+
+  if ((nscheme.eq.1).or.(nscheme.eq.2)) then
+    if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
+         (nscheme.eq.2.and.itr.eq.1)) then
       do ijk=1,nxyz
-         phi1(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*phis1(ijk,1,1)+phi1(ijk,1,1)
-         phis1(ijk,1,1)=ta1(ijk,1,1)          
+        phi1(ijk,1,1)=gdt(itr)*ta1(ijk,1,1)+phi1(ijk,1,1)
+        phis1(ijk,1,1)=ta1(ijk,1,1)          
       enddo
-endif
-endif
+    else
+      do ijk=1,nxyz
+        phi1(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*phis1(ijk,1,1)+phi1(ijk,1,1)
+        phis1(ijk,1,1)=ta1(ijk,1,1)          
+      enddo
+    endif
+  endif
 
-if (nscheme.eq.3) then 
-if (nrank==0) print *,'Not ready'
-stop 
-endif
+  if (nscheme.eq.3) then 
+    if (nrank==0) print *,'Not ready'
+    stop 
+  endif
 
-if (nscheme==4) then
-   if ((itime.eq.1).and.(ilit.eq.0)) then
+  if (nscheme==4) then
+    if ((itime.eq.1).and.(ilit.eq.0)) then
       if (nrank==0) print *,'start with Euler',itime
       do ijk=1,nxyz !start with Euler
-         phi1(ijk,1,1)=dt*ta1(ijk,1,1)+phi1(ijk,1,1)
-         phis1(ijk,1,1)=ta1(ijk,1,1)          
+        phi1(ijk,1,1)=dt*ta1(ijk,1,1)+phi1(ijk,1,1)
+        phis1(ijk,1,1)=ta1(ijk,1,1)          
       enddo
-   else
+    else
       if  ((itime.eq.2).and.(ilit.eq.0)) then
-         if (nrank==0) print *,'then with AB2',itime
-         do ijk=1,nxyz
-            phi1(ijk,1,1)=1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*phis1(ijk,1,1)+phi1(ijk,1,1)
-            phiss1(ijk,1,1)=phis1(ijk,1,1)
-            phis1(ijk,1,1)=ta1(ijk,1,1)
-         enddo 
+        if (nrank==0) print *,'then with AB2',itime
+        do ijk=1,nxyz
+          phi1(ijk,1,1)=1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*phis1(ijk,1,1)+phi1(ijk,1,1)
+          phiss1(ijk,1,1)=phis1(ijk,1,1)
+          phis1(ijk,1,1)=ta1(ijk,1,1)
+        enddo
       else
-         do ijk=1,nxyz
-            phi1(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*phis1(ijk,1,1)+&
-                 cdt(itr)*phiss1(ijk,1,1)+phi1(ijk,1,1)
-            phiss1(ijk,1,1)=phis1(ijk,1,1)
-            phis1(ijk,1,1)=ta1(ijk,1,1)
+        do ijk=1,nxyz
+          phi1(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*phis1(ijk,1,1)+&
+               cdt(itr)*phiss1(ijk,1,1)+phi1(ijk,1,1)
+          phiss1(ijk,1,1)=phis1(ijk,1,1)
+          phis1(ijk,1,1)=ta1(ijk,1,1)
          enddo
       endif
    endif
