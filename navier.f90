@@ -311,7 +311,7 @@ subroutine inflow (ux, uy, uz, rho, phi)
   real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
   real(mytype) :: r1, r2, r3, y, um
 
-  call ecoule(ux, uy, uz)
+  call ecoule(ux, uy, uz, rho)
 
   call random_number(bxo)
   call random_number(byo)
@@ -453,7 +453,7 @@ end subroutine outflow
 !
 !
 !**********************************************************************
-subroutine ecoule(ux1,uy1,uz1)
+subroutine ecoule(ux1,uy1,uz1,rho1)
 
   USE param
   USE IBM
@@ -463,7 +463,7 @@ subroutine ecoule(ux1,uy1,uz1)
   implicit none
 
   integer  :: i,j,k,jj1,jj2 
-  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
+  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1
   real(mytype) :: x,y,z,ym
   real(mytype) :: xspec,yspec,zspec
   real(mytype) :: r1,r2,r3,r
@@ -501,25 +501,25 @@ subroutine ecoule(ux1,uy1,uz1)
         enddo
       enddo
     enddo
-  endif
-
-  if (itype.eq.2) then
+  else if (itype.eq.2) then
     do k=1,xsize(3)
       do j=1,xsize(2)
-        if (istret.eq.0) y=(j+xstart(2)-1-1)*dy-yly/2._mytype
-        if (istret.ne.0) y=yp(j+xstart(2)-1)-yly/2._mytype
+        if (istret.eq.0) then
+          y=(j+xstart(2)-1-1)*dy-yly/2._mytype
+        else
+          y=yp(j+xstart(2)-1)-yly/2._mytype
+        endif
         do i=1,xsize(1)
           ux1(i,j,k)=ux1(i,j,k)+1._mytype-y*y
         enddo
       enddo
-
     enddo
-  endif
-
-  if (itype.eq.3) then
-  endif
-
-  if (itype.eq.4) then
+  else if (itype.eq.3) then
+    if (nrank.eq.0) then
+      PRINT *, "itype=", itype, " not implemented!"
+      STOP
+    endif
+  else if (itype.eq.4) then
     ! Mixing layer flow
 
     ! ! Check the BCs
@@ -573,9 +573,7 @@ subroutine ecoule(ux1,uy1,uz1)
     ! #else
     !   ! 2D mixing layer
     ! #endif
-  endif
-
-  if (itype.eq.5) then
+  else if (itype.eq.5) then
     if (nclx.ne.0) then
       print *,'NOT POSSIBLE'
       stop
@@ -597,9 +595,7 @@ subroutine ecoule(ux1,uy1,uz1)
         enddo
       enddo
     enddo
-  endif
-
-  if (itype.eq.6) then
+  else if (itype.eq.6) then
     t=0._mytype
     !xv=1._mytype/100._mytype
     !xxk1=twopi/xlx
@@ -621,20 +617,22 @@ subroutine ecoule(ux1,uy1,uz1)
     enddo
 !!! CM    call test_min_max('ux1  ','In intt        ',ux1,size(ux1))
 !!! CM    call test_min_max('uy1  ','In intt        ',uy1,size(uy1))
-  endif
-
-  if (itype.eq.7) then
-
-  endif
-
-  if (itype.eq.8) then
-
-  endif
-
-  if (itype.eq.9) then
-
-  endif
-  if (itype.eq.10) then
+  else if (itype.eq.7) then
+    if (nrank.eq.0) then
+      PRINT *, "itype=", itype, " not implemented!"
+      STOP
+    endif
+  else if (itype.eq.8) then
+    if (nrank.eq.0) then
+      PRINT *, "itype=", itype, " not implemented!"
+      STOP
+    endif
+  else if (itype.eq.9) then
+    if (nrank.eq.0) then
+      PRINT *, "itype=", itype, " not implemented!"
+      STOP
+    endif
+  else if (itype.eq.10) then
     do k=1,xsize(3)
       do j=1,xsize(2)
         bxx1(j,k)=0._mytype
@@ -642,8 +640,12 @@ subroutine ecoule(ux1,uy1,uz1)
         bxz1(j,k)=0._mytype
       enddo
     enddo
+  else
   endif
-
+    if (nrank.eq.0) then
+      PRINT *, "itype=", itype, " not implemented!"
+      STOP
+    endif
   return
 end subroutine ecoule
 
@@ -770,7 +772,7 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
   endif
 
   !MEAN FLOW PROFILE
-  call ecoule(ux1,uy1,uz1)
+  call ecoule(ux1,uy1,uz1,rho1)
   !INIT FOR G AND U=MEAN FLOW + NOISE
   do k=1,xsize(3)
     do j=1,xsize(2)
