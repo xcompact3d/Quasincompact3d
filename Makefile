@@ -41,8 +41,8 @@ FFTW3_LIB = -L$(FFTW3_PATH)/lib -lfftw3 -lfftw3f
 
 # GNU
 FC = mpif90
-OPTFC = -O3 -funroll-loops -ftree-vectorize -fcray-pointer -cpp
-#OPTFC = -g3 -fcray-pointer -cpp
+#OPTFC = -O3 -funroll-loops -ftree-vectorize -fcray-pointer -cpp -pipe
+OPTFC = -g3 -Og -fcray-pointer -cpp -pipe
 CC = mpicc
 CFLAGS = -O3
 

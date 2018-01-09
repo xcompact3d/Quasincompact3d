@@ -195,25 +195,26 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
     !! AB2 or RK3
 
     ! First store -rho1 in drhodt1 incase we use simple extrapolation
-    drhodt1 = -rho1
+    drhodt1(:,:,:) = -rho1(:,:,:)
 
     IF (nscheme.EQ.1) THEN
       !! AB2
-      rhos01 = rhoss1
-      rhoss1 = rho1
+      rhos01(:,:,:) = rhoss1(:,:,:)
+      rhoss1(:,:,:) = rho1(:,:,:)
     ENDIF
     
     IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
-      rho1 = rho1 + gdt(itr) * tg1
+      rho1(:,:,:) = rho1(:,:,:) + gdt(itr) * tg1(:,:,:)
 
       IF (nscheme.EQ.2) THEN
         !! RK3
-        rhos01 = rhoss1
-        rhoss1 = tg1
+        rhos01(:,:,:) = rhoss1(:,:,:)
+        rhoss1(:,:,:) = tg1(:,:,:)
       ENDIF
     ELSE
-      rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1
+      rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) &
+           + bdt(itr) * rhos1(:,:,:)
     ENDIF
   ELSE IF (nscheme.EQ.3) THEN
     !! RK4
@@ -228,25 +229,25 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
       IF (nrank.EQ.0) THEN
         PRINT  *, 'start with Euler', itime
       ENDIF
-      rho1 = rho1 + dt * tg1
+      rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
     ELSE
       IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
         IF (nrank.EQ.0) THEN
           PRINT *, 'then with AB2', itime
         ENDIF
-        rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * tg1)
+        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
       ELSE
-        rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1 + cdt(itr) &
-             * rhoss1
+        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
+             * rhoss1(:,:,:)
       ENDIF
 
       !! Update oldold stage
-      rhoss1 = rhos1
+      rhoss1(:,:,:) = rhos1(:,:,:)
     ENDIF
   ENDIF
 
   !! Update old stage
-  rhos1 = tg1
+  rhos1(:,:,:) = tg1(:,:,:)
 
 ENDSUBROUTINE inttdensity
 
@@ -952,23 +953,26 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   INTEGER :: subitr
 
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
   IF (nrhoscheme.EQ.0) THEN
     IF (nrank.EQ.0) THEN
       PRINT *, "nrhoscheme=0 corresponds to variable-coefficient Poisson equation"
       PRINT *, "Shoul not be extrapolating drhodt!!!"
       STOP
     ENDIF
-  ENDIF
-
-  IF (nscheme.EQ.1) THEN
+  ELSE IF (nscheme.EQ.1) THEN
     !! AB2
     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
-      drhodt1 = drhodt1 + rho1
+      drhodt1(:,:,:) = drhodt1(:,:,:) + rho1(:,:,:)
     ELSE
-      drhodt1 = 3._mytype * rho1 - 4._mytype * rhoss1 + rhos01
-      drhodt1 = 0.5_mytype * drhodt1
+      drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhoss1(:,:,:) + rhos01(:,:,:)
+      drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
     ENDIF
-    drhodt1 = drhodt1 / dt
+    
+    drhodt1(:,:,:) = drhodt1(:,:,:) / dt
   ELSE IF (nscheme.EQ.2) THEN
     !! RK3
 
@@ -976,26 +980,31 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       !! Straightforward approximation:
       !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
       !                                       = rhos1
-      drhodt1 = rhos1
+      drhodt1(:,:,:) = rhos1(:,:,:)
     ELSE IF (nrhoscheme.EQ.2) THEN
       !! Alternative approximation:
       !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
-      drhodt1 = drhodt1 + rho1
-      drhodt1 = drhodt1 / gdt(itr)
+      drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
     ELSE
       !! Golanski
       IF (itime.GT.1) THEN
-        drhodt1 = rhoss1
-        DO subitr = 1, itr
-          ! XXX It appears that Golanski2005 contains a typo.
-          !     The approximation should be:
-          !       drhodt approx F^n + sum^k_l=1 gamma_l (F^n - F^{n-1})
-          !     note, Golanski2005 write gamma_k rather than gamma_l
-          drhodt1 = drhodt1 + gdt(subitr) * (rhoss1 - rhos01) / dt
-        ENDDO
+        drhodt1(:,:,:) = rhoss1(:,:,:)
+        DO ijk = 1, nxyz
+          DO subitr = 1, itr
+            !! TODO Check should it be gdt(itr) or gdt(subitr)?
+            !
+            ! Based on testing, it appears Golanski2005 made a typo,
+            ! their expression would use gdt(itr) not gdt(subitr)
+            drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
+                 + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
+          ENDDO ! End loop over subitr
+        ENDDO ! End loop over ijk
       ELSE
-        drhodt1 = drhodt1 + rho1
-        drhodt1 = drhodt1 / gdt(itr)
+        ! Need to use first order approximation for first
+        ! full timestep
+
+        drhodt1(:,:,:) = rhos1(:,:,:)
+        ! drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
       ENDIF
     ENDIF
   ELSE
@@ -1025,10 +1034,9 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
 
   USE decomp_2d
   USE variables
+  USE param
   
   IMPLICIT NONE
-
-  INTEGER i, j, k
 
   TYPE(DECOMP_INFO) :: ph1, ph3, ph4
   INTEGER :: nxmsize, nymsize, nzmsize
@@ -1060,13 +1068,7 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
        (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
 
   ! Add new divergence of momentum to RHS of Poisson equation
-  DO k = 1, nzmsize
-    DO j = ph1%zst(2), ph1%zen(2)
-      DO i = ph1%zst(1), ph1%zen(1)
-        pp3(i,j,k) = pp3(i,j,k) - divmom3(i,j,k)
-      ENDDO
-    ENDDO
-  ENDDO
+  pp3(:,:,:) = pp3(:,:,:) - divmom3(:,:,:)
   
 ENDSUBROUTINE divergence_mom
 

@@ -1061,10 +1061,11 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
 
   USE var
   USE MPI
+  USE decomp_2d
   
   IMPLICIT NONE
 
-  REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: sol_num, sol_exact
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)), INTENT(IN) :: sol_num, sol_exact
   CHARACTER(LEN=*), INTENT(IN) :: name
 
   REAL(mytype) :: err
@@ -1096,6 +1097,8 @@ ENDSUBROUTINE eval_error
 SUBROUTINE eval_error_vel(ux1_num, uy1_num, uz1_num)
 
   USE var
+  USE param
+  USE decomp_2d
   USE MPI
 
   IMPLICIT NONE
@@ -1140,11 +1143,13 @@ ENDSUBROUTINE eval_error_vel
 SUBROUTINE eval_error_rho(rho_num)
 
   USE var
+  USE param
+  USE decomp_2d
   USE MPI
 
   IMPLICIT NONE
 
-  REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_num
+  REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_num
 
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_exact
   REAL(mytype) :: x,y,z
