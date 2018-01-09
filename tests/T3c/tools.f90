@@ -1069,7 +1069,7 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   CHARACTER(LEN=*), INTENT(IN) :: name
 
   REAL(mytype) :: err
-  INTEGER :: ijk
+  INTEGER :: ijk, i, j, k
   INTEGER :: nvect1
   INTEGER :: ierr
 
@@ -1105,25 +1105,35 @@ SUBROUTINE eval_error_vel(ux1_num, uy1_num, uz1_num)
 
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1_num, uy1_num, uz1_num
 
+  REAL(mytype) :: rho_exact
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1_exact, uy1_exact, uz1_exact
   REAL(mytype) :: x,y,z
-  REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
+
+  REAL(mytype) :: rhoa, rhob
+  REAL(mytype) :: wavnum, omega
+
+  rhoa = 5._mytype
+  rhob = 1._mytype
+  wavnum = 2._mytype
+  omega = 2._mytype
 
   ! Compute the exact solution
   DO k = 1, xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     DO j = 1, xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-        ux1_exact(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
-        uy1_exact(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
-        uz1_exact(i,j,k) = -2._mytype * (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
+        rho_exact = ((rhoa + rhob) + (rhob - rhoa) * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) &
+             * COS(PI * omega * t)) / 2._mytype
+
+        ux1_exact(i,j,k) = ((rhob - rhoa) / rho_exact) * (-omega / (4._mytype * wavnum)) &
+             * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t)
+        uy1_exact(i,j,k) = ((rhob - rhoa) / rho_exact) * (-omega / (4._mytype * wavnum)) &
+             * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t)
+        uz1_exact(i,j,k) = 0._mytype
       ENDDO
     ENDDO
   ENDDO
@@ -1153,20 +1163,25 @@ SUBROUTINE eval_error_rho(rho_num)
 
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: rho_exact
   REAL(mytype) :: x,y,z
-  REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
+  REAL(mytype) :: rhoa, rhob
+  REAL(mytype) :: wavnum, omega
+
+  rhoa = 5._mytype
+  rhob = 1._mytype
+  wavnum = 2._mytype
+  omega = 2._mytype
 
   ! Compute the exact solution
   DO k = 1, xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     DO j = 1, xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
-        rho_exact(i, j, k) = 2._mytype + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
+
+        rho_exact(i, j, k) = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
+             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t))
       ENDDO
     ENDDO
   ENDDO

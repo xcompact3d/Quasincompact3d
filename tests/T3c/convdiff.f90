@@ -651,7 +651,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
+  DO ijk = 1, nvect1
+    tb1(ijk, 1, 1) = ux1(ijk, 1, 1) * tb1(ijk, 1, 1)
+  ENDDO
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -665,7 +667,9 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
+  DO ijk = 1, nvect2
+    tb2(ijk, 1, 1) = uy2(ijk, 1, 1) * tb2(ijk, 1, 1)
+  ENDDO
 
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
@@ -677,23 +681,31 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   ! tb3 = advection
 
   ! Advection term (non-conservative)
-  ! XXX Also adds contribution from divu3
   CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  DO ijk = 1, nvect3
+    tb3(ijk, 1, 1) = uz3(ijk, 1, 1) * tb3(ijk, 1, 1)
+
+    ! We can now add div u
+    tb3(ijk, 1, 1) = tb3(ijk, 1, 1) + rho3(ijk, 1, 1) * divu3(ijk, 1, 1)
+  ENDDO
 
   ! Get back to Y
   CALL transpose_z_to_y(tb3, td2)
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  td2(:,:,:) = td2(:,:,:) + tb2(:,:,:)
+  DO ijk = 1, nvect2
+    td2(ijk, 1, 1) = td2(ijk, 1, 1) + tb2(ijk, 1, 1)
+  ENDDO
 
   ! Get back to X
   CALL transpose_y_to_x(td2, td1)
 
   !------------------------------------------------------------------------
   ! X PENCILS ADD TERMS
-  tb1(:,:,:) = tb1(:,:,:) + td1(:,:,:) !FIRST DERIVATIVE (CONV)
+  DO ijk = 1, nvect1
+    tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + td1(ijk, 1, 1) !FIRST DERIVATIVE (CONV)
+  ENDDO
 
   ! XXX This is stupid, we should work with ta1 from outset!
   ta1(:,:,:) = -tb1(:,:,:)
@@ -842,71 +854,110 @@ SUBROUTINE density_source_mms(mms)
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: mms
 
   REAL(mytype) :: x,y,z
-  REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
 
-  REAL(mytype) :: rhomms, rho0
+  REAL(mytype) :: umms, vmms, wmms
+  REAL(mytype) :: rhomms, rhoa, rhob
   REAL(mytype) :: Tmms
   REAL(mytype) :: press0
-  REAL(mytype) :: SrhoX, SrhoY, SrhoZ
+  REAL(mytype) :: wavnum, omega
+  REAL(mytype) :: SrhoX, SrhoY, SrhoT
   REAL(mytype) :: MMSource
-  REAL(mytype) :: SINX, SINY, SINZ
-  REAL(mytype) :: COSX, COSY, COSZ
+  REAL(mytype) :: SINX, SINY, SINT
+  REAL(mytype) :: COSX, COSY, COST
 
   press0 = 1._mytype
-  rho0 = 2._mytype
+  rhoa = 5._mytype
+  rhob = 1._mytype
+  wavnum = 2._mytype
+  omega = 2._mytype
 
   DO k = 1,xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     DO j = 1,xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-        SINX = SIN(xspec)
-        SINY = SIN(yspec)
-        SINZ = SIN(zspec)
-        COSX = COS(xspec)
-        COSY = COS(yspec)
-        COSZ = COS(zspec)
+        SINX = SIN(PI * wavnum * x)
+        SINY = SIN(PI * wavnum * y)
+        SINT = SIN(PI * omega * t)
+        COSX = COS(PI * wavnum * x)
+        COSY = COS(PI * wavnum * y)
+        COST = COS(PI * omega * t)
 
-        rhomms = rho0 + SIN(xspec) * SIN(yspec) * SIN(zspec)
+        rhomms = ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST) / 2._mytype
         Tmms = press0 / rhomms
 
-        !!
-        !! Compute nabla.nabla T
-        !!
+        umms = -((rhob - rhoa) / rhomms) * (omega / (4._mytype * wavnum)) &
+             * COSX * SINY * SINT
+        vmms = -((rhob - rhoa) / rhomms) * (omega / (4._mytype * wavnum)) &
+             * SINX * COSY * SINT
+        wmms = 0._mytype
 
-        ! d/dx( d/dx T )
-        SrhoX = rhomms * SINX
-        SrhoX = SrhoX + 2._mytype * COSX**2 * SINY * SINZ
-        SrhoX = SrhoX * SINY * SINZ / (xlx**2)
+        MMSource = 0._mytype
+        
+        ! !!
+        ! !! Compute nabla.nabla T
+        ! !!
 
-        ! d/dy( d/dy T )
-        SrhoY = rhomms * SINY
-        SrhoY = SrhoY + 2._mytype * SINX * COSY**2 * SINZ
-        SrhoY = SrhoY * SINX * SINZ / (yly**2)
+        ! ! d/dx( d/dx T )
+        ! SrhoX = -rhoa**2 * (SINX**2 * SINY * COST + SINX &
+        !      - 2._mytype * SINY * COST) &
+        !      + rhoa * rhob * (2._mytype * SINX**2 * SINY * COST &
+        !      - 4._mytype * SINY * COST) &
+        !      - rhob**2 * (SINX**2 * SINY * COST - SINX &
+        !      - 2._mytype * SINY * COST)
+        ! SrhoX = ((2._mytype * (PI * wavnum)**2 * press0 * SINY * COST) &
+        !      / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) &
+        !      * SrhoX
 
-        ! d/dz( d/dz T )
-        SrhoZ = rhomms * SINZ
-        SrhoZ = SrhoZ + 2._mytype * SINX * SINY * COSZ**2
-        SrhoZ = SrhoZ * SINX * SINY / (zlz**2)
+        ! ! d/dy( d/dy T )
+        ! SrhoY = -rhoa**2 * (SINX * SINY**2 * COST + SINY &
+        !      - 2._mytype * SINX * COST) &
+        !      + rhoa * rhob * (2._mytype * SINX * SINY**2 * COST & 
+        !      - 4._mytype * SINX * COST) &
+        !      - rhob**2 * (SINX * SINY**2 * COST - SINY &
+        !      - 2._mytype * SINX * COST)
+        ! SrhoY = ((2._mytype * (PI * wavnum)**2 * press0 * SINX * COST) &
+        !      / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) &
+        !      * SrhoY
 
-        MMSource = SrhoX + SrhoY + SrhoZ
-        MMSource = (4._mytype * PI**2 * press0 / rhomms**3) * MMSource
+        ! !!
+        ! !! Compute divu = (1 / (Re Pr T)) * nabla.nabla T / rho
+        ! !!
+        ! MMSource = SrhoX + SrhoY
+        ! MMSource = MMSource * (xnu / (pr * (rhomms * Tmms)))
+
+        ! !!
+        ! !! Finally: S_rho = rho * divu
+        ! !!
+        ! MMSource = rhomms * MMSource
+        MMSource = rhoa**2 * (SINX * SINY + COSX**2 * COSY**2 * COST - COST)
+        MMSource = MMSource - 2._mytype * rhoa * rhob * (COSX**2 * COSY**2 * COST - COST)
+        MMSource = MMSource - rhob**2 * (SINX * SINY - COSX**2 * COSY**2 * COST + COST)
+        MMSource = -((4._mytype * PI**2 * wavnum**2 * COST) &
+             / ((pr / xnu) * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3)) &
+             * MMSource
+        MMSource = rhomms * MMSource
 
         !!
-        !! Compute divu = (1 / (Re Pr T)) * nabla.nabla T / rho
+        !! Compute u.grad(rho)
         !!
-        MMSource = MMSource * (xnu / (pr * (rhomms * Tmms)))
+        SrhoX = 0.5_mytype * (PI * wavnum) * (rhob - rhoa) &
+             * COSX * SINY * COST
+        MMSource = MMSource + umms * SrhoX
+
+        SrhoY = 0.5_mytype * (PI * wavnum) * (rhob - rhoa) &
+             * SINX * COSY * COST
+        MMSource = MMSource + vmms * SrhoY
 
         !!
-        !! Finally: S_rho = rho * divu
+        !! Compute drhodt
         !!
-        MMSource = rhomms * MMSource        
+        SrhoT = 0.5_mytype * (PI * omega) * (rhoa - rhob) &
+             * SINX * SINY * SINT
+        MMSource = MMSource + SrhoT
 
         mms(i,j,k) = mms(i,j,k) + MMSource
       ENDDO ! End loop over i
@@ -923,163 +974,227 @@ ENDSUBROUTINE density_source_mms
 SUBROUTINE momentum_source_mms(mmsx1, mmsy1, mmsz1)
 
   USE var
+  USE param
 
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)) :: mmsx1, mmsy1, mmsz1
 
   REAL(mytype) :: x,y,z
-  REAL(mytype) :: xspec,yspec,zspec
   INTEGER :: i,j,k
 
+  REAL(mytype) :: wavnum, omega
+
   REAL(mytype) :: umms, vmms, wmms
-  REAL(mytype) :: rhomms, rho_0
+  REAL(mytype) :: dudxmms, dudymms, dvdxmms, dvdymms
+  REAL(mytype) :: rhomms, rhoa, rhob
+  REAL(mytype) :: drhodxmms, drhodymms
   REAL(mytype) :: press0
   REAL(mytype) :: Tmms
   REAL(mytype) :: divumms
   REAL(mytype) :: MMSource
 
-  REAL(mytype) :: SINX, SINY, SINZ, SINHALFX, SINHALFY, SINHALFZ
-  REAL(mytype) :: COSX, COSY, COSZ, COSHALFX, COSHALFY, COSHALFZ
+  REAL(mytype) :: SINX, SINY, SINT
+  REAL(mytype) :: COSX, COSY, COST
 
-  rho_0 = 2._mytype
   press0 = 1._mytype
+
+  rhoa = 5._mytype
+  rhob = 1._mytype
+  omega = 2._mytype
+  wavnum = 2._mytype
   
   DO k = 1,xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     DO j = 1,xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       DO i = 1, xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
 
-        SINX = SIN(xspec)
-        SINY = SIN(yspec)
-        SINZ = SIN(zspec)
-        COSX = COS(xspec)
-        COSY = COS(yspec)
-        COSZ = COS(zspec)
-        SINHALFX = SIN(0.5_mytype * xspec)
-        SINHALFY = SIN(0.5_mytype * yspec)
-        SINHALFZ = SIN(0.5_mytype * zspec)
-        COSHALFX = COS(0.5_mytype * xspec)
-        COSHALFY = COS(0.5_mytype * yspec)
-        COSHALFZ = COS(0.5_mytype * zspec)
+        SINX = SIN(PI * wavnum * x)
+        SINY = SIN(PI * wavnum * y)
+        SINT = SIN(PI * omega * t)
+        COSX = COS(PI * wavnum * x)
+        COSY = COS(PI * wavnum * y)
+        COST = COS(PI * omega * t)
 
-        umms =              (xlx / (2._mytype * PI)) * SINX * COSY * COSZ
-        vmms =              (yly / (2._mytype * PI)) * COSX * SINY * COSZ
-        wmms = -2._mytype * (zlz / (2._mytype * PI)) * COSX * COSY * SINZ
+        rhomms = 0.5_mytype * ((rhob + rhoa) + (rhob - rhoa) * (SINX * SINY * COST))
+        umms = ((rhob - rhoa) / rhomms) * (-omega / (4._mytype * wavnum)) * COSX * SINY * SINT
+        vmms = ((rhob - rhoa) / rhomms) * (-omega / (4._mytype * wavnum)) * SINX * COSY * SINT
 
-        rhomms = rho_0 + SINX * SINY * SINZ
-        Tmms = press0 / rhomms
+        dudxmms = (rhoa - rhob) * ((rhoa - rhob) * SINY * COST - (rhoa + rhob) * SINX)
+        dudxmms = ((PI * omega * SINY * SINT) &
+             / (2._mytype * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * dudxmms
+        dudymms = ((PI * omega * (rhoa**2 - rhob**2) * COSX * COSY * SINT) &
+             / (2._mytype * ((rhoa - rhob) * SINX * SINY * COST - (rhoa + rhob))**2))
 
-        divumms = (rhomms * SINX + 2._mytype * COSX**2 * SINY * SINZ) &
-             * SINY * SINZ / xlx**2 &
-             + (rhomms * SINY + 2._mytype * SINX * COSY**2 * SINZ) &
-             * SINX * SINZ / yly**2 &
-             + (rhomms * SINZ + 2._mytype * SINX * SINY * COSZ**2) &
-             * SINX * SINY / zlz**2
-        divumms = (4._mytype * PI**2 * press0 / rhomms**3) * divumms
-        divumms = ((xnu / (pr * (rhomms * Tmms))) * divumms)
+        dvdxmms = ((PI * omega * (rhoa**2 - rhob**2) * COSX * COSY * SINT) &
+             / (2._mytype * ((rhoa - rhob) * SINX * SINY * COST - (rhoa + rhob))**2))
+        dvdymms = (rhoa - rhob) * ((rhoa - rhob) * SINX * COST - (rhoa + rhob) * SINY)
+        dvdymms = ((PI * omega * SINX * SINT) &
+             / (2._mytype * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * dvdymms
+
+        drhodxmms = (0.5_mytype * PI * wavnum) * (rhob - rhoa) * COSX * SINY * COST
+        drhodymms = (0.5_mytype * PI * wavnum) * (rhob - rhoa) * SINX * COSY * COST
+
+        divumms = rhoa**2 * (SINX * SINY + COSX**2 * COSY**2 * COST - COST)
+        divumms = divumms - 2._mytype * rhoa * rhob * (COSX**2 * COSY**2 * COST - COST)
+        divumms = divumms - rhob**2 * (SINX * SINY - COSX**2 * COSY**2 * COST + COST)
+        divumms = -((4._mytype * PI**2 * wavnum**2 * COST) &
+             / ((pr / xnu) * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3)) &
+             * divumms
         
         !! XMOM
 
-        ! Advection
-        MMSource = 8._mytype * (SINHALFY**4 - SINHALFY**2) &
-             - 4._mytype * (SINHALFZ**4 - SINHALFZ**2) + 1._mytype
-        MMSource = (xlx / (2._mytype * PI)) * rhomms * MMSource * SINX * COSX
-        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+        !! Advection
+
+        ! ddx(rho u u) / 2
+        MMSource = (rhoa - rhob) * COSX**2 * SINY * COST &
+             - 2._mytype * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST) * SINX
+        MMSource = ((PI * omega**2 * (rhoa - rhob)**2 * COSX * SINY**2 * SINT**2) &
+             / (8._mytype * wavnum * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * MMSource
+        mmsx1(i, j, k) = mmsx1(i, j, k) + 0.5_mytype * MMSource
+
+        ! ddy(rho u v) / 2
+        MMSource = (rhoa - rhob) * SINX * SINY * COSY**2 * COST &
+             + ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST) &
+             * COS(2._mytype * PI * wavnum * y)
+        MMSource = ((PI * omega**2 * (rhoa - rhob)**2 * SINX * COSX * SINT**2) &
+             / (8._mytype * wavnum * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * MMSource
+        mmsx1(i, j, k) = mmsx1(i, j, k) + 0.5_mytype * MMSource
+
+        ! rho (u.grad)u / 2
+        mmsx1(i, j, k) = mmsx1(i, j, k) + 0.5_mytype * rhomms * (umms * dudxmms + vmms * dudymms)
+
+        ! u (u.grad)rho / 2
+        mmsx1(i, j, k) = mmsx1(i, j, k) + 0.5_mytype * umms * (umms * drhodxmms + vmms * drhodymms)
+
+        ! rho u div(u) / 2
+        mmsx1(i, j, k) = mmsx1(i, j, k) + 0.5_mytype * rhomms * umms * divumms
 
         ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = (2._mytype * PI * xnu / (xlx * yly**2 * zlz**2)) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
-             * SINX * COSY * COSZ
-        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+        MMSource = rhoa**3 * (SINX * COSY**2 * COST + SINY**3 * COST**2 - SINY)
+        MMSource = MMSource - rhoa**2 * rhob * (SINX * COSY**2 * COST + 3._mytype * SINY**3 * COST**2 &
+             + SINY)
+        MMSource = MMSource - rhoa * rhob**2 * (SINX * COSY**2 * COST - 3._mytype * SINY**3 * COST**2 &
+             - SINY)
+        MMSource = MMSource + rhob**3 * (SINX * COSY**2 * COST - SINY**3 * COST**2 + SINY)
+        MMSource = -((PI**2 * (wavnum * omega) * COSX * SINT) &
+             / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) * MMSource
+        mmsx1(i, j, k) = mmsx1(i, j, k) + xnu * MMSource
+
+        MMSource = rhoa**3 * (SINX * COSY**2 * COST + SINY**3 * COST**2 - SINY)
+        MMSource = MMSource - rhoa**2 * rhob * (SINX * COSY**2 * COST &
+             + 3._mytype * SINY**3 * COST**2 + SINY)
+        MMSource = MMSource - rhoa * rhob**2 * (SINX * COSY**2 * COST &
+             - 3._mytype * SINY**3 * COST**2 - SINY)
+        MMSource = MMSource + rhob**3 * (SINX * COSY**2 * COST - SINY**3 * COST**2 + SINY)
+        MMSource = -((PI**2 * wavnum * omega * COSX * SINT) &
+             / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) * MMSource
+        mmsx1(i, j, k) = mmsx1(i, j, k) + xnu * MMSource
 
         ! The bulk component of viscous stress tensor
-        MMSource = xlx**2 * yly**2 * rhomms**2 * SINY * SINZ &
-             + 2._mytype * xlx**2 * yly**2 * rhomms &
-             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) &
-             * SINX * SINY**2
-        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**2 * SINY**3 * SINZ * COSZ**2 &
-             + xlx**2 * zlz**2 * rhomms**2 * SINY * SINZ
-        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
-             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX * SINZ**2
-        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**2 * SINY * SINZ**3 * COSY**2 &
-             + yly**2 * zlz**2 * rhomms**2 * SINY * SINZ &
-             - 6._mytype * yly**2 * zlz**2 * rhomms * SINX * SINY**2 * SINZ**2
-        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINY**3 * SINZ**3 * COSX**2
-        MMSource = (16._mytype * PI**3 * COSX / (3._mytype * (pr / xnu**2) &
-             * xlx**3 * yly**2 * zlz**2 * rhomms**4)) * MMSource
-        mmsx1(i,j,k) = mmsx1(i,j,k) + MMSource
+        MMSource = rhoa**3 * (4._mytype * SINX * COSY**2 * COST - 2._mytype * SINX * COST &
+             + COSX**2 * SINY**3 * COST**2 + 2._mytype * SINY**3 * COST**2 &
+             - COSX**2 * SINY * COST**2 + SINY * COST**2 - SINY)
+        MMSource = MMSource - rhoa**2 * rhob * (4._mytype * SINX * COSY**2 * COST &
+             - 2._mytype * SINX * COST + 3._mytype * COSX**2 * SINY**3 * COST**2 &
+             + 6._mytype * SINY**3 * COST**2 - 3._mytype * COSX**2 * SINY * COST**2 &
+             + 3._mytype * SINY * COST**2 + SINY)
+        MMSource = MMSource - rhoa * rhob**2 * (4._mytype * SINX * COSY**2 * COST &
+             - 2._mytype * SINX * COST - 3._mytype * COSX**2 * SINY**3 * COST**2 &
+             - 6._mytype * SINY**3 * COST**2 + 3._mytype * COSX**2 * SINY * COST**2 &
+             - 3._mytype * SINY * COST**2 - SINY)
+        MMSource = MMSource + rhob**3 * (4._mytype * SINX * COSY**2 * COST &
+             - 2._mytype * SINX * COST - COSX**2 * SINY**3 * COST**2 &
+             - 2._mytype * SINY**3 * COST**2 + COSX**2 * SINY * COST**2 &
+             - SINY * COST**2 + SINY)
+        MMSource = ((8._mytype * (PI * wavnum)**3 * COSX * COST) &
+             / (3._mytype * ((rhoa - rhob) * SINX * SINY * COST - (rhoa + rhob))**4)) * MMSource
+        mmsx1(i, j, k) = mmsx1(i, j, k) + (xnu**2 / pr) * MMSource
+
+        !! Transient
+        MMSource = ((PI * omega**2) / (4._mytype * wavnum)) * (rhoa - rhob) &
+             * COSX * SINY * COST
+        mmsx1(i, j, k) = mmsx1(i, j, k) + MMSource
 
         !! YMOM
+        
+        !! Advection
 
-        ! Advection
-        MMSource = 8._mytype * (SINHALFX**4 - SINHALFX**2) &
-             - 4._mytype * (SINHALFZ**4 - SINHALFZ**2) + 1._mytype
-        MMSource = (yly / (2._mytype * PI)) * rhomms * MMSource * SINY * COSY
-        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+        ! ddx(rho v u) / 2
+        MMSource = (rhoa - rhob) * SINX * COSX**2 * SINY * COST &
+             + ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST) &
+             * COS(2._mytype * PI * wavnum * x)
+        MMSource = ((PI * omega**2 * (rhoa - rhob)**2 * SINY * COSY * SINT**2) &
+             / (8._mytype * wavnum * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * MMSource
+        mmsy1(i, j, k) = mmsy1(i, j, k) + 0.5_mytype * MMSource
+
+        ! ddy(rho v v) / 2
+        MMSource = (rhoa - rhob) * SINX * COSY**2 * COST &
+             - 2._mytype * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST) * SINY
+        MMSource = ((PI * omega**2 * (rhoa - rhob)**2 * SINX**2 * COSY * SINT**2) &
+             / (8._mytype * wavnum * ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**2)) &
+             * MMSource
+        mmsy1(i, j, k) = mmsy1(i, j, k) + 0.5_mytype * MMSource
+
+        ! rho (u.grad)v / 2
+        mmsy1(i, j, k) = mmsy1(i, j, k) + 0.5_mytype * rhomms * (umms * dvdxmms + vmms * dvdymms)
+
+        ! v (u.grad)rho / 2
+        mmsy1(i, j, k) = mmsy1(i, j, k) + 0.5_mytype * vmms * (umms * drhodxmms + vmms * drhodymms)
+
+        ! rho v div(u) / 2
+        mmsy1(i, j, k) = mmsy1(i, j, k) + 0.5_mytype * rhomms * vmms * divumms
 
         ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = (2._mytype * PI * xnu / (xlx**2 * yly * zlz**2)) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
-             * COSX * SINY * COSZ
-        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+        MMSource = rhoa**3 * (SINX**3 * COST**2 - SINX + COSX**2 * SINY * COST)
+        MMSource = MMSource - rhoa**2 * rhob * (3._mytype * SINX**3 * COST**2 + SINX &
+             + COSX**2 * SINY * COST)
+        MMSource = MMSource + rhoa * rhob**2 * (3._mytype * SINX**3 * COST**2 + SINX &
+             - COSX**2 * SINY * COST)
+        MMSource = MMSource - rhob**3 * (SINX**3 * COST**2 - SINX - COSX**2 * SINY * COST)
+        MMSource = -((PI**2 * (wavnum * omega) * COSY * SINT) &
+             / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) * MMSource
+        mmsy1(i, j, k) = mmsy1(i, j, k) + xnu * MMSource
+
+        MMSource = rhoa**3 * (SINX**3 * COST**2 - SINX + COSX**2 * SINY * COST)
+        MMSource = MMSource - rhoa**2 * rhob * (3._mytype * SINX**3 * COST**2 + SINX &
+             + COSX**2 * SINY * COST)
+        MMSource = MMSource + rhoa * rhob**2 * (3._mytype * SINX**3 * COST**2 + SINX &
+             - COSX**2 * SINY * COST)
+        MMSource = MMSource - rhob**3 * (SINX**3 * COST**2 - SINX - COSX**2 * SINY * COST)
+        MMSource = -((PI**2 * wavnum * omega * COSY * SINT) &
+             / ((rhoa + rhob) + (rhob - rhoa) * SINX * SINY * COST)**3) * MMSource
+        mmsy1(i, j, k) = mmsy1(i, j, k) + xnu * MMSource
         
         ! The bulk component of viscous stress tensor
-        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINZ &
-             + 2._mytype * xlx**2 * yly**2 * rhomms &
-             * (12._mytype * SINHALFZ**4 - 12._mytype * SINHALFZ**2 + 2._mytype) * SINX**2 * SINY
-        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**2 * SINZ * COSZ**2 &
-             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINZ
-        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * rhomms * SINX**2 * SINY * SINZ**2 &
-             - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINZ**3 * COSY**2
-        MMSource = MMSource + yly**2 * zlz**2 * rhomms**2 * SINX * SINZ &
-             + 2._mytype * yly**2 * zlz**2 * rhomms &
-             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) &
-             * SINY * SINZ**2
-        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**2 * SINZ**3 * COSX**2
-        MMSource = (16._mytype * PI**3 * COSY &
-             / (3._mytype * (pr / xnu**2) * xlx**2 * yly**3 * zlz**2 * rhomms**4)) * MMSource
-        mmsy1(i,j,k) = mmsy1(i,j,k) + MMSource
+        MMSource = rhoa**3 * (SINX**3 * COSY**2 * COST**2 + 2._mytype * SINX**3 * COST**2 &
+             - SINX * COSY**2 * COST**2 + SINX * COST**2 - SINX &
+             + 4._mytype * COSX**2 * SINY * COST - 2._mytype * SINY * COST)
+        MMSource = MMSource - rhoa**2 * rhob * (3._mytype * SINX**3 * COSY**2 * COST**2 &
+             + 6._mytype * SINX**3 * COST**2 - 3._mytype * SINX * COSY**2 * COST**2 &
+             + 3._mytype * SINX * COST**2 + SINX + 4._mytype * COSX**2 * SINY * COST &
+             - 2._mytype * SINY * COST)
+        MMSource = MMSource + rhoa * rhob**2 * (3._mytype * SINX**3 * COSY**2 * COST**2 &
+             + 6._mytype * SINX**3 * COST**2 + SINX - 4._mytype * COSX**2 * SINY * COST &
+             + 2._mytype * SINY * COST)
+        MMSource = MMSource - rhob**3 * (SINX**3 * COSY**2 * COST**2 &
+             + 2._mytype * SINX**3 * COST**2 - SINX * COSY**2 * COST**2 + SINX * COST**2 &
+             - SINX - 4._mytype * COSX**2 * SINY * COST + 2._mytype * SINY * COST)
+        MMSource = ((8._mytype * (PI * wavnum)**3 * COSY * COST) &
+             / (3._mytype * ((rhoa - rhob) * SINX * SINY * COST - (rhoa + rhob))**4)) * MMSource
+        mmsy1(i, j, k) = mmsy1(i, j, k) + (xnu**2 / pr) * MMSource
 
-        !! ZMOM
-
-        ! Advection
-        MMSource = 4._mytype * ((SINHALFX**4 - SINHALFX**2) &
-             + (SINHALFY**4 - SINHALFY**2)) + 2._mytype
-        MMSource = (zlz / PI) * rhomms * MMSource * SINZ * COSZ
-        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
-         
-        ! The first half of the viscous stress tensor (grad u + grad^T u)
-        MMSource = -(4._mytype * PI * XNU / (xlx**2 * yly**2 * zlz)) &
-             * (xlx**2 * yly**2 + xlx**2 * zlz**2 + yly**2 * zlz**2) &
-             * COSX * COSY * SINZ
-        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
-
-        ! The bulk component of viscous stress tensor
-        MMSource = xlx**2 * yly**2 * rhomms**2 * SINX * SINY &
-             - 6._mytype * xlx**2 * yly**2 * rhomms * SINX**2 * SINY**2 * SINZ
-        MMSource = MMSource - 6._mytype * xlx**2 * yly**2 * SINX**3 * SINY**3 * COSZ**2 &
-             + xlx**2 * zlz**2 * rhomms**2 * SINX * SINY
-        MMSource = MMSource + 2._mytype * xlx**2 * zlz**2 * rhomms &
-             * (12._mytype * SINHALFY**4 - 12._mytype * SINHALFY**2 + 2._mytype) * SINX**2 * SINZ
-        MMSource = MMSource - 6._mytype * xlx**2 * zlz**2 * SINX**3 * SINY * SINZ**2 * COSY**2 &
-             + yly**2 * zlz**2 * rhomms**2 * SINX * SINY
-        MMSource = MMSource + 2._mytype * yly**2 * zlz**2 * rhomms &
-             * (12._mytype * SINHALFX**4 - 12._mytype * SINHALFX**2 + 2._mytype) * SINY**2 * SINZ
-        MMSource = MMSource - 6._mytype * yly**2 * zlz**2 * SINX * SINY**3 * SINZ**2 * COSX**2
-        MMSource = (16._mytype * PI**3 * COSZ / (3._mytype * (pr / xnu**2) &
-             * xlx**2 * yly**2 * zlz**3 * rhomms**4)) * MMSource
-        mmsz1(i,j,k) = mmsz1(i,j,k) + MMSource
-
-        ! Correction for quasi-skew symmetry
-        mmsx1(i,j,k) = mmsx1(i,j,k) + 0.5_mytype * umms * rhomms * divumms
-        mmsy1(i,j,k) = mmsy1(i,j,k) + 0.5_mytype * vmms * rhomms * divumms
-        mmsz1(i,j,k) = mmsz1(i,j,k) + 0.5_mytype * wmms * rhomms * divumms
+        !! Transient
+        MMSource = ((PI * omega**2) / (4._mytype * wavnum)) * (rhoa - rhob) &
+             * SINX * COSY * COST
+        mmsy1(i, j, k) = mmsy1(i, j, k) + MMSource
 
       ENDDO ! End loop over i
     ENDDO ! End loop over j

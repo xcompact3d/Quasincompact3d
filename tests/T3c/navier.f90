@@ -459,10 +459,13 @@ implicit none
 integer  :: i,j,k,jj1,jj2 
 real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
 real(mytype) :: x,y,z,ym
-real(mytype) :: xspec,yspec,zspec
 real(mytype) :: r1,r2,r3,r
 real(mytype) :: uh,ud,um,xv,bruit1
 real(mytype) :: u_disturb, v_disturb, disturb_decay
+
+REAL(mytype) :: rho, rhoa, rhob
+REAL(mytype) :: wavnum, omega
+REAL(mytype) :: t_init
 
 bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
 byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -479,19 +482,27 @@ bzx1=0._mytype;bzy1=0._mytype;bzz1=0._mytype
 !ITYPE=9 --> Tank 
 
 if (itype.eq.1) then
+
+  !! Values from Shunn2012
+  rhoa = 5._mytype
+  rhob = 1._mytype
+  wavnum = 2._mytype
+  omega = 2._mytype
+
+  t_init = 0._mytype
+  
   do k=1,xsize(3)
-    z = float(k + xstart(3) - 2) * dz
-    zspec = (2._mytype * PI) * (z / zlz)
+    z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
     do j=1,xsize(2)
-      y = float(j + xstart(2) - 2) * dy
-      yspec = (2._mytype * PI) * (y / yly)
+      y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       do i=1,xsize(1)
-        x = float(i + xstart(1) - 2) * dx
-        xspec = (2._mytype * PI) * (x / xlx)
+        x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
         
-        ux1(i,j,k) = (xlx / (2._mytype * PI)) * SIN(xspec) * COS(yspec) * COS(zspec)
-        uy1(i,j,k) = (yly / (2._mytype * PI)) * COS(xspec) * SIN(yspec) * COS(zspec)
-        uz1(i,j,k) = -2._mytype * (zlz / (2._mytype * PI)) * COS(xspec) * COS(yspec) * SIN(zspec)
+        ux1(i,j,k) = -(rhob - rhoa) * (omega / (4._mytype * wavnum)) &
+             * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t_init)
+        uy1(i,j,k) = -(rhob - rhoa) * (omega / (4._mytype * wavnum)) &
+             * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t_init)
+        uz1(i,j,k) = 0._mytype
       enddo
     enddo
   enddo
@@ -665,10 +676,13 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,rhos1,rhoss1
 real(mytype) :: pressure0
 
 real(mytype) :: x,y,z,r,um,r1,r2,r3
-real(mytype) :: xspec,yspec,zspec
 integer :: k,j,i,fh,ierror,ii
 integer :: code
 integer (kind=MPI_OFFSET_KIND) :: disp
+
+REAL(mytype) :: rhoa, rhob
+REAL(mytype) :: wavnum, omega
+REAL(mytype) :: t_init
 
 if (iin.eq.0) then !set initial fields to zero
   do k=1,xsize(3)
@@ -721,23 +735,23 @@ if (iin.eq.1) then !generation of a random noise
       enddo
    enddo
 
+   !! MMS values from Shunn2012
+   rhoa = 5._mytype
+   rhob = 1._mytype
+   wavnum = 2._mytype
+   omega = 2._mytype
+   t_init = 0._mytype
+   
    ! LMN: set density
    do k = 1, xsize(3)
-     z = float(k + xstart(3) - 2) * dz
-     zspec = (2._mytype * PI) * (z / zlz)
+     z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
      do j = 1, xsize(2)
        y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-       yspec = (2._mytype * PI) * (y / yly)
        do i = 1, xsize(1)
-         x = float(i + xstart(1) - 2) * dx
-         xspec = (2._mytype * PI) * (x / xlx)
-         if(y.gt.0._mytype) then
-           rho1(i, j, k) = 0.5_mytype
-         else if(y.eq.0._mytype) then
-           rho1(i, j, k) = 0.75_mytype
-         else
-           rho1(i, j, k) = 1.0_mytype
-         endif
+         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
+
+         rho1(i, j, k) = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
+              * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
          rhos1(i, j, k) = rho1(i, j, k)
          rhoss1(i, j, k) = rhos1(i, j, k)
        enddo
@@ -766,6 +780,9 @@ call ecoule(ux1,uy1,uz1)
 do k=1,xsize(3)
    do j=1,xsize(2)
       do i=1,xsize(1)
+         ux1(i,j,k)=ux1(i,j,k)/rho1(i,j,k)
+         uy1(i,j,k)=uy1(i,j,k)/rho1(i,j,k)
+         uz1(i,j,k)=uz1(i,j,k)/rho1(i,j,k)
          ux1(i,j,k)=ux1(i,j,k)+bxx1(j,k)
          uy1(i,j,k)=uy1(i,j,k)+bxy1(j,k)
          uz1(i,j,k)=uz1(i,j,k)+bxz1(j,k)
@@ -953,7 +970,9 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   INTEGER :: subitr
 
-  INTEGER :: ijk, nxyz
+  INTEGER :: i, j, k, ijk, nxyz
+  REAL(mytype) :: x, y, z
+  REAL(mytype) :: tnext
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
@@ -993,10 +1012,14 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
           DO subitr = 1, itr
             !! TODO Check should it be gdt(itr) or gdt(subitr)?
             !
-            ! Based on testing, it appears Golanski2005 made a typo,
-            ! their expression would use gdt(itr) not gdt(subitr)
+            !  Golanski2005 write:
+            !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
+            !  which is what is implemented. However could it be a
+            !  typo, i.e. should it be gamma_k -> gamma_l giving
+            !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
+            !  in which case it should be gdt(subitr)
             drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
-                 + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
+                 + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1))
           ENDDO ! End loop over subitr
         ENDDO ! End loop over ijk
       ELSE
@@ -1013,6 +1036,21 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       STOP
     ENDIF
   ENDIF
+
+  ! !! Set drhodt using MMS
+  ! tnext = t + gdt(itr)
+  ! DO k = 1, xsize(3)
+  !   z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
+  !   DO j = 1, xsize(2)
+  !     y = (j + xstart(2) - 2) * dy - yly / 2._mytype
+  !     DO i = 1, xsize(1)
+  !       x = (i + xstart(1) - 2) * dx - xlx / 2._mytype
+
+  !       drhodt1(i, j, k) = 0.5_mytype * (PI * 2._mytype) * (5._mytype - 1._mytype) &
+  !            * SIN(PI * 2._mytype * x) * SIN(PI * 2._mytype * y) * SIN(PI * 2._mytype * tnext)
+  !     ENDDO
+  !   ENDDO
+  ! ENDDO
   
 ENDSUBROUTINE extrapol_rhotrans
 
@@ -1069,6 +1107,13 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
 
   ! Add new divergence of momentum to RHS of Poisson equation
   pp3(:,:,:) = pp3(:,:,:) - divmom3(:,:,:)
+  ! DO k = 1, nzmsize
+  !   DO j = ph1%zst(2), ph1%zen(2)
+  !     DO i = ph1%zst(1), ph1%zen(1)
+  !       pp3(i,j,k) = pp3(i,j,k) - divmom3(i,j,k)
+  !     ENDDO
+  !   ENDDO
+  ! ENDDO
   
 ENDSUBROUTINE divergence_mom
 

@@ -46,6 +46,7 @@ PROGRAM incompact3d
   implicit none
 
   integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
+  integer :: ijk, nvect1
   real(mytype) :: x,y,z,tmp1
   double precision :: t1,t2
   character(len=20) :: filename
@@ -112,6 +113,8 @@ PROGRAM incompact3d
 
   call test_speed_min_max(ux1,uy1,uz1)
   call test_density_min_max(rho1)
+  ! call test_density_min_max(rho1)
+  ! call test_temperature_min_max(temperature1)
   if (iscalar.eq.1) then
     call test_scalar_min_max(phi1)
   endif
@@ -146,6 +149,8 @@ PROGRAM incompact3d
   !      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
+
+  nvect1 = xsize(1) * xsize(2) * xsize(3)
 
   do itime=ifirst,ilast
 
@@ -331,9 +336,9 @@ PROGRAM incompact3d
     !        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
     ! endif
 
-    ! ! MMS: compare errors
-    ! CALL eval_error_rho(rho1)
-    ! CALL eval_error_vel(ux1,uy1,uz1)
+    ! MMS: compare errors
+    CALL eval_error_rho(rho1)
+    CALL eval_error_vel(ux1,uy1,uz1)
 
   enddo
 
