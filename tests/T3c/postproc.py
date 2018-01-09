@@ -13,6 +13,7 @@ T = [200,
 		 400,
 		 800,
 		 1600,
+		 # 3200
 ] # Timestep definition
 
 DATADIR = "./DATA/"
@@ -25,13 +26,21 @@ VARS = ["rho",
 				#"w"
 ]
 
+COLORS = ["blue",
+					"red",
+					"green",
+					"purple",
+					"orange",
+					"brown"
+]
+
 LINES = ["-",
 				 "--",
 				 "-.",
 				 ":"
 ]
 
-MARKERS = ["",
+MARKERS = ["*",
 					 "o",
 					 "s",
 					 "^"
@@ -100,11 +109,12 @@ def main():
 	# Error plots
 	pltvar = {}
 	varctr = 0
-	plt.figure(figsize=(5.0, 3.5))
 	plt.plot([N[0], N[-1]], [0.5, 0.5 / float((2**6)**(len(N) - 1))],
+					 label=r"$6^{th}$ order",
 					 color="black", lw=2) # 6th order convergence line
 	for var in VARS:
 		pltvar[var] = {}
+		tctr = 0
 		for t in T:
 			pltvar[var][t] = []
 			for n in N:
@@ -114,25 +124,29 @@ def main():
 			pltvar[var][t][0] = 1.0
 			label = var + str(t)
 			plt.plot(N, pltvar[var][t], label=label,
-							 marker=MARKERS[varctr],
-							 ls=LINES[varctr]
+							 marker=MARKERS[varctr], markersize=5,
+							 ls=LINES[varctr],
+							 color=COLORS[tctr]
 			)
+			tctr += 1
 		varctr += 1
 	plt.title("Spatial Convergence")
+	plt.xlim(xmin=0.9*N[0])
 	plt.xlabel("Ncells")
 	plt.ylabel(r"$\varepsilon$")
 	plt.xscale("log")
 	plt.yscale("log")
-	plt.legend()
+	plt.legend(loc="lower left")
 	plt.show()
 	plt.close()
 
 	varctr = 0
-	plt.figure(figsize=(5.0, 3.5))
 	plt.plot([T[0], T[-1]], [0.5, 0.5 / float((2**2)**(len(T) - 1))],
+					 label=r"$2^{nd}$ order",
 					 color="black", lw=2) # 2nd order convergence line
 	for var in VARS:
 		pltvar[var] = {}
+		nctr = 0
 		for n in N:
 			pltvar[var][n] = []
 			for t in T:
@@ -142,16 +156,20 @@ def main():
 			pltvar[var][n][0] = 1.0
 			label = var + str(n)
 			plt.plot(T, pltvar[var][n], label=label,
-							 marker=MARKERS[varctr],
-							 ls=LINES[varctr]
+							 marker=MARKERS[varctr], markersize=5,
+							 ls=LINES[varctr],
+							 color=COLORS[nctr]
 			)
+			nctr += 1
 		varctr += 1
 	plt.title("Temporal Convergence")
+	plt.xlim(xmin=0.9*T[0])
+	plt.xlim(xmax=1.1*T[-1])
 	plt.xlabel("Nsteps")
 	plt.ylabel(r"$\varepsilon$")
 	plt.xscale("log")
 	plt.yscale("log")
-	plt.legend()
+	plt.legend(loc="lower left")
 	plt.show()
 	plt.close()
 

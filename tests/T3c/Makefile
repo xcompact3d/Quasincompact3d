@@ -42,7 +42,7 @@ FFTW3_LIB = -L$(FFTW3_PATH)/lib -lfftw3 -lfftw3f
 # GNU
 FC = mpif90
 OPTFC = -O3 -funroll-loops -ftree-vectorize -fcray-pointer -cpp -pipe
-#OPTFC = -g -Og -fcray-pointer -cpp -ffpe-trap=zero,invalid
+#OPTFC = -g3 -Og -funroll-loops -ftree-vectorize -fcray-pointer -cpp -ffpe-trap=zero,invalid -fcheck=mem,pointer -pipe
 CC = mpicc
 CFLAGS = -O3
 
@@ -83,6 +83,9 @@ OBJ =	$(SRC:.f90=.o)
 endif	
 
 all: incompact3d
+
+test: all
+	./run.sh
 
 alloc_shm.o: alloc_shm.c
 	$(CC) $(CFLAGS) -c $<

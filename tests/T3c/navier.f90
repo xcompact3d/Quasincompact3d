@@ -195,25 +195,26 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
     !! AB2 or RK3
 
     ! First store -rho1 in drhodt1 incase we use simple extrapolation
-    drhodt1 = -rho1
+    drhodt1(:,:,:) = -rho1(:,:,:)
 
     IF (nscheme.EQ.1) THEN
       !! AB2
-      rhos01 = rhoss1
-      rhoss1 = rho1
+      rhos01(:,:,:) = rhoss1(:,:,:)
+      rhoss1(:,:,:) = rho1(:,:,:)
     ENDIF
     
     IF ((nscheme.EQ.1.AND.itime.EQ.1.AND.ilit.EQ.0).OR.&
          (nscheme.EQ.2.AND.itr.EQ.1)) THEN
-      rho1 = rho1 + gdt(itr) * tg1
+      rho1(:,:,:) = rho1(:,:,:) + gdt(itr) * tg1(:,:,:)
 
       IF (nscheme.EQ.2) THEN
         !! RK3
-        rhos01 = rhoss1
-        rhoss1 = tg1
+        rhos01(:,:,:) = rhoss1(:,:,:)
+        rhoss1(:,:,:) = tg1(:,:,:)
       ENDIF
     ELSE
-      rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1
+      rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) &
+           + bdt(itr) * rhos1(:,:,:)
     ENDIF
   ELSE IF (nscheme.EQ.3) THEN
     !! RK4
@@ -228,25 +229,25 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
       IF (nrank.EQ.0) THEN
         PRINT  *, 'start with Euler', itime
       ENDIF
-      rho1 = rho1 + dt * tg1
+      rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
     ELSE
       IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
         IF (nrank.EQ.0) THEN
           PRINT *, 'then with AB2', itime
         ENDIF
-        rho1 = rho1 - 0.5_mytype * dt * (rhos1 - 3._mytype * tg1)
+        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
       ELSE
-        rho1 = rho1 + adt(itr) * tg1 + bdt(itr) * rhos1 + cdt(itr) &
-             * rhoss1
+        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
+             * rhoss1(:,:,:)
       ENDIF
 
       !! Update oldold stage
-      rhoss1 = rhos1
+      rhoss1(:,:,:) = rhos1(:,:,:)
     ENDIF
   ENDIF
 
   !! Update old stage
-  rhos1 = tg1
+  rhos1(:,:,:) = tg1(:,:,:)
 
 ENDSUBROUTINE inttdensity
 
@@ -496,13 +497,10 @@ if (itype.eq.1) then
       y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
       do i=1,xsize(1)
         x = float(i + xstart(1) - 2) * dx - xlx / 2._mytype
-
-        rho = 0.5_mytype * ((rhoa + rhob) + (rhob - rhoa) &
-             * SIN(PI * wavnum * x) * SIN(PI * wavnum * y) * COS(PI * omega * t_init))
         
-        ux1(i,j,k) = -((rhob - rhoa) / rho) * (omega / (4._mytype * wavnum)) &
+        ux1(i,j,k) = -(rhob - rhoa) * (omega / (4._mytype * wavnum)) &
              * COS(PI * wavnum * x) * SIN(PI * wavnum * y) * SIN(PI * omega * t_init)
-        uy1(i,j,k) = -((rhob - rhoa) / rho) * (omega / (4._mytype * wavnum)) &
+        uy1(i,j,k) = -(rhob - rhoa) * (omega / (4._mytype * wavnum)) &
              * SIN(PI * wavnum * x) * COS(PI * wavnum * y) * SIN(PI * omega * t_init)
         uz1(i,j,k) = 0._mytype
       enddo
@@ -782,6 +780,9 @@ call ecoule(ux1,uy1,uz1)
 do k=1,xsize(3)
    do j=1,xsize(2)
       do i=1,xsize(1)
+         ux1(i,j,k)=ux1(i,j,k)/rho1(i,j,k)
+         uy1(i,j,k)=uy1(i,j,k)/rho1(i,j,k)
+         uz1(i,j,k)=uz1(i,j,k)/rho1(i,j,k)
          ux1(i,j,k)=ux1(i,j,k)+bxx1(j,k)
          uy1(i,j,k)=uy1(i,j,k)+bxy1(j,k)
          uz1(i,j,k)=uz1(i,j,k)+bxz1(j,k)
@@ -969,9 +970,11 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
   INTEGER :: subitr
 
-  INTEGER :: i, j, k
+  INTEGER :: i, j, k, ijk, nxyz
   REAL(mytype) :: x, y, z
   REAL(mytype) :: tnext
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
 
   IF (nrhoscheme.EQ.0) THEN
     IF (nrank.EQ.0) THEN
@@ -979,17 +982,16 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       PRINT *, "Shoul not be extrapolating drhodt!!!"
       STOP
     ENDIF
-  ENDIF
-
-  IF (nscheme.EQ.1) THEN
+  ELSE IF (nscheme.EQ.1) THEN
     !! AB2
     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
-      drhodt1 = drhodt1 + rho1
+      drhodt1(:,:,:) = drhodt1(:,:,:) + rho1(:,:,:)
     ELSE
-      drhodt1 = 3._mytype * rho1 - 4._mytype * rhoss1 + rhos01
-      drhodt1 = 0.5_mytype * drhodt1
+      drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhoss1(:,:,:) + rhos01(:,:,:)
+      drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
     ENDIF
-    drhodt1 = drhodt1 / dt
+    
+    drhodt1(:,:,:) = drhodt1(:,:,:) / dt
   ELSE IF (nscheme.EQ.2) THEN
     !! RK3
 
@@ -997,30 +999,35 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       !! Straightforward approximation:
       !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
       !                                       = rhos1
-      drhodt1 = rhos1
+      drhodt1(:,:,:) = rhos1(:,:,:)
     ELSE IF (nrhoscheme.EQ.2) THEN
       !! Alternative approximation:
       !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
-      drhodt1 = drhodt1 + rho1
-      drhodt1 = drhodt1 / gdt(itr)
+      drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
     ELSE
       !! Golanski
       IF (itime.GT.1) THEN
-        drhodt1 = rhoss1
-        DO subitr = 1, itr
-          !! TODO Check should it be gdt(itr) or gdt(subitr)?
-          !
-          !  Golanski2005 write:
-          !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
-          !  which is what is implemented. However could it be a
-          !  typo, i.e. should it be gamma_k -> gamma_l giving
-          !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
-          !  in which case it should be gdt(subitr)
-          drhodt1 = drhodt1 + gdt(subitr) * (rhoss1 - rhos01) / dt
-        ENDDO
+        drhodt1(:,:,:) = rhoss1(:,:,:)
+        DO ijk = 1, nxyz
+          DO subitr = 1, itr
+            !! TODO Check should it be gdt(itr) or gdt(subitr)?
+            !
+            !  Golanski2005 write:
+            !    drhodt = F^n + sum^k_l gamma_k (F^n - F^{n-1})
+            !  which is what is implemented. However could it be a
+            !  typo, i.e. should it be gamma_k -> gamma_l giving
+            !    drhodt = F^n + sum^k_l gamma_l (F^n - F^{n-1}) ?
+            !  in which case it should be gdt(subitr)
+            drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
+                 + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1))
+          ENDDO ! End loop over subitr
+        ENDDO ! End loop over ijk
       ELSE
-        drhodt1 = drhodt1 + rho1
-        drhodt1 = drhodt1 / gdt(itr)
+        ! Need to use first order approximation for first
+        ! full timestep
+
+        drhodt1(:,:,:) = rhos1(:,:,:)
+        ! drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
       ENDIF
     ENDIF
   ELSE
@@ -1065,10 +1072,9 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
 
   USE decomp_2d
   USE variables
+  USE param
   
   IMPLICIT NONE
-
-  INTEGER i, j, k
 
   TYPE(DECOMP_INFO) :: ph1, ph3, ph4
   INTEGER :: nxmsize, nymsize, nzmsize
@@ -1100,13 +1106,14 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
        (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
 
   ! Add new divergence of momentum to RHS of Poisson equation
-  DO k = 1, nzmsize
-    DO j = ph1%zst(2), ph1%zen(2)
-      DO i = ph1%zst(1), ph1%zen(1)
-        pp3(i,j,k) = pp3(i,j,k) - divmom3(i,j,k)
-      ENDDO
-    ENDDO
-  ENDDO
+  pp3(:,:,:) = pp3(:,:,:) - divmom3(:,:,:)
+  ! DO k = 1, nzmsize
+  !   DO j = ph1%zst(2), ph1%zen(2)
+  !     DO i = ph1%zst(1), ph1%zen(1)
+  !       pp3(i,j,k) = pp3(i,j,k) - divmom3(i,j,k)
+  !     ENDDO
+  !   ENDDO
+  ! ENDDO
   
 ENDSUBROUTINE divergence_mom
 
