@@ -260,7 +260,12 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_z_to_y(tc3,tc2)
 
   call transpose_z_to_y(divu3, divu2)
-  call transpose_z_to_y(mu3, mu2)
+  if (iprops.ne.0) then
+    call transpose_z_to_y(mu3, mu2)
+  else
+    mu2(:,:,:) = 1._mytype
+  endif
+  
   !WORK Y-PENCILS
 
 !!! CM call test_min_max('tg2  ','In convdiff    ',tg2,size(tg2))
@@ -356,7 +361,11 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_y_to_x(tc2,tc1) !diff
 
   call transpose_y_to_x(divu2, divu1)
-  call transpose_y_to_x(mu2, mu1)
+  if (iprops.ne.0) then
+    call transpose_y_to_x(mu2, mu1)
+  else
+    mu1(:,:,:) = 1._mytype
+  endif
 
   !WORK X-PENCILS
 
