@@ -109,9 +109,9 @@ PROGRAM incompact3d
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
   !          X->Y->Z
-  call calc_divu(ta1,rho1,temperature1,di1,&
-       ta2,tb2,tc2,rho2,temperature2,di2,&
-       divu3,ta3,rho3,temperature3,di3,&
+  call calc_divu(ta1,tb1,rho1,temperature1,kappa1,di1,&
+       ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
+       divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
        pressure0)
 
   call test_speed_min_max(ux1,uy1,uz1)
@@ -236,9 +236,9 @@ PROGRAM incompact3d
       !      upto date.
       !
       !    X->Y->Z
-      call calc_divu(tg1,rho1,temperature1,di1,&
-           ta2,tb2,tc2,rho2,temperature2,di2,&
-           divu3,ta3,rho3,temperature3,di3,&
+      call calc_divu(tg1,th1,rho1,temperature1,kappa1,di1,&
+           ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
+           divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
            pressure0)
 
 !!$      if (ivirt.eq.1) then !solid body old school

@@ -808,9 +808,9 @@ ENDSUBROUTINE density
 !!              the temperature field, ensuring the gradient of
 !!              thermodynamic pressure is zero.
 !!--------------------------------------------------------------------
-SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
-     ta2, tb2, tc2, rho2, temperature2, di2, &
-     divu3, ta3, rho3, temperature3, di3, &
+SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
+     ta2, tb2, tc2, rho2, temperature2, kappa2, di2, &
+     divu3, ta3, tb3, rho3, temperature3, kappa3, di3, &
      pressure0)
 
   USE param
@@ -821,13 +821,13 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
 
   INTEGER i, j, k
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1, kappa1
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, tc2, di2
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, di3
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2, kappa2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, tb3, di3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3, kappa3
   REAL(mytype), INTENT(IN) :: pressure0
 
   REAL(mytype) :: invpressure0, invpr
@@ -842,8 +842,19 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   ! Update temperature
   CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
 
-  ! Calculate divergence of velocity
-  CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+  ! Update thermal conductivity
+  CALL calckappa(kappa1, temperature1)
+
+  if (iprops.EQ.0) then
+    ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+  ELSE
+    ! Variable properties, must retain conservative form to ensure mass conservation!
+    CALL derx (ta1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    tb1(:,:,:) = kappa1(:,:,:) * ta1(:,:,:)
+    CALL derx (ta1, tb1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+    CALL transpose_x_to_y(kappa1, kappa2)
+  ENDIF
 
   ! Transpose to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -856,19 +867,27 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   ! Update temperature
   CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
 
-  ! Calculate divergence of velocity
-  IF(istret.NE.0) THEN
-    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    DO k = 1, ysize(3)
-      DO j = 1, ysize(2)
-        DO i = 1, ysize(1)
-          tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+  IF (iprops.EQ.0) THEN
+    ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    IF(istret.NE.0) THEN
+      CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+      CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+      DO k = 1, ysize(3)
+        DO j = 1, ysize(2)
+          DO i = 1, ysize(1)
+            tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+          ENDDO
         ENDDO
       ENDDO
-    ENDDO
+    ELSE
+      CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    ENDIF
   ELSE
-    CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    ! Variable properties, must retain conservative form to ensure mass conservation!
+    CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+    tc2(:,:,:) = kappa2(:,:,:) * tb2(:,:,:)
+    CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
+    CALL transpose_y_to_z(kappa2, kappa3)
   ENDIF
   ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
 
@@ -883,9 +902,16 @@ SUBROUTINE calc_divu(ta1, rho1, temperature1, di1, &
   ! Update temperature
   CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
 
-  ! Calculate divergence of velocity
-  CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-  divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
+  IF (iprops.EQ.0) THEN
+    ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+    divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
+  ELSE
+    ! Variable properties, must retain conservative form to ensure mass conservation!
+    CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
+    CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  ENDIF
 
   ! XXX add dpdt and additional source terms
 
@@ -954,6 +980,33 @@ SUBROUTINE calcvisc(mu3, temperature3)
   endif
   
 ENDSUBROUTINE calcvisc
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calckappa
+!! DESCRIPTION: Calculate the thermal conductivity of the fluid as a
+!!              function of temperature.
+!!--------------------------------------------------------------------
+SUBROUTINE calckappa(kappa1, temperature1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: kappa1
+
+  if (iprops.ne.0) then
+    !! Enable variable properties
+
+    ! Just set kappa=1 for now
+    kappa1(:,:,:) = 1._mytype
+  else
+    !! Use fixed properties
+    kappa1(:,:,:) = 1._mytype
+  endif
+ENDSUBROUTINE calckappa
   
 !!--------------------------------------------------------------------
 !! SUBROUTINE: density_source_mms
