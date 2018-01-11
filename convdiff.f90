@@ -552,9 +552,9 @@ end subroutine convdiff
 !
 !
 !************************************************************
-subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
-     uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
-     uz3,rho3,phi3,di3,ta3,tb3,epsi)
+subroutine scalar(ux1,uy1,uz1,rho1,phi1,gamma1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
+     uy2,uz2,rho2,phi2,gamma2,di2,ta2,tb2,tc2,td2,&
+     uz3,rho3,phi3,gamma3,di3,ta3,tb3,tc3,epsi)
 
   USE param
   USE variables
@@ -562,10 +562,10 @@ subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
 
   implicit none
 
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,phis1,&
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,phi1,gamma1,phis1,&
        phiss1,di1,ta1,tb1,tc1,td1,epsi
-  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2
-  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,di3,ta3,tb3
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,rho2,phi2,gamma2,di2,ta2,tb2,tc2,td2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,rho3,phi3,gamma3,di3,ta3,tb3,tc3
 
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nxyz
   real(mytype) :: x,y,z
@@ -579,7 +579,14 @@ subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
     ta1(ijk,1,1)=rho1(ijk,1,1)*phi1(ijk,1,1)*ux1(ijk,1,1)
   enddo
   call derx (tb1,ta1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-  call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  if (iprops.eq.0) then
+    call derxx (ta1,phi1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  else
+    call derx (ta1,phi1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    tc1(:,:,:) = gamma1(:,:,:) * ta1(:,:,:)
+    call derx (ta1,tc1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call transpose_x_to_y(gamma1, gamma2)
+  endif
 
   call transpose_x_to_y(phi1,phi2)
   call transpose_x_to_y(uy1,uy2)
@@ -591,18 +598,25 @@ subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
     ta2(ijk,1,1)=rho2(ijk,1,1)*phi2(ijk,1,1)*uy2(ijk,1,1)
   enddo
   call dery (tb2,ta2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-  if (istret.ne.0) then 
-    call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-    call dery (tc2,phi2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-    do k=1,ysize(3)
-      do j=1,ysize(2)
-        do i=1,ysize(1)
-          ta2(i,j,k)=ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
+  if (iprops.eq.0) then
+    if (istret.ne.0) then 
+      call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+      call dery (tc2,phi2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+      do k=1,ysize(3)
+        do j=1,ysize(2)
+          do i=1,ysize(1)
+            ta2(i,j,k)=ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
+          enddo
         enddo
       enddo
-    enddo
+    else
+      call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
+    endif
   else
-    call deryy (ta2,phi2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
+    call dery (ta2,phi2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    tc2(:,:,:) = gamma2(:,:,:) * ta2(:,:,:)
+    call dery (ta2,tc2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    call transpose_y_to_z(gamma2, gamma3)
   endif
 
   call transpose_y_to_z(phi2,phi3)
@@ -614,7 +628,13 @@ subroutine scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
     ta3(ijk,1,1)=rho3(ijk,1,1)*phi3(ijk,1,1)*uz3(ijk,1,1)
   enddo
   call derz (tb3,ta3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-  call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  if (iprops.eq.0) then
+    call derzz (ta3,phi3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  else
+    call derz (ta3,phi3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    tc3(:,:,:) = gamma3(:,:,:) * ta3(:,:,:)
+    call derz (ta3,tc3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+  endif
 
   call transpose_z_to_y(ta3,tc2)
   call transpose_z_to_y(tb3,td2)
@@ -1007,6 +1027,34 @@ SUBROUTINE calckappa(kappa1, temperature1)
     kappa1(:,:,:) = 1._mytype
   endif
 ENDSUBROUTINE calckappa
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calcgamma
+!! DESCRIPTION: Calculate the scalar diffusion coefficient as a
+!!              function of temperature.
+!!--------------------------------------------------------------------
+SUBROUTINE calcgamma(gamma1, temperature1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: gamma1
+
+  if (iprops.ne.0) then
+    !! Enable variable properties
+
+    ! Just set mu=1 for now
+    gamma1(:,:,:) = 1._mytype
+  else
+    !! Use fixed properties
+    gamma1(:,:,:) = 1._mytype
+  endif
+  
+ENDSUBROUTINE calcgamma
   
 !!--------------------------------------------------------------------
 !! SUBROUTINE: density_source_mms

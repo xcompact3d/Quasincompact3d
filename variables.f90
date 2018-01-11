@@ -53,6 +53,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2,
 real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 real(mytype), save, allocatable, dimension(:,:,:) :: kappa1, kappa2, kappa3
+real(mytype), save, allocatable, dimension(:,:,:) :: gamma1, gamma2, gamma3
 
 !arrays for statistic collection
 real(mytype), save, allocatable, dimension(:,:,:) :: umean, vmean, wmean
@@ -129,6 +130,7 @@ contains
     call alloc_x(drhodt1)
     call alloc_x(mu1, opt_global=.true.)
     call alloc_x(kappa1, opt_global=.true.)
+    call alloc_x(gamma1, opt_global=.true.)
     allocate(sx(xsize(2),xsize(3)),vx(xsize(2),xsize(3)))
     !inflow/ouflow 2d arrays
     allocate(bxx1(xsize(2),xsize(3)),bxy1(xsize(2),xsize(3)))
@@ -183,6 +185,7 @@ contains
     call alloc_y(temperature2)
     call alloc_y(mu2)
     call alloc_y(kappa2)
+    call alloc_y(gamma2)
     allocate(sy(ysize(1),ysize(3)),vy(ysize(1),ysize(3)))
 !Z PENCILS
     call alloc_z(ux3);call alloc_z(uy3);call alloc_z(uz3)
@@ -195,6 +198,7 @@ contains
     call alloc_z(divu3)
     call alloc_z(mu3)
     call alloc_z(kappa3)
+    call alloc_z(gamma3)
     allocate(sz(zsize(1),zsize(2)),vz(zsize(1),zsize(2)))
 
  ! if all periodic

@@ -176,7 +176,10 @@ PROGRAM incompact3d
       ! Update fluid properties
       ! XXX Temperature is up-to-date in X, Y and Z.
       !-----------------------------------------------------------------------------------
-      call calcvisc(mu3, temperature3)
+      call calcvisc(mu3, temperature3) ! Viscosity first used in Z-stencils
+      if (iscalar.eq.0) then
+        call calcgamma(gamma1, temperature1)
+      endif
 
       !X-->Y-->Z-->Y-->X
       call convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
@@ -187,9 +190,9 @@ PROGRAM incompact3d
         !---------------------------------------------------------------------------------
         ! XXX After this phi1 contains rho*phi
         !---------------------------------------------------------------------------------
-        call scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-             uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
-             uz3,rho3,phi3,di3,ta3,tb3,&
+        call scalar(ux1,uy1,uz1,rho1,phi1,gamma1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,rho2,phi2,gamma2,di2,ta2,tb2,tc2,td2,&
+             uz3,rho3,phi3,gamma3,di3,ta3,tb3,tc3,&
              ep1)
       endif
 
