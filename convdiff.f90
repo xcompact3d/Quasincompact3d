@@ -832,6 +832,27 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
   temperature1(:,:,:) = pressure0 / rho1(:,:,:)
   
 ENDSUBROUTINE calctemp_eos
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calcvisc
+!! DESCRIPTION: Calculate the fluid viscosity as a function of
+!!              temperature.
+!!--------------------------------------------------------------------
+SUBROUTINE calcvisc(mu1, temperature1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: mu1
+
+  ! Just set mu to 1 for now
+  mu1(:,:,:) = 1._mytype
+  
+ENDSUBROUTINE calcvisc
   
 !!--------------------------------------------------------------------
 !! SUBROUTINE: density_source_mms
