@@ -38,11 +38,11 @@ USE param
 
 ! define all major arrays here
 
-real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3,po3,dv3,pp3
+real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3
 real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
 real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
 real(mytype), save, allocatable, dimension(:,:,:) :: phi1, phi2, phi3
-real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz1, phis1,phiss1
+real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz1, phis1, phiss1
 real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 
@@ -54,7 +54,10 @@ real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 
 !arrays for statistic collection
-real(mytype), save, allocatable, dimension(:,:,:) :: umean,vmean,wmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
+real(mytype), save, allocatable, dimension(:,:,:) :: umean, vmean, wmean
+real(mytype), save, allocatable, dimension(:,:,:) :: uumean, uvmean, uwmean
+real(mytype), save, allocatable, dimension(:,:,:) :: vvmean, vwmean
+real(mytype), save, allocatable, dimension(:,:,:) :: wwmean, tmean
 real(mytype), save, allocatable, dimension(:,:,:) :: phimean, phiphimean
 
 !arrays for visualization
