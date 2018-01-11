@@ -567,6 +567,14 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
           ux1(i, j, k) = ux1(i, j, k) + u_disturb
           uy1(i, j, k) = uy1(i, j, k) + v_disturb 
           uz1(i, j, k) = uz1(i, j, k) + 0._mytype
+
+          if (y.gt.0._mytype) then
+            rho1(i, j, k) = rho1(i, j, k) + dens1
+          else if (y.lt.0._mytype) then
+            rho1(i, j, k) = rho1(i, j, k) + dens2
+          else
+            rho1(i, j, k) = rho1(i, j, k) + 0.5_mytype * (dens1 + dens2)
+          endif
         enddo
       enddo
     enddo
@@ -728,9 +736,7 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         do i = 1, xsize(1)
           x = float(i + xstart(1) - 2) * dx
 
-          rho1(i, j, k) = 1._mytype
-          rhos1(i, j, k) = rho1(i, j, k)
-          rhoss1(i, j, k) = rhos1(i, j, k)
+          rho1(i, j, k) = 0._mytype
         enddo
       enddo
     enddo
@@ -774,6 +780,9 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         hx1(i,j,k)=gx1(i,j,k)
         hy1(i,j,k)=gy1(i,j,k)
         hz1(i,j,k)=gz1(i,j,k)
+
+        rhos1(i,j,k) = rho1(i,j,k)
+        rhoss1(i,j,k) = rhos1(i,j,k)
       enddo
     enddo
   enddo

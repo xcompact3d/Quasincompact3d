@@ -415,8 +415,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
   tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
 
-  !! MMS Source term
-  call momentum_source_mms(ta1,tb1,tc1)
+  ! !! MMS Source term
+  ! call momentum_source_mms(ta1,tb1,tc1)
 
   ! ta1max=-1.e30_mytype
   ! ta1min=+1.e30_mytype
@@ -703,8 +703,8 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   ! XXX This is stupid, we should work with ta1 from outset!
   ta1(:,:,:) = -tb1(:,:,:)
 
-  !! MMS Source term
-  CALL density_source_mms(ta1)
+  ! !! MMS Source term
+  ! CALL density_source_mms(ta1)
   
 ENDSUBROUTINE density
 
