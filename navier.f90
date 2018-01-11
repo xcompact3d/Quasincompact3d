@@ -567,6 +567,14 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
           ux1(i, j, k) = ux1(i, j, k) + u_disturb
           uy1(i, j, k) = uy1(i, j, k) + v_disturb 
           uz1(i, j, k) = uz1(i, j, k) + 0._mytype
+
+          if (y.gt.0._mytype) then
+            rho1(i, j, k) = rho1(i, j, k) + dens1
+          else if (y.lt.0._mytype) then
+            rho1(i, j, k) = rho1(i, j, k) + dens2
+          else
+            rho1(i, j, k) = rho1(i, j, k) + 0.5_mytype * (dens1 + dens2)
+          endif
         enddo
       enddo
     enddo
@@ -678,18 +686,6 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
   integer :: code
   integer (kind=MPI_OFFSET_KIND) :: disp
 
-  if (iin.eq.0) then !set initial fields to zero
-    do k=1,xsize(3)
-      do j=1,xsize(2)
-        do i=1,xsize(1)
-          ux1(i,j,k)=0._mytype
-          uy1(i,j,k)=0._mytype
-          uz1(i,j,k)=0._mytype
-        enddo
-      enddo
-    enddo
-  endif
-
   ! LMN: set thermodynamic pressure
   pressure0 = 1._mytype
 
@@ -742,15 +738,8 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         do i = 1, xsize(1)
           x = float(i + xstart(1) - 2) * dx
           xspec = (2._mytype * PI) * (x / xlx)
-          if(y.gt.0._mytype) then
-            rho1(i, j, k) = 0.5_mytype
-          else if(y.eq.0._mytype) then
-            rho1(i, j, k) = 0.75_mytype
-          else
-            rho1(i, j, k) = 1.0_mytype
-          endif
-          rhos1(i, j, k) = rho1(i, j, k)
-          rhoss1(i, j, k) = rhos1(i, j, k)
+
+          rho1(i, j, k) = 0._mytype
         enddo
       enddo
     enddo
@@ -766,9 +755,17 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         enddo
       enddo
     endif
-  endif
-
-  if (iin.eq.2) then !read a correlated noise generated before
+  else if (iin.eq.2) then !read a correlated noise generated before
+  else !set initial fields to zero
+    do k=1,xsize(3)
+      do j=1,xsize(2)
+        do i=1,xsize(1)
+          ux1(i,j,k)=0._mytype
+          uy1(i,j,k)=0._mytype
+          uz1(i,j,k)=0._mytype
+        enddo
+      enddo
+    enddo
   endif
 
   !MEAN FLOW PROFILE
@@ -786,6 +783,9 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         hx1(i,j,k)=gx1(i,j,k)
         hy1(i,j,k)=gy1(i,j,k)
         hz1(i,j,k)=gz1(i,j,k)
+
+        rhos1(i,j,k) = rho1(i,j,k)
+        rhoss1(i,j,k) = rhos1(i,j,k)
       enddo
     enddo
   enddo
