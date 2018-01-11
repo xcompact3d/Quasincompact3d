@@ -238,14 +238,18 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_z_to_y(th3,th2)
   call transpose_z_to_y(ti3,ti2)
 
-  call derz(td3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  call derz(te3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  call derz(tf3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  call derz(ti3, mu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-
-  ta3(:,:,:) = ta3(:,:,:) + ti3(:,:,:) * td3(:,:,:)
-  tb3(:,:,:) = tb3(:,:,:) + ti3(:,:,:) * te3(:,:,:)
-  tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) * (tf3(:,:,:) - 2._mytype * ONETHIRD * divu3(:,:,:))
+  if (iprops.ne.0) then
+    !! Fluid properties are variable
+    
+    call derz(td3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    call derz(te3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    call derz(tf3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    call derz(ti3, mu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    
+    ta3(:,:,:) = ta3(:,:,:) + ti3(:,:,:) * td3(:,:,:)
+    tb3(:,:,:) = tb3(:,:,:) + ti3(:,:,:) * te3(:,:,:)
+    tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) * (tf3(:,:,:) - 2._mytype * ONETHIRD * divu3(:,:,:))
+  endif
 
 !!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
@@ -335,15 +339,17 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_y_to_x(th2,th1)
   call transpose_y_to_x(ti2,ti1) !conv
 
-  !! Compute non-conservative part of viscous stress tensor
-  call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
-  call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-  call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-  call dery (th2,mu2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-
-  ta2(:,:,:) = ta2(:,:,:) + th2(:,:,:) * td2(:,:,:)
-  tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) * (te2(:,:,:) - 2._mytype * ONETHIRD * divu2(:,:,:))
-  tc2(:,:,:) = tc2(:,:,:) + th2(:,:,:) * tf2(:,:,:)
+  if (iprops.ne.0) then
+    !! Compute non-conservative part of viscous stress tensor
+    call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    call dery (th2,mu2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    
+    ta2(:,:,:) = ta2(:,:,:) + th2(:,:,:) * td2(:,:,:)
+    tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) * (te2(:,:,:) - 2._mytype * ONETHIRD * divu2(:,:,:))
+    tc2(:,:,:) = tc2(:,:,:) + th2(:,:,:) * tf2(:,:,:)
+  endif
 
   call transpose_y_to_x(ta2,ta1)
   call transpose_y_to_x(tb2,tb1)
@@ -377,16 +383,18 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   ta1(:,:,:) = xnu * ta1(:,:,:) - tg1(:,:,:)
   tb1(:,:,:) = xnu * tb1(:,:,:) - th1(:,:,:)
   tc1(:,:,:) = xnu * tc1(:,:,:) - ti1(:,:,:)
-
+  
   !! We now have room to do the non-conservative part of viscous stress tensor
-  call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-  call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-  call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-  call derx (tg1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-
-  ta1(:,:,:) = ta1(:,:,:) + xnu * tg1(:,:,:) * (td1(:,:,:) - 2._mytype * ONETHIRD * divu1(:,:,:))
-  tb1(:,:,:) = tb1(:,:,:) + xnu * tg1(:,:,:) * te1(:,:,:)
-  tc1(:,:,:) = tc1(:,:,:) + xnu * tg1(:,:,:) * tf1(:,:,:)
+  if (iprops.ne.0) then
+    call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (tg1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    
+    ta1(:,:,:) = ta1(:,:,:) + xnu * tg1(:,:,:) * (td1(:,:,:) - 2._mytype * ONETHIRD * divu1(:,:,:))
+    tb1(:,:,:) = tb1(:,:,:) + xnu * tg1(:,:,:) * te1(:,:,:)
+    tc1(:,:,:) = tc1(:,:,:) + xnu * tg1(:,:,:) * tf1(:,:,:)
+  endif
 
   !! Compute cross-shear
   ! NB ta1,tb1,tc1 cannot be touched!
@@ -419,11 +427,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   te3(:,:,:) = mu3(:,:,:) * te3(:,:,:)
   tf3(:,:,:) = mu3(:,:,:) * tf3(:,:,:)
 
-  !! Store dmudz in ti3
-  call derz(ti3, mu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-
-  ! Add dmudz * dwdz to z-component of cross-shear
-  tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
+  if (iprops.ne.0) then
+    !! Store dmudz in ti3
+    call derz(ti3, mu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    
+    ! Add dmudz * dwdz to z-component of cross-shear
+    tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
+  endif
 
   call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
   call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
@@ -442,17 +452,19 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
   te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
   tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
-  
-  !! Store dmudy in th2
-  call dery(th2, mu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
 
-  ! Add dmudy * (dvdy + dvdz) to y-component of cross-shear
-  te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * (tc2(:,:,:) + tb2(:,:,:))
-
-  ! Re-compute dwdy and add dmudz * dwdy to z-component of cross-shear
-  call dery(tg2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  call transpose_z_to_y(ti3, ti2)
-  tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) * tg2(:,:,:)
+  if (iprops.ne.0) then
+    !! Store dmudy in th2
+    call dery(th2, mu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    
+    ! Add dmudy * (dvdy + dvdz) to y-component of cross-shear
+    te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * (tc2(:,:,:) + tb2(:,:,:))
+    
+    ! Re-compute dwdy and add dmudz * dwdy to z-component of cross-shear
+    call dery(tg2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+    call transpose_z_to_y(ti3, ti2)
+    tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) * tg2(:,:,:)
+  endif
 
   call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
   call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
@@ -481,19 +493,21 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   tb1(:,:,:) = tb1(:,:,:) + xnu * mu1(:,:,:) * te1(:,:,:)
   tc1(:,:,:) = tc1(:,:,:) + xnu * mu1(:,:,:) * tf1(:,:,:)
 
-  !! Add dmudx * (dudx + dudy + dudz) to X-component of stress tensor
-  call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * (tg1(:,:,:) + th1(:,:,:) + ti1(:,:,:))
-
-  !! Add dmudy * dvdx to Y-component of stress tensor
-  call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  call transpose_y_to_x(th2, th1)
-  tb1(:,:,:) = tb1(:,:,:) + xnu * th1(:,:,:) * te1(:,:,:)
-
-  !! Add dmudz * dwdx to Z-component of stress tensor
-  call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  call transpose_y_to_x(ti2, ti1)
-  tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
+  if (iprops.ne.0) then
+    !! Add dmudx * (dudx + dudy + dudz) to X-component of stress tensor
+    call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * (tg1(:,:,:) + th1(:,:,:) + ti1(:,:,:))
+    
+    !! Add dmudy * dvdx to Y-component of stress tensor
+    call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    call transpose_y_to_x(th2, th1)
+    tb1(:,:,:) = tb1(:,:,:) + xnu * th1(:,:,:) * te1(:,:,:)
+    
+    !! Add dmudz * dwdx to Z-component of stress tensor
+    call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    call transpose_y_to_x(ti2, ti1)
+    tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
+  endif
 
   ! !! MMS Source term
   ! call momentum_source_mms(ta1,tb1,tc1)
@@ -929,8 +943,15 @@ SUBROUTINE calcvisc(mu3, temperature3)
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: temperature3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: mu3
 
-  ! Just set mu to 1 for now
-  mu3(:,:,:) = 1._mytype
+  if (iprops.ne.0) then
+    !! Enable variable properties
+
+    ! Just set mu=1 for now
+    mu3(:,:,:) = 1._mytype
+  else
+    !! Use fixed properties
+    mu3(:,:,:) = 1._mytype
+  endif
   
 ENDSUBROUTINE calcvisc
   
