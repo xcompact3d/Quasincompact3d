@@ -88,6 +88,7 @@ read (10,*) nscheme
 read (10,*) nrhoscheme
 read (10,*) istret
 read (10,*) beta
+read (10,*) ilmn
 read (10,*) iskew
 read (10,*) iscalar
 read (10,1000) a 
@@ -152,6 +153,10 @@ if (ivirt.eq.1) then
 endif
 if (ivirt.eq.2) then
    print *,'Immersed boundary : on with Lagrangian Poly'
+endif
+
+if (ilmn.ne.0) then
+  print *, "Low Mach Number: Enabled"
 endif
 
 if (iskew.eq.0) then
