@@ -52,11 +52,19 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
   !! First, convert velocity to momentum
-  do ijk = 1, nxyz
-    ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
-    uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
-    uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
-  enddo
+  if (iskew.ne.2) then
+    !! Rotational form or Quasi skew-symmetric
+    do ijk = 1, nxyz
+      ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
+      uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
+      uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
+    enddo
+  else
+    !! Skew-symmetric
+    ux(:,:,:) = SQRT(rho(:,:,:)) * ux(:,:,:)
+    uy(:,:,:) = SQRT(rho(:,:,:)) * uy(:,:,:)
+    uz(:,:,:) = SQRT(rho(:,:,:)) * uz(:,:,:)
+  endif
 
   if ((nscheme.eq.1).or.(nscheme.eq.2)) then
     !! AB2 or RK3
@@ -279,12 +287,23 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
 
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
-  do ijk=1, nxyz
-    invrho = 1 / rho(ijk, 1, 1)
-    ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-    uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-    uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
-  enddo
+  if (iskew.ne.2) then
+    !! Rotational or quasi skew-symmetric
+    do ijk=1, nxyz
+      invrho = 1._mytype / rho(ijk, 1, 1)
+      ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
+      uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
+      uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+    enddo
+  else
+    !! Skew-symmetric
+    do ijk = 1, nxyz
+      invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
+      ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
+      uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
+      uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+    enddo
+  endif
 
   if (itype==2) then !channel flow
     call transpose_x_to_y(ux,gx)

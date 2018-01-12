@@ -128,11 +128,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     tb1(:,:,:) = th1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * te1(:,:,:)
     tc1(:,:,:) = ti1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * tf1(:,:,:)
 
-    ! Quasi-skew symmetric terms
-    call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-    tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-    tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    if (iskew.eq.1) then
+      ! Quasi-skew symmetric terms
+      call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+      ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+      tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+      tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    endif
 
     call transpose_x_to_y(ux1,ux2)
     call transpose_x_to_y(uy1,uy2)
@@ -159,11 +161,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
     tc2(:,:,:) = tc2(:,:,:) + ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:)
 
-    ! Quasi-skew symmetric terms
-    call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-    tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-    tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    if (iskew.eq.1) then
+      ! Quasi-skew symmetric terms
+      call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+      ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+      tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+      tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    endif
 
     call transpose_y_to_z(ux2,ux3)
     call transpose_y_to_z(uy2,uy3)
@@ -190,18 +194,20 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:)
     tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
 
-    ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
-    call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-    tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-    tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-
-    ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
-    tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
-    tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
+    if (iskew.eq.1) then
+      ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
+      call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+      ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      
+      ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
+      tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
+      tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
+    endif
   endif
   !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
