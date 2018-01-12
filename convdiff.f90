@@ -132,11 +132,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tb1(:,:,:) = th1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * te1(:,:,:)
     tc1(:,:,:) = ti1(:,:,:) + rho1(:,:,:) * ux1(:,:,:) * tf1(:,:,:)
 
-    ! Quasi-skew symmetric terms
-    call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-    tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
-    tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    if ((iskew.eq.1).and.(ilmn.ne.0)) then
+      ! Quasi-skew symmetric terms
+      call derx(tg1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+      ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+      tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+      tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * tg1(:,:,:)
+    endif
 
     call transpose_x_to_y(ux1,ux2)
     call transpose_x_to_y(uy1,uy2)
@@ -163,11 +165,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
     tc2(:,:,:) = tc2(:,:,:) + ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:)
 
-    ! Quasi-skew symmetric terms
-    call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-    tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
-    tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    if ((iskew.eq.1).and.(ilmn.ne.0)) then
+      ! Quasi-skew symmetric terms
+      call dery(th2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+      ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+      tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+      tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * th2(:,:,:)
+    endif
 
     call transpose_y_to_z(ux2,ux3)
     call transpose_y_to_z(uy2,uy3)
@@ -194,18 +198,20 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:)
     tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
 
-    ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
-    call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-    tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-    tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
-         * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-
-    ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
-    tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
-    tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
+    if ((iskew.eq.1).and.(ilmn.ne.0)) then
+      ! Quasi-skew symmetric terms (Note here also include contribution from div(u))
+      call derz(ti3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+      ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
+           * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
+      
+      ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
+      tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
+      tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
+    endif
   endif
   !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
@@ -226,11 +232,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   tb3(:,:,:) = mu3(:,:,:) * tb3(:,:,:)
   tc3(:,:,:) = mu3(:,:,:) * tc3(:,:,:)
 
-  !! Compute bulk shear contribution
-  ! tg3, th3, ti3 available as work vectors
-  ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  call derz(tf3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * mu3(:,:,:) * tf3(:,:,:)
+  if (ilmn.ne.0) then
+    !! Compute bulk shear contribution
+    ! tg3, th3, ti3 available as work vectors
+    ! TODO need to check ffzp, and whether last terms should be 1 or 0
+    call derz(tf3, divu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    tc3(:,:,:) = tc3(:,:,:) - 2._mytype * ONETHIRD * mu3(:,:,:) * tf3(:,:,:)
+  endif
 
   !! XXX Transpose advection terms to make room for 2nd non-conservative diffusion
   !      term
@@ -334,10 +342,12 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
 !!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
 !!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
-  !! Compute bulk shear contribution
-  ! td2, te2, tf2 avaiable as work vectors
-  call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-  tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * mu2(:,:,:) * te2(:,:,:)
+  if (ilmn.ne.0) then
+    !! Compute bulk shear contribution
+    ! td2, te2, tf2 avaiable as work vectors
+    call dery(te2, divu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * mu2(:,:,:) * te2(:,:,:)
+  endif
 
   !! XXX First move advection terms to make room to work
   call transpose_y_to_x(tg2,tg1)
@@ -378,11 +388,13 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   tb1(:,:,:) = tb1(:,:,:) + mu1(:,:,:) * te1(:,:,:)
   tc1(:,:,:) = tc1(:,:,:) + mu1(:,:,:) * tf1(:,:,:)
 
-  !! Compute bulk shear contribution
-  ! td1, te1, tf1 available as work vectors
-  ! TODO need to check ffzp, and whether last terms should be 1 or 0
-  call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-  ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * mu1(:,:,:) * td1(:,:,:)
+  if (ilmn.ne.0) then
+    !! Compute bulk shear contribution
+    ! td1, te1, tf1 available as work vectors
+    ! TODO need to check ffzp, and whether last terms should be 1 or 0
+    call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+    ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * mu1(:,:,:) * td1(:,:,:)
+  endif
 
   !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
   !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
@@ -405,117 +417,119 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tc1(:,:,:) = tc1(:,:,:) + xnu * tg1(:,:,:) * tf1(:,:,:)
   endif
 
-  !! Compute cross-shear
-  ! NB ta1,tb1,tc1 cannot be touched!
-  ! NB u2,u3 have already been updated, no need to transpose velocities!
-
-  ! X - accumulate d(v,w)dx terms
-  call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-
-  call transpose_x_to_y(te1, te2) ! te2 contains dvdx
-  call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
-
-  ! Y - accumulate dwdy terms
-  call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-
-  call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
-  call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
-
-  ! Z - accumulate ddz terms
-  call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  call derz(tb3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-
-  ! Z - compute ddz(dwdx, dwdy, dwdz)
-  call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-
-  td3(:,:,:) = mu3(:,:,:) * td3(:,:,:)
-  te3(:,:,:) = mu3(:,:,:) * te3(:,:,:)
-  tf3(:,:,:) = mu3(:,:,:) * tf3(:,:,:)
-
-  if (iprops.ne.0) then
-    !! Store dmudz in ti3
-    call derz(ti3, mu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  if (ilmn.ne.0) then
+    !! Compute cross-shear
+    ! NB ta1,tb1,tc1 cannot be touched!
+    ! NB u2,u3 have already been updated, no need to transpose velocities!
     
-    ! Add dmudz * dwdz to z-component of cross-shear
-    tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
-  endif
-
-  call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
-  call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
-  call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
-
-  call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
-  call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
-
-  ! Y - compute ddy(dvdx, dvdy, dvdz)
-
-  call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-  call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-  call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-
-  td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
-  te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
-  tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
-
-  if (iprops.ne.0) then
-    !! Store dmudy in th2
-    call dery(th2, mu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    
-    ! Add dmudy * (dvdy + dvdz) to y-component of cross-shear
-    te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * (tc2(:,:,:) + tb2(:,:,:))
-    
-    ! Re-compute dwdy and add dmudz * dwdy to z-component of cross-shear
-    call dery(tg2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-    call transpose_z_to_y(ti3, ti2)
-    tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) * tg2(:,:,:)
-  endif
-
-  call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
-  call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
-  call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
-
-  call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-
-  call transpose_y_to_x(td2, th1) ! th1 contains dudy
-  call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
-
-  ! X - compute ddx(dudx, dudy, dudz)
-
-  ! First make some room to work!
-  ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
-  tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
-  tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
-
-  call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-
-  call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-  call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-
-  !! Finish off adding cross-stresses to shear stress
-  ta1(:,:,:) = ta1(:,:,:) + xnu * mu1(:,:,:) * td1(:,:,:)
-  tb1(:,:,:) = tb1(:,:,:) + xnu * mu1(:,:,:) * te1(:,:,:)
-  tc1(:,:,:) = tc1(:,:,:) + xnu * mu1(:,:,:) * tf1(:,:,:)
-
-  if (iprops.ne.0) then
-    !! Add dmudx * (dudx + dudy + dudz) to X-component of stress tensor
-    call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-    ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * (tg1(:,:,:) + th1(:,:,:) + ti1(:,:,:))
-    
-    !! Add dmudy * dvdx to Y-component of stress tensor
+    ! X - accumulate d(v,w)dx terms
     call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-    call transpose_y_to_x(th2, th1)
-    tb1(:,:,:) = tb1(:,:,:) + xnu * th1(:,:,:) * te1(:,:,:)
-    
-    !! Add dmudz * dwdx to Z-component of stress tensor
     call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-    call transpose_y_to_x(ti2, ti1)
-    tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
+
+    call transpose_x_to_y(te1, te2) ! te2 contains dvdx
+    call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
+
+    ! Y - accumulate dwdy terms
+    call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+
+    call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
+    call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
+
+    ! Z - accumulate ddz terms
+    call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    call derz(tb3, uy3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+
+    ! Z - compute ddz(dwdx, dwdy, dwdz)
+    call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+
+    td3(:,:,:) = mu3(:,:,:) * td3(:,:,:)
+    te3(:,:,:) = mu3(:,:,:) * te3(:,:,:)
+    tf3(:,:,:) = mu3(:,:,:) * tf3(:,:,:)
+    
+    if (iprops.ne.0) then
+      !! Store dmudz in ti3
+      call derz(ti3, mu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+      
+      ! Add dmudz * dwdz to z-component of cross-shear
+      tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
+    endif
+    
+    call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
+    call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
+    call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
+
+    call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
+    call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
+
+    ! Y - compute ddy(dvdx, dvdy, dvdz)
+
+    call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+    call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+
+    td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
+    te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
+    tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
+
+    if (iprops.ne.0) then
+      !! Store dmudy in th2
+      call dery(th2, mu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+      
+      ! Add dmudy * (dvdy + dvdz) to y-component of cross-shear
+      te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * (tc2(:,:,:) + tb2(:,:,:))
+      
+      ! Re-compute dwdy and add dmudz * dwdy to z-component of cross-shear
+      call dery(tg2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+      call transpose_z_to_y(ti3, ti2)
+      tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) * tg2(:,:,:)
+    endif
+    
+    call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
+    call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
+    call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
+
+    call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+
+    call transpose_y_to_x(td2, th1) ! th1 contains dudy
+    call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
+
+    ! X - compute ddx(dudx, dudy, dudz)
+
+    ! First make some room to work!
+    ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
+    tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
+    tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
+
+    call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+
+    call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+    call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+
+    !! Finish off adding cross-stresses to shear stress
+    ta1(:,:,:) = ta1(:,:,:) + xnu * mu1(:,:,:) * td1(:,:,:)
+    tb1(:,:,:) = tb1(:,:,:) + xnu * mu1(:,:,:) * te1(:,:,:)
+    tc1(:,:,:) = tc1(:,:,:) + xnu * mu1(:,:,:) * tf1(:,:,:)
+    
+    if (iprops.ne.0) then
+      !! Add dmudx * (dudx + dudy + dudz) to X-component of stress tensor
+      call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+      ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * (tg1(:,:,:) + th1(:,:,:) + ti1(:,:,:))
+      
+      !! Add dmudy * dvdx to Y-component of stress tensor
+      call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+      call transpose_y_to_x(th2, th1)
+      tb1(:,:,:) = tb1(:,:,:) + xnu * th1(:,:,:) * te1(:,:,:)
+      
+      !! Add dmudz * dwdx to Z-component of stress tensor
+      call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+      call transpose_y_to_x(ti2, ti1)
+      tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
+    endif
   endif
 
   ! !! MMS Source term
@@ -665,8 +679,11 @@ subroutine scalar(ux1,uy1,uz1,rho1,phi1,gamma1,phis1,phiss1,di1,ta1,tb1,tc1,td1,
 
   do ijk=1,nvect1
     ta1(ijk,1,1)=xnu/sc*ta1(ijk,1,1)-tb1(ijk,1,1)
-    phi1(ijk,1,1) = rho1(ijk,1,1)*phi1(ijk,1,1)
   enddo
+
+  if (ilmn.ne.0) then
+    phi1(:,:,:) = rho1(:,:,:)*phi1(:,:,:)
+  endif
 
   !TIME ADVANCEMENT
   nxyz=xsize(1)*xsize(2)*xsize(3)  
@@ -861,98 +878,109 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
 
   REAL(mytype) :: invpressure0, invpr
   
-  invpressure0 = 1._mytype / pressure0
-  invpr = 1._mytype / pr
-
-  !-------------------------------------------------------------------
-  ! X pencil
-  !-------------------------------------------------------------------
-
-  ! Update temperature
-  CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
-
-  ! Update thermal conductivity
-  CALL calckappa(kappa1, temperature1)
-
-  if (iprops.EQ.0) then
-    ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
-  ELSE
-    ! Variable properties, must retain conservative form to ensure mass conservation!
-    CALL derx (ta1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-    tb1(:,:,:) = kappa1(:,:,:) * ta1(:,:,:)
-    CALL derx (ta1, tb1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-    CALL transpose_x_to_y(kappa1, kappa2)
-  ENDIF
-
-  ! Transpose to Y
-  CALL transpose_x_to_y(rho1, rho2)
-  CALL transpose_x_to_y(ta1, ta2)
-
-  !-------------------------------------------------------------------
-  ! Y pencil
-  !-------------------------------------------------------------------
-
-  ! Update temperature
-  CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
-
-  IF (iprops.EQ.0) THEN
-    ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    IF(istret.NE.0) THEN
-      CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-      CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-      DO k = 1, ysize(3)
-        DO j = 1, ysize(2)
-          DO i = 1, ysize(1)
-            tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+  IF (ilmn.NE.0) THEN
+    invpressure0 = 1._mytype / pressure0
+    invpr = 1._mytype / pr
+    
+    !-------------------------------------------------------------------
+    ! X pencil
+    !-------------------------------------------------------------------
+    
+    ! Update temperature
+    CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
+    
+    ! Update thermal conductivity
+    CALL calckappa(kappa1, temperature1)
+    
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+    ELSE
+      ! Variable properties, must retain conservative form to ensure mass conservation!
+      CALL derx (ta1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+      tb1(:,:,:) = kappa1(:,:,:) * ta1(:,:,:)
+      CALL derx (ta1, tb1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
+      CALL transpose_x_to_y(kappa1, kappa2)
+    ENDIF
+    
+    ! Transpose to Y
+    CALL transpose_x_to_y(rho1, rho2)
+    CALL transpose_x_to_y(ta1, ta2)
+    
+    !-------------------------------------------------------------------
+    ! Y pencil
+    !-------------------------------------------------------------------
+    
+    ! Update temperature
+    CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
+    
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      IF(istret.NE.0) THEN
+        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+        CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+        DO k = 1, ysize(3)
+          DO j = 1, ysize(2)
+            DO i = 1, ysize(1)
+              tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+            ENDDO
           ENDDO
         ENDDO
-      ENDDO
+      ELSE
+        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+      ENDIF
     ELSE
-      CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+      ! Variable properties, must retain conservative form to ensure mass conservation!
+      CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+      tc2(:,:,:) = kappa2(:,:,:) * tb2(:,:,:)
+      CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
+      CALL transpose_y_to_z(kappa2, kappa3)
     ENDIF
+    ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+    
+    ! Transpose to Z
+    CALL transpose_y_to_z(rho2, rho3)
+    CALL transpose_y_to_z(ta2, ta3)
+    
+    !-------------------------------------------------------------------
+    ! Z pencil
+    !-------------------------------------------------------------------
+    
+    ! Update temperature
+    CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
+    
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+      divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
+    ELSE
+      ! Variable properties, must retain conservative form to ensure mass conservation!
+      CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+      tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
+      CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    ENDIF
+    
+    ! XXX add dpdt and additional source terms
+    
+    ! divu3 = divu3 / (rho3 * temperature3 * Re * Pr)
+    divu3(:,:,:) = invpressure0 * divu3(:,:,:) ! rho*T = pressure0 = constant (in space)
   ELSE
-    ! Variable properties, must retain conservative form to ensure mass conservation!
-    CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-    tc2(:,:,:) = kappa2(:,:,:) * tb2(:,:,:)
-    CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
-    CALL transpose_y_to_z(kappa2, kappa3)
+    rho2(:,:,:) = 1._mytype
+    rho3(:,:,:) = 1._mytype
+
+    temperature1(:,:,:) = 1._mytype
+    temperature2(:,:,:) = 1._mytype
+    temperature3(:,:,:) = 1._mytype
+
+    divu3(:,:,:) = 0._mytype
   ENDIF
-  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
-
-  ! Transpose to Z
-  CALL transpose_y_to_z(rho2, rho3)
-  CALL transpose_y_to_z(ta2, ta3)
-
-  !-------------------------------------------------------------------
-  ! Z pencil
-  !-------------------------------------------------------------------
-
-  ! Update temperature
-  CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
-
-  IF (iprops.EQ.0) THEN
-    ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-    divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
-  ELSE
-    ! Variable properties, must retain conservative form to ensure mass conservation!
-    CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-    tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
-    CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-  ENDIF
-
-  ! XXX add dpdt and additional source terms
-
-  ! divu3 = divu3 / (rho3 * temperature3 * Re * Pr)
-  divu3(:,:,:) = invpressure0 * divu3(:,:,:) ! rho*T = pressure0 = constant (in space)
-
+    
   !-------------------------------------------------------------------
   ! XXX Density and temperature fields are now up to date in all
   !     pencils.
   !     Divergence of velocity is only known in Z pencil.
   !-------------------------------------------------------------------
-  
+    
 ENDSUBROUTINE calc_divu
 
 !!--------------------------------------------------------------------

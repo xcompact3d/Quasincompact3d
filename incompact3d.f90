@@ -196,14 +196,16 @@ PROGRAM incompact3d
              ep1)
       endif
 
-      ! Update density
-      !    X->Y->Z->Y->X
-      ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
-      !     transpose operations by operating on Z->Y->X.
-      ! XXX tg1 contains the density forcing term.
-      call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
-           uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-           uz3,rho3,divu3,di3,ta3,tb3,ep1)
+      if (ilmn.ne.0) then
+        ! Update density
+        !    X->Y->Z->Y->X
+        ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+        !     transpose operations by operating on Z->Y->X.
+        ! XXX tg1 contains the density forcing term.
+        call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+             uz3,rho3,divu3,di3,ta3,tb3,ep1)
+      endif
 
       !X PENCILS
       call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,rho1)
@@ -225,12 +227,14 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
-      call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
-      if (iscalar.eq.1) then
-        !---------------------------------------------------------------------------------
-        ! XXX Convert phi1 back into scalar.
-        !---------------------------------------------------------------------------------
-        phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
+      if (ilmn.ne.0) then
+        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
+        if (iscalar.eq.1) then
+          !---------------------------------------------------------------------------------
+          ! XXX Convert phi1 back into scalar.
+          !---------------------------------------------------------------------------------
+          phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
+        endif
       endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
@@ -261,15 +265,17 @@ PROGRAM incompact3d
       converged = .FALSE.
       poissiter = 0
       do while(converged.eqv..FALSE.)
-        if (nrhoscheme.eq.0) then
-          if (nrank.eq.0) then
-            print *, "Var-coeff Poisson not yet implemented!"
-            STOP
+        if (ilmn.ne.0) then
+          if (nrhoscheme.eq.0) then
+            if (nrank.eq.0) then
+              print *, "Var-coeff Poisson not yet implemented!"
+              STOP
+            endif
+          else
+            ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
+            call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+            call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
           endif
-        else
-          ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
-          call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
         endif
         
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
@@ -281,7 +287,7 @@ PROGRAM incompact3d
         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-        if (nrhoscheme.ne.0) then
+        if ((nrhoscheme.ne.0).or.(ilmn.eq.0)) then
           converged = .TRUE.
         else
           !! Var-coeff Poisson, probably want to test convergence here
@@ -291,7 +297,7 @@ PROGRAM incompact3d
         poissiter = poissiter + 1
       enddo
 
-      if (nrank.eq.0) then
+      if ((nrank.eq.0).and.((ilmn.eq.0).or.(nrhoscheme.eq.0))) then
         print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
       endif
       !-----------------------------------------------------------------------------------

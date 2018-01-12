@@ -138,6 +138,7 @@ use decomp_2d, only : mytype
   integer :: ifft, ivirt,istret,iforc_entree,iturb
   integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles, nrhoscheme
   integer :: isave,ilit,idebmod, imodulo, idemarre, icommence, irecord
+  integer :: ilmn
   integer :: iscalar
   integer :: iprops
   integer :: nxboite, istat,iread,iadvance_time 
