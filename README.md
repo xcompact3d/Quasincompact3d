@@ -11,20 +11,14 @@ This is the repository for the Low Mach Number (LMN) version of incompact3d.
 
 ### How do I get set up? ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+* To create a case edit the initialisation/boundary routines in navier.f90 and set mesh size in module_param.f90. Other values (e.g. dt) can be set at runtime by editting incompact3d.prm
+* To build: make clean && make
+* Dependencies:
+	* A Fortran90 compatible compiler (gfortran, ifort, ftn)
+	* MPI wrappers: OpenMPI/vendorMPI are recommended (people have reported problems using MPICH)
+* To run: mpiexec -np n ./incompact3d
 
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
 
 ### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
+* Paul Bartholomew <paul.bartholomew08@imperial.ac.uk>
