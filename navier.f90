@@ -336,7 +336,7 @@ subroutine inflow (ux, uy, uz, rho, phi)
 
   integer :: k, j
   real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
-  real(mytype) :: r1, r2, r3, y, um
+  real(mytype) :: r1, r2, r3, y, z, um
 
   call ecoule(ux, uy, uz, rho)
 
@@ -346,11 +346,21 @@ subroutine inflow (ux, uy, uz, rho, phi)
 
   if (iin.eq.1) then  
     do k = 1, xsize(3)
+      z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
       do j = 1, xsize(2)
-        bxx1(j, k) = bxx1(j, k)+bxo(j, k) * noise1
-        bxy1(j, k) = bxy1(j, k)+byo(j, k) * noise1
-        bxz1(j, k) = bxz1(j, k)+bzo(j, k) * noise1
-        rho(1, j, k) = 1._mytype
+        y = (j + xstart(2) - 2) * dy - yly / 2._mytype
+        r1 = SQRT(y**2 + z**2)
+
+        um = rho(1, j, k) * bxx1(j, k)
+        bxx1(j, k) = bxx1(j, k) + noise1 * (1._mytype - 2._mytype * bxo(j, k))
+        bxy1(j, k) = bxy1(j, k) + noise1 * (1._mytype - 2._mytype * byo(j, k))
+        bxz1(j, k) = bxz1(j, k) + noise1 * (1._mytype - 2._mytype * bzo(j, k))
+
+        bxx1(j, k) = MAX(bxx1(j, k), 0._mytype) ! Prevent backflow
+
+        if ((r1.lt.0.5_mytype).and.((bxx1(j, k).gt.0._mytype).or.(bxx1(j, k).lt.0._mytype))) then
+          rho(1, j, k) = rho(1, j, k) / um
+        endif
       enddo
     enddo
 
@@ -497,6 +507,8 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   real(mytype) :: uh,ud,um,xv,bruit1
   real(mytype) :: u_disturb, v_disturb, disturb_decay
 
+  real(mytype) :: b2, D
+
   bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
   byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
   bzx1=0._mytype;bzy1=0._mytype;bzz1=0._mytype 
@@ -505,7 +517,7 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   !ITYPE=2 --> Channel flow
   !ITYPE=3 --> Wake flow
   !ITYPE=4 --> Mixing layer with splitter plate
-  !ITYPE=5 --> Channel flow
+  !ITYPE=5 --> Jet flow
   !ITYPE=6 --> Taylor Green vortices
   !ITYPE=7 --> Cavity flow
   !ITYPE=8 --> Flat plate Boundary layer
@@ -609,27 +621,41 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
     !   ! 2D mixing layer
     ! #endif
   else if (itype.eq.5) then
-    if (nclx.ne.0) then
-      print *,'NOT POSSIBLE'
-      stop
-    endif
-    if (nclz.ne.0) then
-      print *,'NOT POSSIBLE'
-      stop
-    endif
-    if (ncly==0) then
-      print *,'NOT POSSIBLE'
-      stop
-    endif
+    b2 = 0.25_mytype * 10._mytype
+    D = 1._mytype ! Jet diameter (used as length scale)
     do k=1,xsize(3)
+      z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
       do j=1,xsize(2)
-        if (istret.eq.0) y=(j+xstart(2)-1-1)*dy-yly/2._mytype
-        if (istret.ne.0) y=yp(j)-yly/2._mytype
-        do i=1,xsize(1)
-          ux1(i,j,k)=ux1(i,j,k)+1._mytype-y*y
-        enddo
+        if (istret.eq.0) then
+          y=(j+xstart(2)-2)*dy-yly/2._mytype
+        else
+          y=yp(j)-yly/2._mytype
+        endif
+        r = SQRT(y**2 + z**2)
+        
+        ! Set the mean profile
+        if (r.gt.0._mytype) then
+          bxx1(j, k) = 0.5_mytype * u1 * (1._mytype &
+               - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+          rho1(1, j, k) = dens2 - (dens2 - dens1) &
+               * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        else
+          bxx1(j, k) = u1
+          rho1(1, j, k) = dens1
+        endif
+        bxy1(j, k) = 0._mytype
+        bxz1(j, k) = 0._mytype
       enddo
     enddo
+    
+    if (t.lt.1._mytype) then
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          bxx1(j, k) = bxx1(j, k) * SIN(t * (PI / 2._mytype))
+          rho1(1, j, k) = rho1(1, j, k) * SIN(t * (PI / 2._mytype))
+        enddo
+      enddo
+    endif
   else if (itype.eq.6) then
     t=0._mytype
     !xv=1._mytype/100._mytype
@@ -712,6 +738,7 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
   integer :: k,j,i,fh,ierror,ii
   integer :: code
   integer (kind=MPI_OFFSET_KIND) :: disp
+  real(mytype) :: b2, D
 
   ! LMN: set thermodynamic pressure
   pressure0 = 1._mytype
@@ -726,28 +753,32 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
     call random_number(uy1)
     call random_number(uz1)
 
-    do k=1,xsize(3)
-      do j=1,xsize(2)
-        do i=1,xsize(1)
-          ux1(i,j,k)=0._mytype !noise*ux1(i,j,k)
-          uy1(i,j,k)=0._mytype !noise*uy1(i,j,k)
-          uz1(i,j,k)=0._mytype !noise*uz1(i,j,k)
+    do k=1, xsize(3)
+      do j=1, xsize(2)
+        do i=1, xsize(1)
+          ux1(i, j, k) = noise * (1._mytype - 2._mytype * ux1(i, j, k))
+          uy1(i, j, k) = noise * (1._mytype - 2._mytype * uy1(i, j, k))
+          uz1(i, j, k) = noise * (1._mytype - 2._mytype * uz1(i, j, k))
         enddo
       enddo
     enddo
 
     !modulation of the random noise
+    b2 = 0.25_mytype * 10._mytype
+    D = 1._mytype
     do k=1,xsize(3)
+      z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
       do j=1,xsize(2)
         if (istret.eq.0) then
-          y=(j+xstart(2)-1-1)*dy-yly/2._mytype
+          y=(j+xstart(2)-2)*dy-yly/2._mytype
         else
           y=yp(j+xstart(2)-1)-yly/2._mytype
         endif
-        um=exp(-0.2_mytype*y*y)
+        r = SQRT(y**2 + z**2)
         do i=1,xsize(1)
-          x = (i + xstart(1) - 2) * dx - xlx / 2._mytype
+          x = (i + xstart(1) - 2) * dx
           um = exp(-0.2_mytype * x**2)
+          um = um * 0.5 * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
           ux1(i,j,k)=um*ux1(i,j,k)
           uy1(i,j,k)=um*uy1(i,j,k)
           uz1(i,j,k)=um*uz1(i,j,k)
@@ -763,7 +794,7 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         do i = 1, xsize(1)
           x = float(i + xstart(1) - 2) * dx
 
-          rho1(i, j, k) = 0._mytype
+          rho1(i, j, k) = dens2
         enddo
       enddo
     enddo
