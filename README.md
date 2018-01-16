@@ -17,7 +17,7 @@ This is the repository for the Low Mach Number (LMN) version of incompact3d.
 	* A Fortran90 compatible compiler (gfortran, ifort, ftn)
 	* MPI wrappers: OpenMPI/vendorMPI are recommended (people have reported problems using MPICH)
 * To run: mpiexec -np n ./incompact3d
-
+* Tarballs of example cases can be found in the [Downloads section](https://bitbucket.org/ptb0890/incompact3d-lmn/downloads/)
 
 ### Who do I talk to? ###
 
