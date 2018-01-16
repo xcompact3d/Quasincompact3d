@@ -69,6 +69,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   integer :: code
   real(mytype) :: x,y,z
 
+  real(mytype) :: invfr
+
   real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
@@ -429,6 +431,19 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
     tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
   endif
 
+  !! Gravity
+  if (frx.gt.0._mytype) then
+    invfr = 1._mytype / frx
+    ta1(:,:,:) = ta1(:,:,:) - rho1(:,:,:) * invfr
+  endif
+  if (fry.gt.0._mytype) then
+    invfr = 1._mytype / fry
+    tb1(:,:,:) = tb1(:,:,:) - rho1(:,:,:) * invfr
+  endif
+  if (frz.gt.0._mytype) then
+    invfr = 1._mytype / frz
+    tc1(:,:,:) = tc1(:,:,:) - rho1(:,:,:) * invfr
+  endif
   ! !! MMS Source term
   ! call momentum_source_mms(ta1,tb1,tc1)
 
@@ -1119,3 +1134,168 @@ SUBROUTINE momentum_source_mms(mmsx1, mmsy1, mmsz1)
   ENDDO ! End loop over k
 
 ENDSUBROUTINE momentum_source_mms
+
+!!--------------------------------------------------------------------
+!! SUBROUTINE: entrainment_bcz
+!! DESCRIPTION: Implements entrainment boundary conditions on z
+!!              stencil, based on work of Ioannou Vasilis.
+!!--------------------------------------------------------------------
+SUBROUTINE entrainment_bcz(ux3, uy3, uz3, clx3, cly3, clz3)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: ux3, uy3, uz3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: clx3, cly3, clz3
+
+  REAL(mytype) :: uu1, uv1, uw1
+  REAL(mytype) :: y, z, yc, zc, ya
+  REAL(mytype) :: x1, x2, y1, y2, r1, r2
+  INTEGER :: i, j, k
+
+  IF (ncly.EQ.2) THEN
+    yc = yly / 2._mytype
+    zc = zlz / 2._mytype
+    IF (zstart(2).EQ.1) THEN
+      j = 1
+      y = -yc
+      DO k = 1, zsize(3)
+        z = dz * (k - 1) - zc
+
+        x2 = y
+        y2 = z
+        x1 = y + dy
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug1 in entrainment_bcz"
+          STOP
+        ELSE
+          IF (k.EQ.1) THEN ! First z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k + 1)
+              cly3(i, j, k) = uy3(i, j + 1, k + 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k + 1) * r1 / r2
+            ENDDO
+          ELSEIF (k.EQ.((nz - 1) / 2 + 1)) THEN ! Mid z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k)
+              cly3(i, j, k) = uy3(i, j + 1, k) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k) * r1 / r2
+            ENDDO
+          ELSEIF (k.EQ.nz) THEN ! Final z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k - 1)
+              cly3(i, j, k) = uy3(i, j + 1, k - 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k - 1) * r1 / r2
+            ENDDO
+          ELSE ! General z-point
+            IF (z.GT.0._mytype) THEN
+              ya = y2 - dz
+              DO i = 1, zsize(1)
+                uu1 = ux3(i, j + 1, k - 1) &
+                     + (ux3(i, j + 1, k) - ux3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy3(i, j + 1, k - 1) &
+                     + (uy3(i, j + 1, k) - uy3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz3(i, j + 1, k - 1) &
+                     + (uz3(i, j + 1, k) - uz3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+            ELSEIF (z.LT.0._mytype) THEN
+              ya = y2 + dz
+              DO i = 1, zsize(1)
+                uu1 = ux3(i, j + 1, k + 1) &
+                     + (ux3(i, j + 1, k + 1) - ux3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+                uv1 = uy3(i, j + 1, k + 1) &
+                     + (uy3(i, j + 1, k + 1) - uy3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+                uw1 = uz3(i, j + 1, k + 1) &
+                     + (uz3(i, j + 1, k + 1) - uz3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+            ELSE ! z = 0
+            ENDIF
+          ENDIF ! End checking where in z we are
+        ENDIF
+      ENDDO !! End loop over k
+    ENDIF !! End if (ztstart(2).eq.1), i.e. first y boundary
+
+    IF (zend(2).EQ.ny) THEN
+      j = zsize(2)
+      y = yc
+      DO k = 1, zsize(3)
+        z = dz * (k - 1) - zc
+        x2 = y
+        y2 = z
+        x1 = y - dy
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug2 in entrainment_bcz"
+          STOP
+        ELSE
+          IF (k.EQ.1) THEN ! First z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k + 1)
+              cly3(i, j, k) = uy3(i, j - 1, k + 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k + 1) * r1 / r2
+            ENDDO
+          ELSEIF (k.EQ.(nz - 1) / 2 + 1) THEN ! Middle z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k)
+              cly3(i, j, k) = uy3(i, j - 1, k) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k) * r1 / r2
+            ENDDO
+          ELSEIF (k.EQ.nz) THEN ! Last z-point
+            DO i = 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k - 1)
+              cly3(i, j, k) = uy3(i, j - 1, k - 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k - 1) * r1 / r2
+            ENDDO
+          ELSE ! General z-point
+            IF (z.GT.0._mytype) THEN
+              ya = y2 - dz
+              DO i = 1, zsize(1)
+                uu1 = ux3(i, j - 1, k - 1) &
+                     +(ux3(i, j - 1, k) - ux3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy3(i, j - 1, k - 1) &
+                     + (uy3(i, j - 1, k) - uy3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz3(i, j - 1, k - 1) &
+                     + (uz3(i, j - 1, k) - uz3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+            ELSEIF (z.LT.0._mytype) THEN
+              ya = y2 + dz
+              DO i = 1, zsize(1)
+                uu1 = ux3(i, j - 1, k + 1) &
+                     + (ux3(i, j - 1, k + 1) - ux3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+                uv1 = uy3(i, j - 1, k + 1) &
+                     + (uy3(i, j - 1, k + 1) - uy3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+                uw1 = uz3(i, j - 1, k + 1) &
+                     + (uz3(i, j - 1, k + 1) - uz3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+            ELSE ! z = 0
+            ENDIF
+          ENDIF !! End checking where we are in k
+        ENDIF !! End error check
+      ENDDO !! End loop over k
+    ENDIF !! End if (zend(2).eq.ny), i.e. last y boundary
+  ENDIF
+ENDSUBROUTINE entrainment_bcz
