@@ -138,7 +138,7 @@ use decomp_2d, only : mytype
   integer :: ifft, ivirt,istret,iforc_entree,iturb
   integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles, nrhoscheme
   integer :: isave,ilit,idebmod, imodulo, idemarre, icommence, irecord
-  integer :: iscalar
+  integer :: iscalar, ilmn
   integer :: nxboite, istat,iread,iadvance_time 
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2
   real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2

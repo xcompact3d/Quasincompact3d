@@ -88,6 +88,7 @@ read (10,*) nscheme
 read (10,*) nrhoscheme
 read (10,*) istret
 read (10,*) beta
+read (10,*) ilmn
 read (10,*) iskew
 read (10,*) iscalar
 read (10,1000) a 
@@ -154,6 +155,20 @@ if (ivirt.eq.2) then
    print *,'Immersed boundary : on with Lagrangian Poly'
 endif
 
+if (ilmn.ne.0) then
+  print *, "Low Mach Number: Enabled"
+endif
+
+if (iskew.eq.0) then
+  print *, "Adv-MOM: Rotational"
+else if (iskew.eq.1) then
+  print *, "Adv-MOM: Quasi-skew symmetric"
+else if (iskew.eq.2) then
+  print *, "Adv-MOM: Skew symmetric"
+else
+  print *, "Unknown iskew=", iskew
+  STOP
+endif
 
  1101 format(' Spatial Resolution: (nx,ny,nz)=(',I4,',',I4,',',I4,')')
  1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')

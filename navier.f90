@@ -51,12 +51,22 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
 
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
-  !! First, convert velocity to momentum
-  do ijk = 1, nxyz
-    ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
-    uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
-    uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
-  enddo
+  if (ilmn.ne.0) then
+    !! First, convert velocity to momentum
+    if (iskew.ne.2) then
+      !! Rotational form or Quasi skew-symmetric
+      do ijk = 1, nxyz
+        ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
+        uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
+        uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
+      enddo
+    else
+      !! Skew-symmetric
+      ux(:,:,:) = SQRT(rho(:,:,:)) * ux(:,:,:)
+      uy(:,:,:) = SQRT(rho(:,:,:)) * uy(:,:,:)
+      uz(:,:,:) = SQRT(rho(:,:,:)) * uz(:,:,:)
+    endif
+  endif
 
   if ((nscheme.eq.1).or.(nscheme.eq.2)) then
     !! AB2 or RK3
@@ -279,12 +289,29 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
 
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
-  do ijk=1, nxyz
-    invrho = 1 / rho(ijk, 1, 1)
-    ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-    uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-    uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
-  enddo
+  if (ilmn.ne.0) then
+    if (iskew.ne.2) then
+      !! Rotational or quasi skew-symmetric
+      do ijk=1, nxyz
+        invrho = 1._mytype / rho(ijk, 1, 1)
+        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
+        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
+        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+      enddo
+    else
+      !! Skew-symmetric
+      do ijk = 1, nxyz
+        invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
+        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
+        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
+        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+      enddo
+    endif
+  else
+    ux(:,:,:) = -px(:,:,:) + ux(:,:,:)
+    uy(:,:,:) = -py(:,:,:) + uy(:,:,:)
+    uz(:,:,:) = -pz(:,:,:) + uz(:,:,:)
+  endif
 
   if (itype==2) then !channel flow
     call transpose_x_to_y(ux,gx)
@@ -731,19 +758,16 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
     ! LMN: set density
     do k = 1, xsize(3)
       z = float(k + xstart(3) - 2) * dz
-      zspec = (2._mytype * PI) * (z / zlz)
       do j = 1, xsize(2)
         y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-        yspec = (2._mytype * PI) * (y / yly)
         do i = 1, xsize(1)
           x = float(i + xstart(1) - 2) * dx
-          xspec = (2._mytype * PI) * (x / xlx)
 
           rho1(i, j, k) = 0._mytype
         enddo
       enddo
     enddo
-
+    
     if (iscalar==1) then
       do k=1,xsize(3)
         do j=1,xsize(2)
@@ -770,6 +794,9 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
 
   !MEAN FLOW PROFILE
   call ecoule(ux1,uy1,uz1,rho1)
+  if (ilmn.eq.0) then
+    rho1(:,:,:) = 1._mytype
+  endif
   !INIT FOR G AND U=MEAN FLOW + NOISE
   do k=1,xsize(3)
     do j=1,xsize(2)
