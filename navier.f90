@@ -702,11 +702,12 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
       enddo
     enddo
   else
-  endif
     if (nrank.eq.0) then
       PRINT *, "itype=", itype, " not implemented!"
       STOP
     endif
+  endif
+
   return
 end subroutine ecoule
 
