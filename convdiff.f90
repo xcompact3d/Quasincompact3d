@@ -432,15 +432,15 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   endif
 
   !! Gravity
-  if (frx.gt.0._mytype) then
+  if ((frx.gt.0._mytype).or.(frx.lt.0._mytype)) then
     invfr = 1._mytype / frx
     ta1(:,:,:) = ta1(:,:,:) - rho1(:,:,:) * invfr
   endif
-  if (fry.gt.0._mytype) then
+  if ((fry.gt.0._mytype).or.(fry.lt.0._mytype)) then
     invfr = 1._mytype / fry
     tb1(:,:,:) = tb1(:,:,:) - rho1(:,:,:) * invfr
   endif
-  if (frz.gt.0._mytype) then
+  if ((frz.gt.0._mytype).or.(frz.lt.0._mytype)) then
     invfr = 1._mytype / frz
     tc1(:,:,:) = tc1(:,:,:) - rho1(:,:,:) * invfr
   endif

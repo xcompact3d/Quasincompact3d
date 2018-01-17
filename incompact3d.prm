@@ -7,7 +7,7 @@
 400.   #re    # Reynolds number
 1.     #pr    # Prandtl number
 1.     #sc    # Schmidt number (if passive scalar)
-0.     #frx   # Froude number in x direction (frx <= 0 gives no gravity)
+1.54   #frx   # Froude number in x direction (frx = 0 gives no gravity)
 0.     #fry   # Froude number in y direction
 0.     #frz   # Froude number in z direction
 1.0    #u1    # u1 (max velocity) (for inflow condition)
