@@ -1586,3 +1586,64 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
   ENDIF !! End check that z is Dirichlet BC
   
 ENDSUBROUTINE entrainment_bcz
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: fringe_bcx
+!! DESCRIPTION: Implements fringe boundary conditions on x.
+!!        NOTE: X-PENCIL. Based on work of Ioannou Vasilis.
+!!--------------------------------------------------------------------
+SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, bc1, bcn)
+
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  INTEGER, INTENT(IN) :: bc1, bcn
+  
+  REAL(mytype) :: ucf, f_fringe
+  REAL(mytype) :: gauss, g_umax, g_rext2
+  REAL(mytype) :: l_fringe, xph_fringe
+  REAL(mytype) :: x, y, z, yc, zc, r2
+  INTEGER :: i, j, k, iph_fringe
+
+  l_fringe = 3._mytype
+  ucf = 0.04_mytype           ! Minimum velocity of fringe
+  g_umax = 0.3_mytype - ucf
+  g_rext2 = 2.6_mytype**2
+
+  yc = yly / 2._mytype
+  zc = zlz / 2._mytype
+
+  !! Xstart
+  IF (bc1.EQ.1) THEN
+  ENDIF !! End XSTART BC
+  
+  !! Xend
+  IF (bcn.EQ.1) THEN
+    xph_fringe = xlx - l_fringe
+    iph_fringe = CEILING(xph_fringe * DBLE(nx - 1) / xlx)
+
+    DO k = 1, xsize(3)
+      z = DBLE(k - 1) * dz + xstart(3) - 1._mytype - zc
+      DO j = 1, xsize(2)
+        y = DBLE(j - 1) * dy + xstart(2) - 1._mytype - yc
+
+        r2 = y**2 + z**2
+        gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+        DO i = iph_fringe, nx
+          x = DBLE(i - 1) * dx
+          f_fringe = COS((x - xph_fringe) * PI / 6._mytype) * COS((x - xph_fringe) * PI / 6._mytype)
+
+          ta1(i, j, k) = f_fringe * ta1(i, j, k) + (gauss - ux1(i, j, k))  * (1._mytype - f_fringe)
+          tb1(i, j, k) = f_fringe * tb1(i, j, k) - uy1(i, j, k) * (1._mytype - f_fringe)
+          tc1(i, j, k) = f_fringe * tc1(i, j, k) - uz1(i, j, k) * (1._mytype - f_fringe)
+        ENDDO !! End loop over i
+      ENDDO !! End loop over j
+    ENDDO !! End loop over k
+  ENDIF !! End XEND BC
+  
+ENDSUBROUTINE fringe_bcx
