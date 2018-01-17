@@ -275,7 +275,7 @@ PROGRAM incompact3d
 
       !X-->Y-->Z
       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
       !-----------------------------------------------------------------------------------
@@ -333,7 +333,7 @@ PROGRAM incompact3d
 
       !does not matter -->output=DIV U=0 (in dv3)
       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,dv3,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,dv3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
 
       call test_speed_min_max(ux1,uy1,uz1)
