@@ -210,9 +210,6 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
       call pre_correc(ux1,uy1,uz1,rho1)
-      ! call pre_correc_tractionfree(ux1, uy1, uz1, rho1, td1, te1, di1, &
-      !      ta2, tb2, di2, &
-      !      ta3, pp3, di3, nxmsize, nymsize, nzmsize, ph2, ph3)
 
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
