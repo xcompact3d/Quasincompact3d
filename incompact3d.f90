@@ -235,6 +235,24 @@ PROGRAM incompact3d
           !---------------------------------------------------------------------------------
           phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
         endif
+
+        if (nrhoscheme.eq.0) then
+          !---------------------------------------------------------------------------------
+          ! XXX Using variable-coefficient Poisson equation, convert momentum back to
+          !     velocity.
+          !---------------------------------------------------------------------------------
+          if (iskew.ne.2) then
+            !! Rotational or quasi skew-symmetric
+            ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
+            uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
+            uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
+          else
+            !! Skew-symmetric
+            ux1(:,:,:) = ux1(:,:,:) / SQRT(rho1(:,:,:))
+            uy1(:,:,:) = uy1(:,:,:) / SQRT(rho1(:,:,:))
+            uz1(:,:,:) = uz1(:,:,:) / SQRT(rho1(:,:,:))
+          endif
+        endif
       endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.

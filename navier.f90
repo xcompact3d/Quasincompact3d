@@ -290,21 +290,43 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
   if (ilmn.ne.0) then
+    if (nrhoscheme.ne.0) then
+      !! We are solving constant-coefficient Poisson equation,
+      !! first convert momentum->velocity
+      if (iskew.ne.2) then
+        !! Rotational or quasi skew-symmetric
+        do ijk = 1, nxyz
+          invrho = 1._mytype / rho(ijk, 1, 1)
+          ux(ijk, 1, 1) = ux(ijk, 1, 1) * invrho
+          uy(ijk, 1, 1) = uy(ijk, 1, 1) * invrho
+          uz(ijk, 1, 1) = uz(ijk, 1, 1) * invrho
+        enddo
+      else
+        !! Skew-symmetric
+        do ijk = 1, nxyz
+          invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
+          ux(ijk, 1, 1) = ux(ijk, 1, 1) * invrho
+          uy(ijk, 1, 1) = uy(ijk, 1, 1) * invrho
+          uz(ijk, 1, 1) = uz(ijk, 1, 1) * invrho
+        enddo
+      endif
+    endif
+    
     if (iskew.ne.2) then
       !! Rotational or quasi skew-symmetric
       do ijk=1, nxyz
         invrho = 1._mytype / rho(ijk, 1, 1)
-        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+        ux(ijk, 1, 1) = ux(ijk, 1, 1) - invrho * px(ijk, 1, 1)
+        uy(ijk, 1, 1) = uy(ijk, 1, 1) - invrho * py(ijk, 1, 1)
+        uz(ijk, 1, 1) = uz(ijk, 1, 1) - invrho * pz(ijk, 1, 1)
       enddo
     else
       !! Skew-symmetric
       do ijk = 1, nxyz
         invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
-        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+        ux(ijk, 1, 1) = ux(ijk, 1, 1) - invrho * px(ijk, 1, 1)
+        uy(ijk, 1, 1) = uy(ijk, 1, 1) - invrho * py(ijk, 1, 1)
+        uz(ijk, 1, 1) = uz(ijk, 1, 1) - invrho * pz(ijk, 1, 1)
       enddo
     endif
   else
