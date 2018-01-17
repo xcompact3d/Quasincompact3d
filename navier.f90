@@ -1488,6 +1488,7 @@ subroutine pre_correc(ux,uy,uz,rho)
       enddo
     enddo
   endif
+  
   !****************************************************
   !********NCLY==2*************************************
   !****************************************************
@@ -1537,12 +1538,104 @@ subroutine pre_correc(ux,uy,uz,rho)
         endif
 
       endif
+    else if(itype.eq.5) then
+      ! determine the processor grid in use
+      call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
+           dims, dummy_periods, dummy_coords, code)
+
+      if (dims(1).eq.1) then
+        j = 1
+        do k = 1, xsize(3)
+          do i = 1, xsize(1)
+            ux(i, j, k) = rho(i, j, k) * byx1(i, k) + dpdxy1(i, k)
+            uy(i, j, k) = rho(i, j, k) * byy1(i, k)
+            uz(i, j, k) = rho(i, j, k) * byz1(i, k) + dpdzy1(i, k)
+          enddo
+        enddo
+
+        j = xsize(2)
+        do k = 1, xsize(3)
+          do i = 1, xsize(1)
+            ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdxyn(i, k)
+            uy(i, j, k) = rho(i, j, k) * byyn(i, k)
+            uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdzyn(i, k)
+          enddo
+        enddo
+      else
+        if (xstart(2).eq.1) then
+          j = 1
+          do k = 1, xsize(3)
+            do i = 1, xsize(1)
+              ux(i, j, k) = rho(i, j, k) * byx1(i, k) + dpdxy1(i, k)
+              uy(i, j, k) = rho(i, j, k) * byy1(i, k)
+              uz(i, j, k) = rho(i, j, k) * byz1(i, k) + dpdzy1(i, k)
+            enddo
+          enddo
+        endif
+
+        if ((ny - (nym / dims(1))).eq.xstart(2)) then
+          j = xsize(2)
+          do k = 1, xsize(3)
+            do i = 1, xsize(1)
+              ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdyxn(i, k)
+              uy(i, j, k) = rho(i, j, k) * byyn(i, k)
+              uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdyzn(i, k)
+            enddo
+          enddo
+        endif
+      endif
     endif
   endif
+  
   !****************************************************
   !********NCLZ==2*************************************
   !****************************************************
-  !****************************************************
+  !WE ARE IN X PENCIL!!!!!!!
+  IF (nclz.EQ.2) THEN
+    IF (itype.EQ.5) THEN
+      ! determine the processor grid in use
+      CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
+           dims, dummy_periods, dummy_coords, code)
+
+      IF (dims(2).EQ.1) THEN
+        DO j = 1, xsize(2)
+          DO i = 1, xsize(1)
+            k = 1
+            ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdzx1(i, j)
+            uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdzy1(i, j)
+            uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
+
+            k = xsize(3)
+            ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdzxn(i, j)
+            uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdzyn(i, j)
+            uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
+          ENDDO
+        ENDDO
+      ELSE
+        k = 1
+        IF (xstart(3).EQ.1) THEN
+          DO j = 1, xsize(2)
+            DO i = 1, xsize(1)
+              ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdzx1(i, j)
+              uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdzy1(i, j)
+              uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
+            ENDDO
+          ENDDO
+        ENDIF
+
+        k = xsize(3)
+        IF ((nz - (nzm / dims(2))).EQ.xstart(3)) THEN
+          DO j = 1, xsize(2)
+            DO i = 1, xsize(1)
+              ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdzxn(i, j)
+              uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdzyn(i, j)
+              uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
+            ENDDO
+          ENDDO
+        ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
 
   !##################################################### 
 
