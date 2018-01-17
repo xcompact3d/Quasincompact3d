@@ -1393,6 +1393,8 @@ subroutine pre_correc(ux,uy,uz,rho)
   integer, dimension(2) :: dims, dummy_coords
   logical, dimension(2) :: dummy_periods
 
+  real(mytype) :: Ain, Aout
+
   if (itime==1) then
     dpdyx1=0._mytype
     dpdzx1=0._mytype
@@ -1448,24 +1450,53 @@ subroutine pre_correc(ux,uy,uz,rho)
   ! XXX ux, etc contain momentum, bxx contain velocity
   ! we are in X pencils:
   if (nclx==2) then
+
+    !! Compute inflow
     ut1 = 0._mytype
+    Ain = 0._mytype
     do k = 1, xsize(3)
       do j = 1, xsize(2)
-        ut1 = ut1 + bxx1(j, k)
+        ut1 = ut1 + bxx1(j, k) * dy * dz
+        Ain = Ain + dy * dz
       enddo
     enddo
-    ut1 = ut1 / (xsize(2) * xsize(3))
+
+    if (ncly.eq.2) then
+      do k = 1, xsize(3)
+        do i = 1, xsize(1)
+          ut1 = ut1 + byy1(i, k) * dx * dz
+          ut1 = ut1 + byyn(i, k) * dx * dz
+          Ain = Ain + 2._mytype * dx * dz
+        enddo
+      enddo
+    endif
+
+    if (nclz.eq.2) then
+      do j = 1, xsize(2)
+        do i = 1, xsize(1)
+          ut1 = ut1 + bzz1(i, j) * dx * dy
+          ut1 = ut1 + bzzn(i, j) * dx * dy
+          Ain = Ain + 2._mytype * dx * dy
+        enddo
+      enddo
+    endif
+  
+    ut1 = ut1
     call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-    ut11 = ut11 / nproc
+    ! ut11 = ut11 / nproc
+
+    !! Compute outflow
     ut  =  0._mytype
+    Aout = 0._mytype
     do k = 1, xsize(3)
       do j = 1, xsize(2)
-        ut = ut + bxxn(j, k)
+        ut = ut + bxxn(j, k) * dy * dz
+        Aout = Aout + dy * dz
       enddo
     enddo
-    ut = ut / (xsize(2) * xsize(3))
+    ut = ut
     call MPI_ALLREDUCE(ut, utt, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-    utt = utt / nproc
+    ! utt = utt / nproc
 
     if (nrank.eq.0) then
       print *, 'FLOW RATE I/O [m^3 / s]', ut11, utt
@@ -1473,7 +1504,7 @@ subroutine pre_correc(ux,uy,uz,rho)
 
     do k=1, xsize(3)
       do j=1, xsize(2)
-        bxxn(j, k) = bxxn(j, k) - (utt - ut11)
+        bxxn(j, k) = bxxn(j, k) - (utt - ut11) / (yly * zlz)
       enddo
     enddo
   endif
