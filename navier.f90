@@ -351,15 +351,17 @@ subroutine inflow (ux, uy, uz, rho, phi)
         y = (j + xstart(2) - 2) * dy - yly / 2._mytype
         r1 = SQRT(y**2 + z**2)
 
-        um = rho(1, j, k) * bxx1(j, k)
-        bxx1(j, k) = bxx1(j, k) + noise1 * (1._mytype - 2._mytype * bxo(j, k))
-        bxy1(j, k) = bxy1(j, k) + noise1 * (1._mytype - 2._mytype * byo(j, k))
-        bxz1(j, k) = bxz1(j, k) + noise1 * (1._mytype - 2._mytype * bzo(j, k))
+        if (r1.lt.0.5_mytype) then
+          um = rho(1, j, k) * bxx1(j, k)
 
-        bxx1(j, k) = MAX(bxx1(j, k), 0._mytype) ! Prevent backflow
-
-        if ((r1.lt.0.5_mytype).and.((bxx1(j, k).gt.0._mytype).or.(bxx1(j, k).lt.0._mytype))) then
-          rho(1, j, k) = rho(1, j, k) / um
+          bxx1(j, k) = bxx1(j, k) + noise1 * (1._mytype - 2._mytype * bxo(j, k))
+          bxy1(j, k) = bxy1(j, k) + noise1 * (1._mytype - 2._mytype * byo(j, k))
+          bxz1(j, k) = bxz1(j, k) + noise1 * (1._mytype - 2._mytype * bzo(j, k))
+          bxx1(j, k) = MAX(bxx1(j, k), 0._mytype) ! Prevent backflow
+          
+          if ((um * bxx1(j, k)).gt.0._mytype) then
+            rho(1, j, k) = um / bxx1(j, k)
+          endif
         endif
       enddo
     enddo
@@ -648,14 +650,14 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
       enddo
     enddo
     
-    if (t.lt.1._mytype) then
-      do k = 1, xsize(3)
-        do j = 1, xsize(2)
-          bxx1(j, k) = bxx1(j, k) * SIN(t * (PI / 2._mytype))
-          rho1(1, j, k) = rho1(1, j, k) * SIN(t * (PI / 2._mytype))
-        enddo
-      enddo
-    endif
+    ! if (t.lt.1._mytype) then
+    !   do k = 1, xsize(3)
+    !     do j = 1, xsize(2)
+    !       bxx1(j, k) = bxx1(j, k) * SIN(t * (PI / 2._mytype))
+    !       rho1(1, j, k) = rho1(1, j, k) * SIN(t * (PI / 2._mytype))
+    !     enddo
+    !   enddo
+    ! endif
   else if (itype.eq.6) then
     t=0._mytype
     !xv=1._mytype/100._mytype
@@ -779,7 +781,9 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         do i=1,xsize(1)
           x = (i + xstart(1) - 2) * dx
           um = exp(-0.2_mytype * x**2)
-          um = um * 0.5 * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+          if (r.gt.0._mytype) then
+            um = um * 0.5 * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+          endif
           ux1(i,j,k)=um*ux1(i,j,k)
           uy1(i,j,k)=um*uy1(i,j,k)
           uz1(i,j,k)=um*uz1(i,j,k)
