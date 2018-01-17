@@ -145,8 +145,8 @@ if (nscheme.eq.2) print *,'Temporal scheme   : Runge-Kutta 3'
 if (nscheme.eq.3) print *,'Temporal scheme   : Runge-Kutta 4'
 if (iscalar.eq.0) print *,'Passive scalar    : off'
 if (iscalar.eq.1) then
-   print *,'Passive scalar : on'
-   write (*,1113) sc
+  print *,'Passive scalar : on'
+  write (*,1113) sc
 endif
 write(*,1114) frx,fry,frz
 if (ivirt.eq.0) print *,'Immersed boundary : off'

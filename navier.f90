@@ -420,7 +420,7 @@ subroutine outflow (ux, uy, uz, rho, phi)
   vphase = 0.5_mytype * (uxmax1 + uxmin1)
   cx = vphase * gdt(itr) * udx
 
-  !! Compute inlet volume-flux
+  ! Compute inlet volume-flux
   volflux = 0._mytype
   do k = 1, xsize(3)
     do j = 1, xsize(2) - 1
@@ -1410,23 +1410,6 @@ subroutine pre_correc(ux,uy,uz,rho)
     enddo
   enddo
 
-  if (xstart(3)==1) then
-    do j=1,xsize(2)
-      do i=1,xsize(1)
-        dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
-        dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
-      enddo
-    enddo
-  endif
-  if (xend(3)==nz) then
-    do j=1,xsize(2)
-      do i=1,xsize(1)
-        dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
-        dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
-      enddo
-    enddo
-  endif
-
   if (xstart(2)==1) then
     do k=1,xsize(3)
       do i=1,xsize(1)
@@ -1440,6 +1423,23 @@ subroutine pre_correc(ux,uy,uz,rho)
       do i=1,xsize(1)
         dpdxyn(i,k)=dpdxyn(i,k)*gdt(itr)
         dpdzyn(i,k)=dpdzyn(i,k)*gdt(itr)
+      enddo
+    enddo
+  endif
+
+  if (xstart(3)==1) then
+    do j=1,xsize(2)
+      do i=1,xsize(1)
+        dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
+        dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
+      enddo
+    enddo
+  endif
+  if (xend(3)==nz) then
+    do j=1,xsize(2)
+      do i=1,xsize(1)
+        dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
+        dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
       enddo
     enddo
   endif
