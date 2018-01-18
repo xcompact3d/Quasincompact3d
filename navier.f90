@@ -1135,6 +1135,77 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
 ENDSUBROUTINE divergence_mom
 
 !********************************************************************
+!  SUBROUTINE: divergence_corr
+! DESCRIPTION: In LMN with the variable-coefficient poisson equation
+!********************************************************************
+SUBROUTINE divergence_corr(poissiter, converged)
+
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  REAL(mytype) :: resnorm, divunorm, tol
+  INTEGER :: poissiter
+  LOGICAL :: converged
+
+  !! Correction = 1/rho0 nabla^2 p - div( 1/rho nabla p )
+  IF (poissiter.NE.0) THEN
+    !! We should already know grad(p) in X-Pencils
+    
+    !! X PENCIL
+    !! 1/rho0 d2dx2 p - ddx ( 1/rho dpdx )
+    !! X -> Y
+    
+    !! Y PENCIL
+    !! 1/rho0 d2dy2 p - ddy ( 1/rho dpdy )
+    !! Y -> Z
+    
+    !! Z PENCIL
+    !! 1/rho0 d2dz2 p - ddz ( 1/rho dpdz )
+
+    !! Convergence test
+    !  | (div(u^*) - div(u^{k+1})) - dt div(1/rho) grad(p^k) | <= eps | div(u^{k+1}) |
+    ! XXX The lefthand side can be computed at the same time as the correction terms.
+    !     The RHS is already known
+    IF (resnorm.LE.(tol * divunorm)) THEN
+      converged = .TRUE.
+    ENDIF
+    
+    PRINT *, "Poisson iteration ", poissiter, ": Residual norm = ", resnorm
+    
+  ELSE !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+
+    !! Approximate 1/rho0 nabla^2 p following constant-coefficient Poisson equation
+    !  i.e.
+    !  nabla^2 p = 1/Delta t ( div(rho u)^* - div(rho u)^{k+1} )
+    !            = 1/Delta t ( div(rho u)^* + drhodt^{k+1} )
+
+    ! XXX The below is a prototype of how to do it, we do not want to overwrite pp3
+    !     as that contains 1/dt ( div(u^*) - div(u^{k+1}) )
+    ! ux1(:,:,:) = ux1(:,:,:) * rho1(:,:,:)
+    ! uy1(:,:,:) = uy1(:,:,:) * rho1(:,:,:)
+    ! uz1(:,:,:) = uz1(:,:,:) * rho1(:,:,:)
+
+    ! call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+    !      td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
+    !      nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
+    ! pp3(:,:,:) = pp3(:,:,:) / rho0
+    
+    ! call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+    ! drhodt1(:,:,:) = drhodt1(:,:,:) / rho0
+
+    ! call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+
+    !! Approximate div( 1/rho nabla p ) using variable-coefficient Poisson equation
+    !  i.e.
+    !  div( 1/rho nabla p ) = 1/Delta t ( div(u^*) - div(u^{k+1}) )
+  ENDIF
+    
+ENDSUBROUTINE divergence_corr
+
+!********************************************************************
 !
 !
 !********************************************************************

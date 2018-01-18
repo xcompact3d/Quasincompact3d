@@ -285,10 +285,8 @@ PROGRAM incompact3d
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
           if (nrhoscheme.eq.0) then
-            if (nrank.eq.0) then
-              print *, "Var-coeff Poisson not yet implemented!"
-              STOP
-            endif
+            !! Compute correction term
+            call divergence_corr(poissiter, converged)
           else
             ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
             call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
@@ -299,17 +297,23 @@ PROGRAM incompact3d
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
-        
-        !POISSON Z-->Z 
-        call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+
+        if (converged.eqv..FALSE.) then
+          !POISSON Z-->Z 
+          call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+          
+          !Z-->Y-->X
+          ! XXX Need to call this now as if using var-coeff
+          !     Poisson equation we will need new values of
+          !     gradp on next iteration.
+          call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+               ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+        endif
         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
         if ((nrhoscheme.ne.0).or.(ilmn.eq.0)) then
           converged = .TRUE.
-        else
-          !! Var-coeff Poisson, probably want to test convergence here
-          CONTINUE
         endif
 
         poissiter = poissiter + 1
@@ -319,10 +323,6 @@ PROGRAM incompact3d
         print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
       endif
       !-----------------------------------------------------------------------------------
-
-      !Z-->Y-->X
-      call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-           ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
 
       !X PENCILS
       call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
