@@ -266,12 +266,22 @@ PROGRAM incompact3d
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
           if (nrhoscheme.eq.0) then
-            !! Compute correction term
-            call divergence_corr(poissiter, converged)
+            if (poissiter.ne.0) then
+              !! Compute correction term
+              call divergence_corr(rho1, px1, py1, pz1, td1, ta1, tb1, tc1, di1, te1, tf1, &
+                   rho2, te2, tf2, tg2, ta2, tb2, tc2, td2, di2, th2, ti2, &
+                   rho3, te3, tf3, ta3, tb3, tc3, di3, tg3, th3, pp3, &
+                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+                   divup3norm, poissiter, converged)
+            else
+              ! !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+              ! call approx_divergence_corr()
+            endif
           else
             ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
             call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
             call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+            pp3corr(:,:,:) = pp3(:,:,:)
           endif
         endif
         
@@ -281,14 +291,14 @@ PROGRAM incompact3d
 
         if (converged.eqv..FALSE.) then
           !POISSON Z-->Z 
-          call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+          call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
           
           !Z-->Y-->X
           ! XXX Need to call this now as if using var-coeff
           !     Poisson equation we will need new values of
           !     gradp on next iteration.
           call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-               ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
+               ta3,tc3,di3,pp3corr,nxmsize,nymsize,nzmsize,ph2,ph3)
         endif
         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))

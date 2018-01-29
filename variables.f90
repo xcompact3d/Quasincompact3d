@@ -38,7 +38,7 @@ USE param
 
 ! define all major arrays here
 
-real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3
+real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3, pp3corr
 real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
 real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
 real(mytype), save, allocatable, dimension(:,:,:) :: phi1, phi2, phi3
@@ -77,6 +77,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: ta3,tb3,tc3,td3,&
 integer, save :: nxmsize, nymsize, nzmsize 
 
 real(mytype), save :: pressure0 ! LMN: thermodynamic pressure
+real(mytype), save :: divup3norm
 
 contains
 
@@ -206,6 +207,7 @@ contains
  !   allocate (dv3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
  !   allocate (po3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     call alloc_z(pp3,ph,.true.)
+    call alloc_z(pp3corr,ph,.true.)
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)
 
