@@ -886,7 +886,7 @@ end subroutine init
 !********************************************************************
 subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
      td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
-     nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock)
+     nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock,quiet)
 
   USE param
   USE IBM
@@ -916,6 +916,15 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nlock
   integer :: code
   real(mytype) :: tmax,tmin,tmoy,tmax1,tmin1,tmoy1
+
+  logical, optional :: quiet
+  logical :: silent
+
+  if (present(quiet)) then
+    silent = quiet
+  else
+    silent = .FALSE.
+  endif
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
@@ -1007,15 +1016,17 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call MPI_REDUCE(tmin,tmin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
   call MPI_REDUCE(tmoy,tmoy1,1,real_type,MPI_SUM,0,MPI_COMM_WORLD,code)!
 
-  if (nrank==0) then
-    if (nlock==2) then
-      print *,'DIV U final Max=',tmax1
-      print *,'DIV U final Min=',tmin1
-      print *,'DIV U final Moy=',tmoy1/real(nproc)
-    else
-      print *,'DIV U* Max=',tmax1
-      print *,'DIV U* Min=',tmin1
-      print *,'DIV U* Moy=',tmoy1/real(nproc)
+  if (silent.eqv..FALSE.) then
+    if (nrank==0) then
+      if (nlock==2) then
+        print *,'DIV U final Max=',tmax1
+        print *,'DIV U final Min=',tmin1
+        print *,'DIV U final Moy=',tmoy1/real(nproc)
+      else
+        print *,'DIV U* Max=',tmax1
+        print *,'DIV U* Min=',tmin1
+        print *,'DIV U* Moy=',tmoy1/real(nproc)
+      endif
     endif
   endif
 
