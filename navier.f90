@@ -1289,6 +1289,93 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, pp1corr, ta1, tb1, tc1, di1, rho
 ENDSUBROUTINE divergence_corr
 
 !********************************************************************
+!  SUBROUTINE: approx_divergence_corr
+! DESCRIPTION: In LMN with the variable-coefficient poisson equation
+!              approximate the correction term
+!              1/rho nabla^2(p) - div( 1/rho grad(p) )
+!********************************************************************
+SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
+     rhos1, rhoss1, rhos01, drhodt1, &
+     td2, te2, tf2, di2, ta2, tb2, tc2, &
+     ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, divu3, &
+     nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+     divup3norm)
+
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  INTEGER :: nxmsize, nymsize, nzmsize
+  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, rhos01
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
+  REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: td1, te1, tf1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: divu1
+
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: td2, te2, tf2, di2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize, ysize(3)) :: ta2, tb2, tc2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: divu2
+
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: ta3, tb3, tc3, &
+       di3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: td3, te3, tf3, &
+       pp3corr
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: zero3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+
+  REAL(mytype), INTENT(OUT) :: divup3norm
+  
+  !! Approximate 1/rho0 nabla^2 p following constant-coefficient Poisson equation
+  !  i.e.
+  !  nabla^2 p = 1/dt ( div(rho u)^* - div(rho u)^{k+1} )
+  !            = 1/dt ( div(rho u)^* + drhodt^{k+1} )
+
+  zero3(:,:,:) = 0._mytype
+  CALL divergence (rho1 * ux1, rho1 * uy1, rho1 * uz1, &
+       ep1, ta1, tb1, tc1, di1, td1, te1, tf1, &
+       td2, te2, tf2, di2, ta2, tb2, tc2, &
+       ta3, tb3, tc3, di3, td3, te3, tf3, zero3, pp3corr, &
+       nxmsize, nymsize, nzmsize, ph1, ph3, ph4, 1, .TRUE.)
+  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+  CALL divergence_mom(drhodt1,pp3corr,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+  
+  ! !! Approximate div( 1/rho nabla p ) using variable-coefficient Poisson equation
+  ! !  i.e.
+  ! !  div( 1/rho nabla p ) = 1/Delta t ( div(u^*) - div(u^{k+1}) )
+  ! !
+  ! !  which is already known in pp3.
+  
+  ! pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * pp3(:,:,:)
+
+  ! !! Add original RHS (pp3 = 1/dt ( div(u^*) - div(u^{k+1}) )) to correction
+  ! pp3corr(:,:,:) = pp3corr(:,:,:) + rho0p3(:,:,:) * pp3(:,:,:)
+
+  !! Compute | div(u) |
+
+  ! Z->Y->X
+  CALL transpose_z_to_y(divu3, divu2)
+  CALL transpose_y_to_x(divu2, divu1)
+  CALL inter6(td1,divu1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+
+  ! X->Y
+  CALL transpose_x_to_y(td1, td2, ph4)
+  CALL intery6(ta2,td2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+
+  ! Y->Z
+  CALL transpose_y_to_z(ta2,ta3,ph3)
+  CALL interz6(td3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+       (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+
+  divup3norm = SQRT(SUM(td3(:,:,:)**2))
+  
+ENDSUBROUTINE approx_divergence_corr
+
+!********************************************************************
 !
 !
 !********************************************************************

@@ -274,8 +274,13 @@ PROGRAM incompact3d
                    nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
                    divup3norm, poissiter, converged)
             else
-              ! !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
-              ! call approx_divergence_corr()
+              !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+              call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
+                   di1, rhos1, rhoss1, rhos01, drhodt1, &
+                   td2, te2, tf2, di2, ta2, tb2, tc2, &
+                   ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, &
+                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+                   divup3norm)
             endif
           else
             ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
