@@ -488,6 +488,39 @@ subroutine outflow (ux, uy, uz, rho, phi)
   return
 end subroutine outflow
 
+SUBROUTINE set_velocity_entrainment_y(clx1, cly1, clz1)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: clx1, cly1, clz1
+  INTEGER :: i, k
+
+  IF (xstart(2).EQ.1) THEN
+    DO k = 1, xsize(3)
+      DO i = 1, xsize(1)
+        byx1(i, k) = clx1(i, 1, k)
+        byy1(i, k) = cly1(i, 1, k)
+        byz1(i, k) = clz1(i, 1, k)
+      ENDDO
+    ENDDO
+  ENDIF
+  
+  IF (xend(2).EQ.ny) THEN
+    DO k = 1, xsize(3)
+      DO i = 1, xsize(1)
+        byxn(i, k) = clx1(i, xsize(2), k)
+        byyn(i, k) = cly1(i, xsize(2), k)
+        byzn(i, k) = clz1(i, xsize(2), k)
+      ENDDO
+    ENDDO
+  ENDIF
+  
+ENDSUBROUTINE set_velocity_entrainment_y
+
 SUBROUTINE set_density_entrainment_y(rho1)
 
   USE decomp_2d
@@ -517,6 +550,39 @@ SUBROUTINE set_density_entrainment_y(rho1)
   ENDIF
   
 ENDSUBROUTINE set_density_entrainment_y
+
+SUBROUTINE set_velocity_entrainment_z(clx1, cly1, clz1)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: clx1, cly1, clz1
+  INTEGER :: i, j
+
+  IF (xstart(3).EQ.1) THEN
+    DO j = 1, xsize(2)
+      DO i = 1, xsize(1)
+        bzx1(i, j) = clx1(i, j, 1)
+        bzy1(i, j) = cly1(i, j, 1)
+        bzz1(i, j) = clz1(i, j, 1)
+      ENDDO
+    ENDDO
+  ENDIF
+  
+  IF (xend(3).eq.nz) THEN
+    DO j = 1, xsize(2)
+      DO i = 1, xsize(1)
+        bzxn(i, j) = clx1(i, j, xsize(3))
+        bzyn(i, j) = cly1(i, j, xsize(3))
+        bzzn(i, j) = clz1(i, j, xsize(3))
+      ENDDO
+    ENDDO
+  ENDIF
+  
+ENDSUBROUTINE set_velocity_entrainment_z
 
 SUBROUTINE set_density_entrainment_z(rho1)
 

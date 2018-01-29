@@ -477,47 +477,11 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
 
   !! Setting entrainment boundary conditions
   IF (nclz.eq.2) THEN
-    IF (xstart(3).EQ.1) THEN
-      DO j = 1, xsize(2)
-        DO i = 1, xsize(1)
-          bzx1(i, j) = clx1(i, j, 1)
-          bzy1(i, j) = cly1(i, j, 1)
-          bzz1(i, j) = clz1(i, j, 1)
-        ENDDO
-      ENDDO
-    ENDIF
-
-    IF (xend(3).eq.nz) THEN
-      DO j = 1, xsize(2)
-        DO i = 1, xsize(1)
-          bzxn(i, j) = clx1(i, j, xsize(3))
-          bzyn(i, j) = cly1(i, j, xsize(3))
-          bzzn(i, j) = clz1(i, j, xsize(3))
-        ENDDO
-      ENDDO
-    ENDIF
+    CALL set_velocity_entrainment_z(clx1, cly1, clz1)
   ENDIF !! End Z BC
 
   IF (ncly.EQ.2) THEN
-    IF (xstart(2).EQ.1) THEN
-      DO k = 1, xsize(3)
-        DO i = 1, xsize(1)
-          byx1(i, k) = clx1(i, 1, k)
-          byy1(i, k) = cly1(i, 1, k)
-          byz1(i, k) = clz1(i, 1, k)
-        ENDDO
-      ENDDO
-    ENDIF
-
-    IF (xend(2).EQ.ny) THEN
-      DO k = 1, xsize(3)
-        DO i = 1, xsize(1)
-          byxn(i, k) = clx1(i, xsize(2), k)
-          byyn(i, k) = cly1(i, xsize(2), k)
-          byzn(i, k) = clz1(i, xsize(2), k)
-        ENDDO
-      ENDDO
-    ENDIF
+    CALL set_velocity_entrainment_y(clx1, cly1, clz1)
   ENDIF !! End Y BC
 
   ! !! MMS Source term
