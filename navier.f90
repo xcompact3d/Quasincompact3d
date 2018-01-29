@@ -917,14 +917,7 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   integer :: code
   real(mytype) :: tmax,tmin,tmoy,tmax1,tmin1,tmoy1
 
-  logical, optional :: quiet
-  logical :: silent
-
-  if (present(quiet)) then
-    silent = quiet
-  else
-    silent = .FALSE.
-  endif
+  logical :: quiet
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
@@ -1016,7 +1009,7 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call MPI_REDUCE(tmin,tmin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
   call MPI_REDUCE(tmoy,tmoy1,1,real_type,MPI_SUM,0,MPI_COMM_WORLD,code)!
 
-  if (silent.eqv..FALSE.) then
+  if (quiet.eqv..FALSE.) then
     if (nrank==0) then
       if (nlock==2) then
         print *,'DIV U final Max=',tmax1
