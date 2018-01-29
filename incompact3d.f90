@@ -228,31 +228,12 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
       if (ilmn.ne.0) then
-        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
-        if (iscalar.eq.1) then
-          !---------------------------------------------------------------------------------
-          ! XXX Convert phi1 back into scalar.
-          !---------------------------------------------------------------------------------
-          phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
-        endif
-
-        if (nrhoscheme.eq.0) then
-          !---------------------------------------------------------------------------------
-          ! XXX Using variable-coefficient Poisson equation, convert momentum back to
-          !     velocity.
-          !---------------------------------------------------------------------------------
-          if (iskew.ne.2) then
-            !! Rotational or quasi skew-symmetric
-            ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
-            uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
-            uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
-          else
-            !! Skew-symmetric
-            ux1(:,:,:) = ux1(:,:,:) / SQRT(rho1(:,:,:))
-            uy1(:,:,:) = uy1(:,:,:) / SQRT(rho1(:,:,:))
-            uz1(:,:,:) = uz1(:,:,:) / SQRT(rho1(:,:,:))
-          endif
-        endif
+        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1,ux1,uy1,uz1,phi1)
+        !-----------------------------------------------------------------------------------
+        ! XXX phi1 now contains the new scalar value.
+        ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
+        !     velocity.
+        !-----------------------------------------------------------------------------------
       endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.

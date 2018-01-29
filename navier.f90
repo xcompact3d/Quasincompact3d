@@ -195,7 +195,7 @@ end subroutine intt
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1, phi1)
 
   USE param
   USE variables
@@ -206,6 +206,8 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: phi1
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
@@ -264,6 +266,31 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
 
   !! Update old stage
   rhos1(:,:,:) = tg1(:,:,:)
+
+  if (iscalar.eq.1) then
+    !---------------------------------------------------------------------------------
+    ! XXX Convert phi1 back into scalar.
+    !---------------------------------------------------------------------------------
+    phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
+  endif
+  
+  if (nrhoscheme.eq.0) then
+    !---------------------------------------------------------------------------------
+    ! XXX Using variable-coefficient Poisson equation, convert momentum back to
+    !     velocity.
+    !---------------------------------------------------------------------------------
+    if (iskew.ne.2) then
+      !! Rotational or quasi skew-symmetric
+      ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
+      uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
+      uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
+    else
+      !! Skew-symmetric
+      ux1(:,:,:) = ux1(:,:,:) / SQRT(rho1(:,:,:))
+      uy1(:,:,:) = uy1(:,:,:) / SQRT(rho1(:,:,:))
+      uz1(:,:,:) = uz1(:,:,:) / SQRT(rho1(:,:,:))
+    endif
+  endif
 
 ENDSUBROUTINE inttdensity
 
