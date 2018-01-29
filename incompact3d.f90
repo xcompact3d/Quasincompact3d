@@ -171,6 +171,12 @@ PROGRAM incompact3d
         call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
         call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
+      if (ncly.eq.2) then
+        call set_density_entrainment_y(rho1)
+      endif
+      if (nclz.eq.2) then
+        call set_density_entrainment_z(rho1)
+      endif
 
       !X-->Y-->Z-->Y-->X
       call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&

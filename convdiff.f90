@@ -485,14 +485,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
           bzz1(i, j) = clz1(i, j, 1)
         ENDDO
       ENDDO
-
-      IF (ilmn.NE.0) THEN
-        DO j = 1, xsize(2)
-          DO i = 1, xsize(1)
-            rho1(i, j, 1) = dens2
-          ENDDO
-        ENDDO
-      ENDIF
     ENDIF
 
     IF (xend(3).eq.nz) THEN
@@ -503,14 +495,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
           bzzn(i, j) = clz1(i, j, xsize(3))
         ENDDO
       ENDDO
-
-      IF (ilmn.NE.0) THEN
-        DO j = 1, xsize(2)
-          DO i = 1, xsize(1)
-            rho1(i, j, xsize(3)) = dens2
-          ENDDO
-        ENDDO
-      ENDIF
     ENDIF
   ENDIF !! End Z BC
 
@@ -523,14 +507,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
           byz1(i, k) = clz1(i, 1, k)
         ENDDO
       ENDDO
-
-      IF (ilmn.NE.0) THEN
-        DO k = 1, xsize(3)
-          DO i = 1, xsize(1)
-            rho1(i, 1, k) = dens2
-          ENDDO
-        ENDDO
-      ENDIF
     ENDIF
 
     IF (xend(2).EQ.ny) THEN
@@ -541,14 +517,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
           byzn(i, k) = clz1(i, xsize(2), k)
         ENDDO
       ENDDO
-
-      IF (ilmn.NE.0) THEN
-        DO k = 1, xsize(3)
-          DO i = 1, xsize(1)
-            rho1(i, xsize(2), k) = dens2
-          ENDDO
-        ENDDO
-      ENDIF
     ENDIF
   ENDIF !! End Y BC
 

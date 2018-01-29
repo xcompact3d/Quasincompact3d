@@ -488,6 +488,66 @@ subroutine outflow (ux, uy, uz, rho, phi)
   return
 end subroutine outflow
 
+SUBROUTINE set_density_entrainment_y(rho1)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
+  INTEGER :: i, k
+
+  IF (ilmn.NE.0) THEN
+    IF (xstart(2).EQ.1) THEN
+      DO k = 1, xsize(3)
+        DO i = 1, xsize(1)
+          rho1(i, 1, k) = dens2
+        ENDDO
+      ENDDO
+    ENDIF
+    IF (xend(2).EQ.ny) THEN
+      DO k = 1, xsize(3)
+        DO i = 1, xsize(1)
+          rho1(i, xsize(2), k) = dens2
+        ENDDO
+      ENDDO
+    ENDIF
+  ENDIF
+  
+ENDSUBROUTINE set_density_entrainment_y
+
+SUBROUTINE set_density_entrainment_z(rho1)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
+  INTEGER :: i, j
+
+  IF (ilmn.NE.0) THEN
+    IF (xstart(3).EQ.1) THEN
+      DO j = 1, xsize(2)
+        DO i = 1, xsize(1)
+          rho1(i, j, 1) = dens2
+        ENDDO
+      ENDDO
+    ENDIF
+    IF (xend(3).EQ.nz) THEN
+      DO j = 1, xsize(2)
+        DO i = 1, xsize(1)
+          rho1(i, j, xsize(3)) = dens2
+        ENDDO
+      ENDDO
+    ENDIF
+  ENDIF
+  
+ENDSUBROUTINE set_density_entrainment_z
+
 !**********************************************************************
 !
 !
