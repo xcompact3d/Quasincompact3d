@@ -1604,24 +1604,52 @@ ENDSUBROUTINE fringe_bcx
 
 !   REAL(mytype) :: g_rext
 
-!   REAL(mytype) :: r, y, z
+!   REAL(mytype) :: r1, r2, r3, y1, y2, y3, z
 !   INTEGER :: i, j, k
+!   INTEGER :: ctr
 
 !   g_rext = 0._mytype
+!   ctr = 0
 
+!   !! Compute local mean radius
 !   i = iph_fringe
-!   DO k = 1, xsize(3)
+!   DO k = 2, xsize(3) - 1
 !     z = DBLE(k + xstart(3) - 2) * dz - zlz / 2._mytype
-!     DO j = 1, xsize(2)
-!       y = DBLE(j + xstart(2) - 2) * dy - yly / 2._mytype
-!       r = SQRT(y**2 + z**2)
+!     DO j = 2, xsize(2) - 1
+!       y1 = DBLE((j - 1) + xstart(2) - 2) * dy - yly / 2._mytype
+!       y2 = DBLE(j + xstart(2) - 2) * dy - yly / 2._mytype
+!       y3 = DBLE((j + 1) + xstart(2) - 2) * dy - yly / 2._mytype
+      
+!       r1 = SQRT(y1**2 + z**2)
+!       r2 = SQRT(y2**2 + z**2)
+!       r3 = SQRT(y3**2 + z**2)
 
-!       IF (ux1(i, j, k).LE.(tol * g_umax)) THEN
+!       IF ((g_umax - ux1(i, j, k)).GT.(tol * g_umax)) THEN
+!         IF ((g_umax - ux1(i, j - 1, k)).LT.(tol * g_umax)) THEN
+!           g_rext = g_rext + 0.5_mytype * (r1 + r2)
+!           ctr = ctr + 1
+!         ENDIF
+!         IF ((g_umax - ux1(i, j + 1, k)).LT.(tol * g_umax)) THEN
+!           g_rext = g_rext + 0.5_mytype * (r2 + r3)
+!           ctr = ctr + 1
+!         ENDIF
 !       ENDIF
 !     ENDDO
 !   ENDDO
 
+!   !! Get global mean radius
+!   g_rext = g_rext / DBLE(ctr)
 !   CALL MPI_ALLREDUCE(MPI_IN_PLACE, g_rext, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-!   g_rext = g_rext / DBLE(nproc)
+!   IF (ctr.GT.0) THEN
+!     ctr = 1
+!   ELSE
+!     ctr = 0
+!   ENDIF
+!   CALL MPI_ALLREDUCE(MPI_IN_PLACE, ctr, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+!   IF (ctr.GT.0) THEN
+!     g_rext = g_rext / DBLE(ctr)
+!   ELSE
+!     g_rext = 0._mytype
+!   ENDIF
   
 ! ENDFUNCTION adapt_grext_fringe_bcx
