@@ -1537,15 +1537,18 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, bc1, bcn)
   INTEGER, INTENT(IN) :: bc1, bcn
   
   REAL(mytype) :: ucf, f_fringe
-  REAL(mytype) :: gauss, g_umax, g_rext2
+  REAL(mytype) :: gauss, g_umax, g_rext, g_rext2
   REAL(mytype) :: l_fringe, xph_fringe
   REAL(mytype) :: x, y, z, yc, zc, r2
   INTEGER :: i, j, k, iph_fringe
 
   l_fringe = 3._mytype
   ucf = 0.04_mytype           ! Minimum velocity of fringe
-  g_umax = 0.3_mytype - ucf
-  g_rext2 = 2.6_mytype**2
+  g_umax = 0.3_mytype
+  g_rext = 2.6_mytype
+
+  g_rext2 = g_rext**2
+  g_umax = g_umax - ucf
 
   yc = yly / 2._mytype
   zc = zlz / 2._mytype
@@ -1558,6 +1561,9 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, bc1, bcn)
   IF (bcn.EQ.1) THEN
     xph_fringe = xlx - l_fringe
     iph_fringe = CEILING(xph_fringe * DBLE(nx - 1) / xlx)
+
+    ! g_rext = adapt_grext_fringe_bcx(ux1, iph_fringe, g_umax + ucf, 0.01_mytype)
+    ! g_rext2 = g_rext**2
 
     DO k = 1, xsize(3)
       z = DBLE(k - 1) * dz + xstart(3) - 1._mytype - zc
@@ -1579,3 +1585,43 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, bc1, bcn)
   ENDIF !! End XEND BC
   
 ENDSUBROUTINE fringe_bcx
+
+! FUNCTION adapt_grext_fringe_bcx(ux1, iph_fringe, g_umax, tol) RESULT(g_rext)
+
+!   USE MPI
+  
+!   USE decomp_2d
+!   USE variables
+!   USE param
+  
+!   IMPLICIT NONE
+
+!   INTEGER :: ierr
+  
+!   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1
+!   REAL(mytype), INTENT(IN) :: g_umax, tol
+!   INTEGER, INTENT(IN) :: iph_fringe
+
+!   REAL(mytype) :: g_rext
+
+!   REAL(mytype) :: r, y, z
+!   INTEGER :: i, j, k
+
+!   g_rext = 0._mytype
+
+!   i = iph_fringe
+!   DO k = 1, xsize(3)
+!     z = DBLE(k + xstart(3) - 2) * dz - zlz / 2._mytype
+!     DO j = 1, xsize(2)
+!       y = DBLE(j + xstart(2) - 2) * dy - yly / 2._mytype
+!       r = SQRT(y**2 + z**2)
+
+!       IF (ux1(i, j, k).LE.(tol * g_umax)) THEN
+!       ENDIF
+!     ENDDO
+!   ENDDO
+
+!   CALL MPI_ALLREDUCE(MPI_IN_PLACE, g_rext, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+!   g_rext = g_rext / DBLE(nproc)
+  
+! ENDFUNCTION adapt_grext_fringe_bcx
