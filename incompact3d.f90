@@ -268,9 +268,9 @@ PROGRAM incompact3d
           if (nrhoscheme.eq.0) then
             if (poissiter.ne.0) then
               !! Compute correction term
-              call divergence_corr(rho1, px1, py1, pz1, td1, ta1, tb1, tc1, di1, te1, tf1, &
-                   rho2, te2, tf2, tg2, ta2, tb2, tc2, td2, di2, th2, ti2, &
-                   rho3, te3, tf3, ta3, tb3, tc3, di3, tg3, th3, pp3, &
+              call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, tg1, &
+                   td2, te2, ta2, tb2, tc2, di2, tf2, &
+                   td3, te3, ta3, tb3, tc3, di3, tf3, tg3, pp3, &
                    nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
                    divup3norm, poissiter, converged)
             else
