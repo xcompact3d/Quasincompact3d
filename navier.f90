@@ -334,9 +334,9 @@ subroutine inflow (ux, uy, uz, rho, phi)
 
   implicit none
 
-  integer :: k, j
+  integer :: k, j, n, nmodes
   real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
-  real(mytype) :: r1, r2, r3, y, z, um
+  real(mytype) :: r1, r2, r3, y, z, um, theta, freq, St, mf
 
   call ecoule(ux, uy, uz, rho)
 
@@ -344,6 +344,10 @@ subroutine inflow (ux, uy, uz, rho, phi)
   call random_number(byo)
   call random_number(bzo)
 
+  nmodes = 6
+
+  St = 0.3
+  freq = St * u1 / (1._mytype)
   if (iin.eq.1) then  
     do k = 1, xsize(3)
       z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
@@ -352,16 +356,50 @@ subroutine inflow (ux, uy, uz, rho, phi)
         r1 = SQRT(y**2 + z**2)
 
         if (r1.lt.0.5_mytype) then
-          um = rho(1, j, k) * bxx1(j, k)
+          mf = rho(1, j, k) * bxx1(j, k)
+
+          IF (z.GT.0._mytype) THEN
+            IF (y.GT.0._mytype) THEN
+              theta = ATAN(y / z)
+            ELSE IF (y.LT.0._mytype) THEN
+              theta = 2._mytype * PI - ATAN(-y / z)
+            ELSE
+              theta = 0._mytype
+            ENDIF
+          ELSE IF (z.LT.0._mytype) THEN
+            IF (y.GT.0._mytype) THEN
+              theta = PI - ATAN(y / (-z))
+            ELSE IF (y.LT.0._mytype) THEN
+              theta = PI + ATAN(y / z)
+            ELSE
+              theta = PI
+            ENDIF
+          ELSE
+            IF (y.GT.0._mytype) THEN
+              theta = 0.5_mytype * PI
+            ELSE IF (y.LT.0._mytype) THEN
+              theta = 1.5_mytype * PI
+            ELSE
+              theta = 0._mytype
+            ENDIF
+          ENDIF
+
+          !! Additional forcing
+          um = 0._mytype
+          DO n = 1, nmodes
+            um = um + SIN(2._mytype * PI * n * (t * freq) + theta)
+          ENDDO
+          um = 0.2_mytype * um / DBLE(nmodes)
+          bxx1(j, k) = (1._mytype + um) * bxx1(j, k)
 
           bxx1(j, k) = bxx1(j, k) + noise1 * (1._mytype - 2._mytype * bxo(j, k))
           bxy1(j, k) = bxy1(j, k) + noise1 * (1._mytype - 2._mytype * byo(j, k))
           bxz1(j, k) = bxz1(j, k) + noise1 * (1._mytype - 2._mytype * bzo(j, k))
           bxx1(j, k) = MAX(bxx1(j, k), 0._mytype) ! Prevent backflow
           
-          if ((um * bxx1(j, k)).gt.0._mytype) then
-            rho(1, j, k) = um / bxx1(j, k)
-          endif
+          ! if ((mf * bxx1(j, k)).gt.0._mytype) then
+          !   rho(1, j, k) = mf / bxx1(j, k)
+          ! endif
         endif
       enddo
     enddo
@@ -393,9 +431,16 @@ subroutine outflow (ux, uy, uz, rho, phi)
   integer :: j, k, i,  code
   real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
   real(mytype) :: udx, udy, udz, uddx, uddy, uddz, uxmax, &
-       uxmin, vphase, cx, coef, uxmax1, uxmin1, volflux
+       uxmin, vphase, coef, uxmax1, uxmin1, volflux, volflux_out
+  real(mytype), dimension(xsize(2), xsize(3)) :: cx
   real(mytype) :: Ay
 
+  real(mytype) :: y, z, yc, zc
+  real(mytype) :: r2
+
+  real(mytype) :: ucf, g_umax, gauss
+  real(mytype) :: g_rext, g_rext2
+  
   !! Compute 'convective velocity' at outlet
   udx = 1._mytype / dx
   udy = 1._mytype / dy
@@ -404,79 +449,144 @@ subroutine outflow (ux, uy, uz, rho, phi)
   uddy = 0.5_mytype / dy
   uddz = 0.5_mytype / dz
 
-  ! If inlet velocity specified in terms of u1 and u2
-  cx = 0.5_mytype * (u1 + u2) * gdt(itr) * udx
+  ! ! If inlet velocity specified in terms of u1 and u2
+  ! cx(:,:) = 0.5_mytype * (u1 + u2) * gdt(itr) * udx
 
-  uxmax = -1609._mytype
-  uxmin = 1609._mytype
-  do k = 1, xsize(3)
-    do j = 1, xsize(2)
-      if (ux(nx - 1, j, k).gt.uxmax) uxmax = ux(nx - 1, j, k)
-      if (ux(nx - 1, j, k).lt.uxmin) uxmin = ux(nx - 1, j, k)
-    enddo
-  enddo
-  call MPI_ALLREDUCE(uxmax, uxmax1, 1, real_type, MPI_MAX, MPI_COMM_WORLD, code)
-  call MPI_ALLREDUCE(uxmin, uxmin1, 1, real_type, MPI_MIN, MPI_COMM_WORLD, code)
-  vphase = 0.5_mytype * (uxmax1 + uxmin1)
-  cx = vphase * gdt(itr) * udx
+  ! uxmax = -1609._mytype
+  ! uxmin = 1609._mytype
+  ! do k = 1, xsize(3)
+  !   do j = 1, xsize(2)
+  !     if (ux(nx - 1, j, k).gt.uxmax) uxmax = ux(nx - 1, j, k)
+  !     if (ux(nx - 1, j, k).lt.uxmin) uxmin = ux(nx - 1, j, k)
+  !   enddo
+  ! enddo
+  ! call MPI_ALLREDUCE(uxmax, uxmax1, 1, real_type, MPI_MAX, MPI_COMM_WORLD, code)
+  ! call MPI_ALLREDUCE(uxmin, uxmin1, 1, real_type, MPI_MIN, MPI_COMM_WORLD, code)
+  ! vphase = 0.5_mytype * (uxmax1 + uxmin1)
+  ! cx(:,:) = vphase * gdt(itr) * udx
 
-  ! Compute inlet volume-flux
-  volflux = 0._mytype
-  do k = 1, xsize(3)
-    do j = 1, xsize(2) - 1
-      if (istret.eq.0) then
-        Ay = yly / (ny - 1)
-      else
-        Ay = (yp(j + 1) - yp(j))
-      endif
-      volflux = volflux + 0.5_mytype * (ux(1, j, k) + ux(1, j + 1, k)) * Ay
-    enddo
-  enddo
-  volflux = volflux / (yly * xsize(3))
-  call MPI_ALLREDUCE(MPI_IN_PLACE, volflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-  cx = volflux * gdt(itr) * udx
+  ! ! Compute mean velocity (inlet)
+  ! volflux = 0._mytype
+  ! do k = 1, xsize(3)
+  !   do j = 1, xsize(2) - 1
+  !     if (istret.eq.0) then
+  !       Ay = yly / (ny - 1)
+  !     else
+  !       Ay = (yp(j + 1) - yp(j))
+  !     endif
+  !     volflux = volflux + 0.5_mytype * (ux(1, j, k) + ux(1, j + 1, k)) * Ay * dz
+  !   enddo
+  ! enddo
+  ! PRINT *, volflux
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, volflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+  ! volflux = volflux / (yly * zlz)
+  ! cx(:,:) = volflux * gdt(itr) * udx
 
+  ! ! Gaussian outflow (to balance inlet mass flux)
+  ! g_rext = 1.5_mytype / 2.14_mytype ! 2.14 is the magic number of (r/R) giving e^(-r**2 / R**2) = 0.01
+  ! g_rext2 = g_rext**2
+  ! ! g_umax = ((0.5_mytype**2) * u1) &
+  ! !      / (g_rext2 * (1._mytype - 1._mytype / EXP(1._mytype)))
+  ! ! g_umax = g_umax - ucf
+  ! g_umax = 1._mytype ! We will calculate this later to balance mass flux
+
+  ! yc = 0.5_mytype * yly
+  ! zc = 0.5_mytype * zlz
+
+  ! volflux = u1 * (PI * 0.5_mytype**2)
+  ! volflux_out = 0._mytype
+  ! ucf = 0.1_mytype * volflux / (yly * zlz)
+  ! DO k = 1, nz
+  !   z = DBLE(k - 1) * dz - zc
+  !   DO j = 1, ny
+  !     y = DBLE(j - 1) * dy - yc
+
+  !     r2 = y**2 + z**2
+  !     gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+
+  !     volflux_out = volflux_out + gauss * dy * dz
+  !   ENDDO
+  ! ENDDO
+  ! g_umax = volflux / volflux_out
+  ! u2 = g_umax
+
+  ! DO k = 1, xsize(3)
+  !   z = DBLE(k + xstart(3) - 2) * dz - zc
+  !   DO j = 1, xsize(2)
+  !     y = DBLE(j + xstart(2) - 2) * dy - yc
+
+  !     r2 = y**2 + z**2
+  !     gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+      
+  !     cx(j, k) = gauss * (gdt(itr) * udx)
+  !   ENDDO
+  ! ENDDO
+
+  volflux = u1 * (PI * 0.5_mytype**2) / (yly * zlz)
+  cx(:,:) = volflux * gdt(itr) * udx
+
+  ! !! Volume correction
+  ! volflux = 0._mytype
+  ! DO k = 1, xsize(3)
+  !   DO j = 1, xsize(2) - 1
+  !     IF (istret.EQ.0) THEN
+  !       Ay = yly / (ny - 1)
+  !     ELSE
+  !       Ay = (yp(j + 1) - yp(j))
+  !     ENDIF
+  !     volflux = volflux + 0.5_mytype * (bxx1(j, k) + bxx1(j + 1, k)) * Ay * dz * gdt(itr) * udx
+  !     volflux = volflux - 0.5_mytype * (cx(j, k) + cx(j + 1, k)) * Ay * dz
+  !   ENDDO
+  ! ENDDO
+
+  ! IF (ncly.EQ.2) THEN
+  !   DO k = 1, xsize(3)
+  !     DO i = 1, xsize(1)
+  !       volflux = volflux + (byy1(i, k) - byyn(i, k)) * dx * dz * gdt(itr) * udx
+  !     ENDDO
+  !   ENDDO
+  ! ENDIF
+
+  ! IF (nclz.EQ.2) THEN
+  !   DO j = 1, xsize(2) - 1
+  !     IF (istret.EQ.0) THEN
+  !       Ay = yly / (ny - 1)
+  !     ELSE
+  !       Ay = (yp(j + 1) - yp(j))
+  !     ENDIF
+  !     DO i = 1, xsize(1)
+  !       volflux = volflux + 0.5_mytype * ((bzz1(i, j) + bzz1(i, j + 1)) &
+  !            - (bzzn(i, j) + bzzn(i, j + 1))) * dx * Ay * gdt(itr) * udx
+  !     ENDDO
+  !   ENDDO
+  ! ENDIF
+  
+  ! CALL MPI_ALLREDUCE(MPI_IN_PLACE, volflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+  ! volflux = volflux / (yly * zlz)
+  ! cx(:,:) = cx(:,:) + volflux
+  ! u2 = 0._mytype
+  
   if (itype.ne.9) then
-    !! XXX Update density last as we are imposing
-    !
-    !        ddt (rho phi) + C ddn (rho phi) = 0
-    !      phi = 1, u, etc. so that
-    !
-    !        phi^{k+1} = (rho^k -dt C ddn (rho phi)^k) / rho^{k+1}
     do k = 1, xsize(3)
       do j = 1, xsize(2)
-        bxxn(j, k) = rho(nx, j, k) * ux(nx, j, k) &
-             - cx * (rho(nx, j, k) * ux(nx, j, k) - rho(nx - 1, j, k) * ux(nx - 1, j, k))
-        bxyn(j, k) = rho(nx, j, k) * uy(nx, j, k) &
-             - cx * (rho(nx, j, k) * uy(nx, j, k) - rho(nx - 1, j, k) * uy(nx - 1, j, k))
-        bxzn(j, k) = rho(nx, j, k) * uz(nx, j, k) &
-             - cx * (rho(nx, j, k) * uz(nx, j, k) - rho(nx - 1, j, k) * uz(nx - 1, j, k))
+        bxxn(j, k) = ux(nx, j, k) - cx(j, k) * (ux(nx, j, k) - ux(nx - 1, j, k))
+        bxyn(j, k) = uy(nx, j, k) - cx(j, k) * (uy(nx, j, k) - uy(nx - 1, j, k))
+        bxzn(j, k) = uz(nx, j, k) - cx(j, k) * (uz(nx, j, k) - uz(nx - 1, j, k))
+        ! bxyn(j, k) = 0._mytype 
+        ! bxzn(j, k) = 0._mytype 
+      enddo
+    enddo
+    
+    do k = 1, xsize(3)
+      do j = 1, xsize(2)
+        rho(nx, j, k) = rho(nx, j, k) - cx(j, k) * (rho(nx, j, k) - rho(nx - 1, j, k))
       enddo
     enddo
 
     if (iscalar.eq.1) then
       do k = 1, xsize(3)
         do j = 1, xsize(2)
-          phi(nx, j, k) = rho(nx, j, k) * phi(nx, j, k) &
-               - cx * (rho(nx, j, k) * phi(nx, j, k) - rho(nx - 1, j, k) * phi(nx - 1, j, k))
-        enddo
-      enddo
-    endif
-
-    ! Update density and other variables
-    do k = 1, xsize(3)
-      do j = 1, xsize(2)
-        rho(nx, j, k) = rho(nx, j, k) - cx * (rho(nx, j, k) - rho(nx - 1, j, k))
-
-        bxxn(j, k) = bxxn(j, k) / rho(nx, j, k)
-        bxyn(j, k) = bxyn(j, k) / rho(nx, j, k)
-        bxzn(j, k) = bxzn(j, k) / rho(nx, j, k)
-      enddo
-    enddo
-    if (iscalar.eq.1) then
-      do k = 1, xsize(3)
-        do j = 1, xsize(2)
-          phi(nx, j, k) = phi(nx, j, k) / rho(nx, j, k)
+          phi(nx, j, k) = phi(nx, j, k) - cx(j, k) * (phi(nx, j, k) - phi(nx - 1, j, k))
         enddo
       enddo
     endif
@@ -521,7 +631,7 @@ SUBROUTINE set_velocity_entrainment_y(clx1, cly1, clz1)
   
 ENDSUBROUTINE set_velocity_entrainment_y
 
-SUBROUTINE set_density_entrainment_y(rho1)
+SUBROUTINE set_density_entrainment_y(rho1, uy1)
 
   USE decomp_2d
   USE variables
@@ -529,21 +639,36 @@ SUBROUTINE set_density_entrainment_y(rho1)
   
   IMPLICIT NONE
 
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: uy1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
-  INTEGER :: i, k
+  INTEGER :: i, j, k
 
   IF (ilmn.NE.0) THEN
+    j = 1
     IF (xstart(2).EQ.1) THEN
       DO k = 1, xsize(3)
         DO i = 1, xsize(1)
-          rho1(i, 1, k) = dens2
+          IF (uy1(i, j, k).GT.0._mytype) THEN
+            !! INFLOW
+            rho1(i, j, k) = dens2
+          ELSE
+            !! OUTFLOW
+            rho1(i, j, k) = rho1(i, j + 1, k)
+          ENDIF
         ENDDO
       ENDDO
     ENDIF
     IF (xend(2).EQ.ny) THEN
+      j = xsize(2)
       DO k = 1, xsize(3)
         DO i = 1, xsize(1)
-          rho1(i, xsize(2), k) = dens2
+          IF (uy1(i, j, k).LT.0._mytype) THEN
+            !! INFLOW
+            rho1(i, j, k) = dens2
+          ELSE
+            !! OUTFLOW
+            rho1(i, j, k) = rho1(i, j - 1, k)
+          ENDIF
         ENDDO
       ENDDO
     ENDIF
@@ -584,7 +709,7 @@ SUBROUTINE set_velocity_entrainment_z(clx1, cly1, clz1)
   
 ENDSUBROUTINE set_velocity_entrainment_z
 
-SUBROUTINE set_density_entrainment_z(rho1)
+SUBROUTINE set_density_entrainment_z(rho1, uz1)
 
   USE decomp_2d
   USE variables
@@ -592,21 +717,36 @@ SUBROUTINE set_density_entrainment_z(rho1)
   
   IMPLICIT NONE
 
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
-  INTEGER :: i, j
+  INTEGER :: i, j, k
 
   IF (ilmn.NE.0) THEN
     IF (xstart(3).EQ.1) THEN
+      k = 1
       DO j = 1, xsize(2)
         DO i = 1, xsize(1)
-          rho1(i, j, 1) = dens2
+          IF (uz1(i, j, k).GT.0._mytype) THEN
+            !! INFLOW
+            rho1(i, j, k) = dens2
+          ELSE
+            !! OUTFLOW
+            rho1(i, j, k) = rho1(i, j, k + 1)
+          ENDIF
         ENDDO
       ENDDO
     ENDIF
     IF (xend(3).EQ.nz) THEN
+      k = xsize(3)
       DO j = 1, xsize(2)
         DO i = 1, xsize(1)
-          rho1(i, j, xsize(3)) = dens2
+          IF (uz1(i, j, k).LT.0._mytype) THEN
+            !! INFLOW
+            rho1(i, j, k) = dens2
+          ELSE
+            !! OUTFLOW
+            rho1(i, j, k) = rho1(i, j, k - 1)
+          ENDIF
         ENDDO
       ENDDO
     ENDIF
@@ -636,6 +776,8 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   real(mytype) :: u_disturb, v_disturb, disturb_decay
 
   real(mytype) :: b2, D
+  real(mytype) :: gauss, g_umax, ucf
+  real(mytype) :: g_rext
 
   bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
   byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -751,6 +893,22 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   else if (itype.eq.5) then
     b2 = 0.25_mytype * 10._mytype
     D = 1._mytype ! Jet diameter (used as length scale)
+
+    if (itime.eq.0) then
+      ucf = 0.1_mytype * (u1 * (PI * 0.5_mytype**2)) / (yly * zlz)
+      g_umax = 0._mytype
+      g_rext = 1.5_mytype / 2.14_mytype
+      do k = 1,nz
+        z = (k - 1) * dz - 0.5_mytype * zlz
+        do j = 1,ny
+          y = (j - 1) * dy - 0.5_mytype * yly
+          r = SQRT(y**2 + z**2)
+          g_umax = g_umax + EXP(-(r / g_rext)**2) * dy * dz
+        enddo
+      enddo
+      g_umax = (u1 * (PI * 0.5_mytype**2) - ucf * (yly * zlz)) / g_umax
+    endif
+    
     do k=1,xsize(3)
       z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
       do j=1,xsize(2)
@@ -771,6 +929,27 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
           bxx1(j, k) = u1
           rho1(1, j, k) = dens1
         endif
+
+        if (itime.eq.0) then
+          do i = 1, xsize(1)
+            ! x = (i + xstart(1) - 2) * dx
+            ! if (r.le.(0.5_mytype * D + (x / xlx) * (1.5_mytype - 0.5_mytype * D))) then
+            !   ux1(i,j,k) = (ux1(i,j,k) - bxx1(j, k)) + u1 * (0.5_mytype * D &
+            !        / (0.5_mytype * D + (x / xlx) * (1.5_mytype - 0.5_mytype * D)))**2
+            ! endif
+
+            ! gauss = g_umax * EXP(-(r / g_rext)**2) + ucf
+            ux1(i,j,k) = ux1(i,j,k) - bxx1(j,k)
+            ! ux1(i,j,k) = ux1(i,j,k) + (1._mytype - SIN((x / xlx) * (0.5_mytype * PI))) * bxx1(j,k)
+            ! ux1(i,j,k) = ux1(i,j,k) + SIN((x / xlx) * (0.5_mytype)) * gauss
+          end do
+        endif
+        if (itime.le.1) then
+          do i = 1, xsize(1)
+            rho1(i,j,k) = dens2
+          enddo
+        endif
+
         bxy1(j, k) = 0._mytype
         bxz1(j, k) = 0._mytype
       enddo
@@ -997,8 +1176,8 @@ end subroutine init
 !
 ! 
 !********************************************************************
-subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-     td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+subroutine divergence (ux1,uy1,uz1,drhodt1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+     td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
      nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock)
 
   USE param
@@ -1014,7 +1193,7 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   integer :: nxmsize,nymsize,nzmsize
 
   !X PENCILS NX NY NZ  -->NXM NY NZ
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,di1,ux1,uy1,uz1,ep1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,di1,ux1,uy1,uz1,ep1,drhodt1
   real(mytype),dimension(nxmsize,xsize(2),xsize(3)) :: td1,te1,tf1 
   !Y PENCILS NXM NY NZ  -->NXM NYM NZ
   real(mytype),dimension(ph1%yst(1):ph1%yen(1),ysize(2),ysize(3)) :: td2,te2,tf2,di2
@@ -1023,12 +1202,15 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),zsize(3)) :: ta3,tb3,tc3,di3
   real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),nzmsize) :: td3,te3,tf3,pp3
 
-
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
 
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nlock
   integer :: code
   real(mytype) :: tmax,tmin,tmoy,tmax1,tmin1,tmoy1
 
+  real(mytype) :: err
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
@@ -1051,7 +1233,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
 !!! CM call test_min_max('tb1  ','In divergence  ',tb1,size(tb1))
 !!! CM call test_min_max('tc1  ','In divergence  ',tc1,size(tc1))
 
-
   !WORK X-PENCILS
   call decx6(td1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
   call inter6(te1,tb1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
@@ -1065,7 +1246,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call transpose_x_to_y(td1,td2,ph4)!->NXM NY NZ
   call transpose_x_to_y(te1,te2,ph4)
   call transpose_x_to_y(tf1,tf2,ph4)
-
 
   !WORK Y-PENCILS
   call intery6(ta2,td2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
@@ -1094,10 +1274,23 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
     enddo
   enddo
 
-
   if (nlock==2) then
     pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
   endif
+
+  !! Compute error in divergence
+  if (nlock==1) then
+    call inter6(te1,-drhodt1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+  else
+    call transpose_z_to_y(divu3, divu2)
+    call transpose_y_to_x(divu2, divu1)
+    call inter6(te1,divu1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+  endif
+  call transpose_x_to_y(te1,te2,ph4)
+  call intery6(ta2,te2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+  call transpose_y_to_z(ta2,ta3,ph3)
+  call interz6(td3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+       (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1) ! divu on pressure nodes contained in td3
 
   tmax=-1.e30_mytype
   tmin=+1.e30_mytype
@@ -1105,9 +1298,10 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   do k=1,nzmsize
     do j=ph1%zst(2),ph1%zen(2)
       do i=ph1%zst(1),ph1%zen(1)
-        if (pp3(i,j,k).gt.tmax) tmax=pp3(i,j,k)
-        if (pp3(i,j,k).lt.tmin) tmin=pp3(i,j,k)
-        tmoy=tmoy+abs(pp3(i,j,k))
+        err = pp3(i,j,k) - td3(i,j,k)
+        if (err.gt.tmax) tmax=err
+        if (err.lt.tmin) tmin=err
+        tmoy=tmoy+abs(err)
       enddo
     enddo
   enddo
@@ -1120,13 +1314,13 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
 
   if (nrank==0) then
     if (nlock==2) then
-      print *,'DIV U final Max=',tmax1
-      print *,'DIV U final Min=',tmin1
-      print *,'DIV U final Moy=',tmoy1/real(nproc)
+      print *,'ERR DIV U final Max=',tmax1
+      print *,'ERR DIV U final Min=',tmin1
+      print *,'ERR DIV U final Moy=',tmoy1/real(nproc)
     else
-      print *,'DIV U* Max=',tmax1
-      print *,'DIV U* Min=',tmin1
-      print *,'DIV U* Moy=',tmoy1/real(nproc)
+      print *,'ERR DIV U* Max=',tmax1
+      print *,'ERR DIV U* Min=',tmin1
+      print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
     endif
   endif
 
@@ -1334,7 +1528,6 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
   call interi6(tc1,tf1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
        nxmsize,xsize(1),xsize(2),xsize(3),1)
 
-
   !we are in X pencils:
   do k=1,xsize(3)
     do j=1,xsize(2)
@@ -1344,24 +1537,6 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
       dpdzxn(j,k)=tc1(nx,j,k)/gdt(itr)
     enddo
   enddo
-
-
-  if (xstart(3)==1) then
-    do j=1,xsize(2)
-      do i=1,xsize(1)
-        dpdxz1(i,j)=ta1(i,j,1)/gdt(itr)
-        dpdyz1(i,j)=tb1(i,j,1)/gdt(itr)
-      enddo
-    enddo
-  endif
-  if (xend(3)==nz) then
-    do j=1,xsize(2)
-      do i=1,xsize(1)
-        dpdxzn(i,j)=ta1(i,j,nz)/gdt(itr)
-        dpdyzn(i,j)=tb1(i,j,nz)/gdt(itr)
-      enddo
-    enddo
-  endif
 
   ! determine the processor grid in use
   call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
@@ -1399,9 +1574,26 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
         enddo
       enddo
     endif
-
   endif
 
+  if (xstart(3)==1) then
+    k = 1
+    do j=1,xsize(2)
+      do i=1,xsize(1)
+        dpdxz1(i,j)=ta1(i,j,k)/gdt(itr)
+        dpdyz1(i,j)=tb1(i,j,k)/gdt(itr)
+      enddo
+    enddo
+  endif
+  if (xend(3)==nz) then
+    k = xsize(3)
+    do j=1,xsize(2)
+      do i=1,xsize(1)
+        dpdxzn(i,j)=ta1(i,j,k)/gdt(itr)
+        dpdyzn(i,j)=tb1(i,j,k)/gdt(itr)
+      enddo
+    enddo
+  endif
 
   return
 end subroutine gradp
@@ -1461,6 +1653,43 @@ subroutine corgp_IBM (ux,uy,uz,px,py,pz,nlock)
   return
 end subroutine corgp_IBM
 
+SUBROUTINE corgp_grav(ux1, uy1, uz1, px1, py1, pz1, nlock)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
+  INTEGER :: nlock
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
+  IF ((itime.EQ.1).AND.(itr.EQ.1)) THEN
+    px1(:,:,:) = 0._mytype
+    py1(:,:,:) = 0._mytype
+    pz1(:,:,:) = 0._mytype
+  ENDIF
+
+  IF (nlock.EQ.1) THEN
+    DO ijk = 1, nxyz
+      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) - px1(ijk, 1, 1)
+      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) - py1(ijk, 1, 1)
+      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) - pz1(ijk, 1, 1)
+    ENDDO
+  ELSE IF (nlock.EQ.2) THEN
+    DO ijk = 1, nxyz
+      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + px1(ijk, 1, 1)
+      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + py1(ijk, 1, 1)
+      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + pz1(ijk, 1, 1)
+    ENDDO
+  ENDIF
+  
+ENDSUBROUTINE corgp_grav
+
 !*******************************************************************
 !
 !
@@ -1498,6 +1727,42 @@ subroutine body(ux,uy,uz,ep1)
   return  
 end subroutine body
 
+SUBROUTINE apply_grav(ux1, uy1, uz1, rho1)
+
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, rho1
+  REAL(mytype) :: invfr
+
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
+  IF ((frx.GT.0._mytype).OR.(frx.LT.0._mytype)) THEN
+    invfr = 1._mytype / frx
+    DO ijk = 1, nxyz
+      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+    ENDDO
+  ENDIF
+  IF ((fry.GT.0._mytype).OR.(fry.LT.0._mytype)) THEN
+    invfr = 1._mytype / fry
+    DO ijk = 1, nxyz
+      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+    ENDDO
+  ENDIF
+  IF ((frz.GT.0._mytype).OR.(frz.LT.0._mytype)) THEN
+    invfr = 1._mytype / frz
+    DO ijk = 1, nxyz
+      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+    ENDDO
+  ENDIF
+  
+ENDSUBROUTINE apply_grav
+
 !****************************************************************************
 !
 !****************************************************************************
@@ -1508,7 +1773,6 @@ subroutine pre_correc(ux,uy,uz,rho)
   USE param
   USE var
   USE MPI
-
 
   implicit none
 
@@ -1521,11 +1785,23 @@ subroutine pre_correc(ux,uy,uz,rho)
 
   real(mytype) :: Ain, Aout
 
+  integer :: i1, in, j1, jn, k1, kn
+
   if (itime==1) then
     dpdyx1=0._mytype
     dpdzx1=0._mytype
     dpdyxn=0._mytype
     dpdzxn=0._mytype
+
+    dpdxy1 = 0._mytype
+    dpdzy1 = 0._mytype
+    dpdxyn = 0._mytype
+    dpdzyn = 0._mytype
+
+    dpdxy1 = 0._mytype
+    dpdzy1 = 0._mytype
+    dpdxyn = 0._mytype
+    dpdzyn = 0._mytype
   endif
 
   !we are in X pencils:
@@ -1587,41 +1863,39 @@ subroutine pre_correc(ux,uy,uz,rho)
       enddo
     enddo
 
-    if (ncly.eq.2) then
-      do k = 1, xsize(3)
-        do i = 1, xsize(1)
-          ut1 = ut1 + byy1(i, k) * dx * dz
-          ut1 = ut1 + byyn(i, k) * dx * dz
-          Ain = Ain + 2._mytype * dx * dz
-        enddo
-      enddo
-    endif
+    ! if (ncly.eq.2) then
+    !   do k = 1, xsize(3)
+    !     do i = 1, xsize(1)
+    !       ut1 = ut1 + byy1(i, k) * dx * dz
+    !       ut1 = ut1 - byyn(i, k) * dx * dz
+    !       Ain = Ain + 2._mytype * dx * dz
+    !     enddo
+    !   enddo
+    ! endif
 
-    if (nclz.eq.2) then
-      do j = 1, xsize(2)
-        do i = 1, xsize(1)
-          ut1 = ut1 + bzz1(i, j) * dx * dy
-          ut1 = ut1 + bzzn(i, j) * dx * dy
-          Ain = Ain + 2._mytype * dx * dy
-        enddo
-      enddo
-    endif
+    ! if (nclz.eq.2) then
+    !   do j = 1, xsize(2)
+    !     do i = 1, xsize(1)
+    !       ut1 = ut1 + bzz1(i, j) * dx * dy
+    !       ut1 = ut1 - bzzn(i, j) * dx * dy
+    !       Ain = Ain + 2._mytype * dx * dy
+    !     enddo
+    !   enddo
+    ! endif
   
-    ut1 = ut1
     call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+    call MPI_ALLREDUCE(MPI_IN_PLACE, Ain, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
     ! ut11 = ut11 / nproc
 
     !! Compute outflow
     ut  =  0._mytype
-    Aout = 0._mytype
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         ut = ut + bxxn(j, k) * dy * dz
-        Aout = Aout + dy * dz
       enddo
     enddo
-    ut = ut
     call MPI_ALLREDUCE(ut, utt, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+    Aout = yly * zlz
     ! utt = utt / nproc
 
     if (nrank.eq.0) then
@@ -1630,14 +1904,80 @@ subroutine pre_correc(ux,uy,uz,rho)
 
     do k=1, xsize(3)
       do j=1, xsize(2)
-        bxxn(j, k) = bxxn(j, k) - (utt - ut11) / (yly * zlz)
+        bxxn(j, k) = bxxn(j, k) - (utt - ut11) / Aout
       enddo
     enddo
   endif
 
   !********NCLX==2*************************************
   !****************************************************
+  
   if (nclx.eq.2) then
+
+    if (ncly.eq.2) then
+      if (xstart(2).eq.1) then
+        j = 1
+        do k = 1, xsize(3)
+          i = 1
+          byx1(i, k) = bxx1(j, k) - dpdxy1(i, k) / rho(i, j, k)
+          byy1(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
+          byz1(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzy1(i, k)) / rho(i, j, k)
+
+          i = xsize(1)
+          byx1(i, k) = bxxn(j, k) - dpdxy1(i, k) / rho(i, j, k)
+          byy1(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
+          byz1(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzy1(i, k)) / rho(i, j, k)
+        enddo
+      endif
+      
+      if (xend(2).eq.ny) then
+        j = xsize(2)
+        do k = 1, xsize(3)
+          i = 1
+          byxn(i, k) = bxx1(j, k) - dpdxyn(i, k) / rho(i, j, k)
+          byyn(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
+          byzn(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzyn(i, k)) / rho(i, j, k)
+
+          i = xsize(1)
+          byxn(i, k) = bxxn(j, k) - dpdxyn(i, k) / rho(i, j, k)
+          byyn(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
+          byzn(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzyn(i, k)) / rho(i, j, k)
+        enddo
+      endif
+    endif
+
+    if (nclz.eq.2) then
+      if (xstart(3).eq.1) then
+        k = 1
+        do j = 1, xsize(2)
+          i = 1
+          bzx1(i, j) = bxx1(j, k) - dpdxz1(i, j) / rho(i, j, k)
+          bzy1(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyz1(i, j)) / rho(i, j, k)
+          bzz1(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
+
+          i = xsize(1)
+          bzx1(i, j) = bxxn(j, k) - dpdxz1(i, j) / rho(i, j, k)
+          bzy1(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyz1(i, j)) / rho(i, j, k)
+          bzz1(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
+        enddo
+      endif
+
+      if (xend(3).eq.nz) then
+        k = xsize(3)
+        do j = 1, xsize(2)
+          i = 1
+          bzxn(i, j) = bxx1(j, k) - dpdxzn(i, j) / rho(i, j, k)
+          bzyn(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyzn(i, j)) / rho(i, j, k)
+          bzzn(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
+
+          i = xsize(1)
+          bzxn(i, j) = bxxn(j, k) - dpdxzn(i, j) / rho(i, j, k)
+          bzyn(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyzn(i, j)) / rho(i, j, k)
+          bzzn(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
+        enddo
+      endif
+    endif
+    
     do k=1, xsize(3)
       do j=1, xsize(2)
         ux(1 , j, k)=rho(1 , j, k)*bxx1(j, k)
@@ -1703,7 +2043,6 @@ subroutine pre_correc(ux,uy,uz,rho)
       ! determine the processor grid in use
       call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
            dims, dummy_periods, dummy_coords, code)
-
       if (dims(1).eq.1) then
         j = 1
         do k = 1, xsize(3)
@@ -1738,9 +2077,9 @@ subroutine pre_correc(ux,uy,uz,rho)
           j = xsize(2)
           do k = 1, xsize(3)
             do i = 1, xsize(1)
-              ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdyxn(i, k)
+              ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdxyn(i, k)
               uy(i, j, k) = rho(i, j, k) * byyn(i, k)
-              uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdyzn(i, k)
+              uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdzyn(i, k)
             enddo
           enddo
         endif
@@ -1758,17 +2097,29 @@ subroutine pre_correc(ux,uy,uz,rho)
       CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
            dims, dummy_periods, dummy_coords, code)
 
+      IF (nclx.EQ.2) THEN
+        i1 = 2
+        in = xsize(1) - 1
+      ELSE
+        i1 = 1
+        in = xsize(1)
+      ENDIF
+      
       IF (dims(2).EQ.1) THEN
+        k = 1
         DO j = 1, xsize(2)
           DO i = 1, xsize(1)
-            k = 1
-            ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdzx1(i, j)
-            uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdzy1(i, j)
+            ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdxz1(i, j)
+            uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdyz1(i, j)
             uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
-
-            k = xsize(3)
-            ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdzxn(i, j)
-            uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdzyn(i, j)
+          ENDDO
+        ENDDO
+        
+        k = xsize(3)
+        DO j = 1, xsize(2)
+          DO i = 1, xsize(1)
+            ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdxzn(i, j)
+            uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdyzn(i, j)
             uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
           ENDDO
         ENDDO
@@ -1777,8 +2128,8 @@ subroutine pre_correc(ux,uy,uz,rho)
         IF (xstart(3).EQ.1) THEN
           DO j = 1, xsize(2)
             DO i = 1, xsize(1)
-              ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdzx1(i, j)
-              uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdzy1(i, j)
+              ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdxz1(i, j)
+              uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdyz1(i, j)
               uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
             ENDDO
           ENDDO
@@ -1788,8 +2139,8 @@ subroutine pre_correc(ux,uy,uz,rho)
         IF ((nz - (nzm / dims(2))).EQ.xstart(3)) THEN
           DO j = 1, xsize(2)
             DO i = 1, xsize(1)
-              ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdzxn(i, j)
-              uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdzyn(i, j)
+              ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdxzn(i, j)
+              uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdyzn(i, j)
               uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
             ENDDO
           ENDDO

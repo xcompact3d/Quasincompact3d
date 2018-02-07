@@ -95,6 +95,7 @@ PROGRAM incompact3d
 
   if (ilit.eq.0) then
     t = 0._mytype
+    itime = 0
     call init(ux1,uy1,uz1,rho1,ep1,phi1,&
          gx1,gy1,gz1,rhos1,phis1,&
          hx1,hy1,hz1,rhoss1,phiss1,&
@@ -172,10 +173,10 @@ PROGRAM incompact3d
         call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
       if (ncly.eq.2) then
-        call set_density_entrainment_y(rho1)
+        call set_density_entrainment_y(rho1, uy1)
       endif
       if (nclz.eq.2) then
-        call set_density_entrainment_z(rho1)
+        call set_density_entrainment_z(rho1, uz1)
       endif
 
       !X-->Y-->Z-->Y-->X
@@ -215,6 +216,10 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
+      call corgp_grav(ux1, uy1, uz1, px1, py1, pz1, 1)
+      call apply_grav(ux1, uy1, uz1, rho1)
+      call corgp_grav(ux1, uy1, uz1, px1, py1, pz1, 2)
+
       call pre_correc(ux1,uy1,uz1,rho1)
 
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
@@ -250,8 +255,8 @@ PROGRAM incompact3d
 !!$      endif
 
       !X-->Y-->Z
-      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
+      call divergence (ux1,uy1,uz1,drhodt1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
 
       !-----------------------------------------------------------------------------------
@@ -308,8 +313,8 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       !does not matter -->output=DIV U=0 (in dv3)
-      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,dv3,&
+      call divergence (ux1,uy1,uz1,drhodt1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,dv3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
 
       call test_speed_min_max(ux1,uy1,uz1)
