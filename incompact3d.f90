@@ -51,7 +51,7 @@ PROGRAM incompact3d
   character(len=20) :: filename
 
   logical :: converged
-  integer :: poissiter
+  integer :: poissiter, totalpoissiter
 
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
 
@@ -93,6 +93,7 @@ PROGRAM incompact3d
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
 
+  totalpoissiter = 0
   if (ilit.eq.0) then
     t = 0._mytype
     itime = 0
@@ -110,9 +111,9 @@ PROGRAM incompact3d
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
   !          X->Y->Z
-  call calc_divu(ta1,rho1,temperature1,di1,&
-       ta2,tb2,tc2,rho2,temperature2,di2,&
-       divu3,ta3,rho3,temperature3,di3,&
+  call calc_divu(ta1,tb1,rho1,temperature1,kappa1,di1,&
+       ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
+       divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
        pressure0)
 
   call test_speed_min_max(ux1,uy1,uz1)
@@ -179,18 +180,27 @@ PROGRAM incompact3d
         call set_density_entrainment_z(rho1, uz1)
       endif
 
+      !-----------------------------------------------------------------------------------
+      ! Update fluid properties
+      ! XXX Temperature is up-to-date in X, Y and Z.
+      !-----------------------------------------------------------------------------------
+      call calcvisc(mu3, temperature3) ! Viscosity first used in Z-stencils
+      if (iscalar.eq.0) then
+        call calcgamma(gamma1, temperature1)
+      endif
+
       !X-->Y-->Z-->Y-->X
-      call convdiff(ux1,uy1,uz1,rho1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
-           ux2,uy2,uz2,rho2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
-           ux3,uy3,uz3,rho3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+      call convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+           ux2,uy2,uz2,rho2,mu2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
+           ux3,uy3,uz3,rho3,mu3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
 
       if (iscalar.eq.1) then
         !---------------------------------------------------------------------------------
         ! XXX After this phi1 contains rho*phi
         !---------------------------------------------------------------------------------
-        call scalar(ux1,uy1,uz1,rho1,phi1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
-             uy2,uz2,rho2,phi2,di2,ta2,tb2,tc2,td2,&
-             uz3,rho3,phi3,di3,ta3,tb3,&
+        call scalar(ux1,uy1,uz1,rho1,phi1,gamma1,phis1,phiss1,di1,tg1,th1,ti1,td1,&
+             uy2,uz2,rho2,phi2,gamma2,di2,ta2,tb2,tc2,td2,&
+             uz3,rho3,phi3,gamma3,di3,ta3,tb3,tc3,&
              ep1)
       endif
 
@@ -227,13 +237,12 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
       if (ilmn.ne.0) then
-        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
-        if (iscalar.eq.1) then
-          !---------------------------------------------------------------------------------
-          ! XXX Convert phi1 back into scalar.
-          !---------------------------------------------------------------------------------
-          phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
-        endif
+        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1,ux1,uy1,uz1,phi1)
+        !-----------------------------------------------------------------------------------
+        ! XXX phi1 now contains the new scalar value.
+        ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
+        !     velocity.
+        !-----------------------------------------------------------------------------------
       endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
@@ -242,9 +251,9 @@ PROGRAM incompact3d
       !      upto date.
       !
       !    X->Y->Z
-      call calc_divu(tg1,rho1,temperature1,di1,&
-           ta2,tb2,tc2,rho2,temperature2,di2,&
-           divu3,ta3,rho3,temperature3,di3,&
+      call calc_divu(tg1,th1,rho1,temperature1,kappa1,di1,&
+           ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
+           divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
            pressure0)
 
 !!$      if (ivirt.eq.1) then !solid body old school
@@ -255,9 +264,9 @@ PROGRAM incompact3d
 !!$      endif
 
       !X-->Y-->Z
-      call divergence (ux1,uy1,uz1,drhodt1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
-           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1)
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1,.FALSE.)
 
       !-----------------------------------------------------------------------------------
       ! Solution of the Poisson equation
@@ -265,45 +274,61 @@ PROGRAM incompact3d
       poissiter = 0
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
-          if (nrhoscheme.eq.0) then
-            if (nrank.eq.0) then
-              print *, "Var-coeff Poisson not yet implemented!"
-              STOP
+          if (ivarcoeff.ne.0) then
+            if (poissiter.ne.0) then
+              !! Compute correction term
+              call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, tg1, &
+                   te2, tf2, ta2, tb2, tc2, td2, di2, tg2, &
+                   td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, tg3, pp3, &
+                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+                   divup3norm, poissiter, converged)
+            else
+              !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+              call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
+                   di1, rhos1, rhoss1, rhos01, drhodt1, &
+                   td2, te2, tf2, di2, ta2, tb2, tc2, &
+                   ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, divu3, &
+                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+                   divup3norm)
             endif
           else
             ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
             call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
             call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+            pp3corr(:,:,:) = pp3(:,:,:)
           endif
         endif
         
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
-        
-        !POISSON Z-->Z 
-        call decomp_2d_poisson_stg(pp3,bcx,bcy,bcz)
+
+        if (converged.eqv..FALSE.) then
+          !POISSON Z-->Z 
+          call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
+          
+          !Z-->Y-->X
+          ! XXX Need to call this now as if using var-coeff
+          !     Poisson equation we will need new values of
+          !     gradp on next iteration.
+          call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+               ta3,tc3,di3,pp3corr,nxmsize,nymsize,nzmsize,ph2,ph3)
+        endif
         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-        if ((nrhoscheme.ne.0).or.(ilmn.eq.0)) then
+        if ((ilmn.eq.0).or.(ivarcoeff.eq.0)) then
           converged = .TRUE.
-        else
-          !! Var-coeff Poisson, probably want to test convergence here
-          CONTINUE
         endif
 
         poissiter = poissiter + 1
       enddo
 
-      if ((nrank.eq.0).and.((ilmn.eq.0).or.(nrhoscheme.eq.0))) then
+      if (nrank.eq.0) then
         print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+        totalpoissiter = totalpoissiter + poissiter
       endif
       !-----------------------------------------------------------------------------------
-
-      !Z-->Y-->X
-      call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-           ta3,tc3,di3,pp3,nxmsize,nymsize,nzmsize,ph2,ph3)
 
       !X PENCILS
       call corgp(ux1,ux2,uy1,uz1,px1,py1,pz1,rho1) 
@@ -313,9 +338,9 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       !does not matter -->output=DIV U=0 (in dv3)
-      call divergence (ux1,uy1,uz1,drhodt1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
            td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,dv3,&
-           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2)
+           nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2,.FALSE.)
 
       call test_speed_min_max(ux1,uy1,uz1)
       call test_density_min_max(rho1)
@@ -366,6 +391,8 @@ PROGRAM incompact3d
          t1/float(nproc)/(ilast-ifirst+1),' seconds'
     print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
     print *,'Mapping p_row*p_col=',p_row,p_col
+    print *,'Mean iterations per Poisson solve: ', &
+         float(totalpoissiter) / float(iadvance_time) / float(ilast - ifirst + 1)
   endif
 
   !call decomp_2d_poisson_finalize

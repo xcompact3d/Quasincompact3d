@@ -136,12 +136,14 @@ use decomp_2d, only : mytype
 
   integer :: nclx,ncly,nclz
   integer :: ifft, ivirt,istret,iforc_entree,iturb
-  integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles, nrhoscheme
+  integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles
   integer :: isave,ilit,idebmod, imodulo, idemarre, icommence, irecord
-  integer :: iscalar, ilmn
+  integer :: ilmn, nrhoscheme, npoissscheme, ivarcoeff
+  integer :: iscalar
+  integer :: iprops
   integer :: nxboite, istat,iread,iadvance_time 
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2
-  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2,frx,fry,frz
+  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2,frx,fry,frz,tol
   real(mytype) :: t,xxk1,xxk2
   integer :: itr,itime
   character :: filesauve*80, filenoise*80, &
