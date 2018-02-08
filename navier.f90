@@ -1212,7 +1212,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
        pp3corr, pp3, rho0p3, res3
 
-  REAL(mytype) :: resnorm, tol
+  REAL(mytype) :: resnorm
   REAL(mytype), INTENT(IN) :: divup3norm
   INTEGER, INTENT(IN) :: poissiter
   LOGICAL, INTENT(OUT) :: converged
@@ -1330,7 +1330,6 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   resnorm = SUM(res3(:,:,:)**2)
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, resnorm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
   resnorm = SQRT(resnorm / (nxm * nym * nzm))
-  tol = 1.0e-14
   IF (resnorm.LE.(tol * MAX(divup3norm, 1._mytype))) THEN
     converged = .TRUE.
   ENDIF

@@ -143,7 +143,7 @@ use decomp_2d, only : mytype
   integer :: iprops
   integer :: nxboite, istat,iread,iadvance_time 
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2
-  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2
+  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2,tol
   real(mytype) :: t,xxk1,xxk2
   integer :: itr,itime
   character :: filesauve*80, filenoise*80, &

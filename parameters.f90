@@ -86,6 +86,7 @@ read (10,*) ifirst
 read (10,*) ilast
 read (10,*) nscheme
 read (10,*) nrhoscheme
+read (10,*) tol
 read (10,*) istret
 read (10,*) beta
 read (10,*) ilmn
@@ -195,6 +196,10 @@ endif
 
 if (ilmn.ne.0) then
   print *, "Low Mach Number: Enabled"
+
+  if (nrhoscheme.le.0) then
+    print *, "Poisson tolerance: ", tol
+  endif
 endif
 
 if (iskew.eq.0) then
