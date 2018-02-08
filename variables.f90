@@ -47,7 +47,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
 
 ! Additional variables required for LMN
-real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01
+real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01, rho0p3
 real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
 real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
 real(mytype), save, allocatable, dimension(:,:,:) :: divu3
@@ -208,6 +208,7 @@ contains
  !   allocate (po3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     call alloc_z(pp3,ph,.true.)
     call alloc_z(pp3corr,ph,.true.)
+    call alloc_z(rho0p3,ph,.true.)
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)
 

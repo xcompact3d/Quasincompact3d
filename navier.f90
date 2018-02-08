@@ -1268,7 +1268,6 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   !!---------------------------------------------------------------------------------------------------
   ! X PENCIL
-  rho0p1(:,:,:) = rho0
   td1(:,:,:) = px1(:,:,:) / rho1(:,:,:)
   te1(:,:,:) = py1(:,:,:) / rho1(:,:,:)
   tf1(:,:,:) = pz1(:,:,:) / rho1(:,:,:)
@@ -1282,7 +1281,6 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   
   !!---------------------------------------------------------------------------------------------------
   ! Y PENCIL
-  rho0p2(:,:,:) = rho0
   CALL intery6(tb2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
        nymsize, ysize(3), 1)
   CALL decy6(ta2, py2, di2, sy, cfy6, csy6, cwy6, ppyi, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
@@ -1297,7 +1295,6 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   !!---------------------------------------------------------------------------------------------------
   ! Z PENCIL
-  rho0p3(:,:,:) = rho0
   CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
        (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
   CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
@@ -1305,17 +1302,23 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   ta3(:,:,:) = ta3(:,:,:) + tb3(:,:,:)
 
-  ! !! Compute rho0
-  ! td1(:,:,:) = 1._mytype / rho1(:,:,:)
-  ! CALL inter6(rho0p1, td1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
-  ! CALL transpose_x_to_y(rho0p1, tc2, ph4)
-  ! CALL intery6(rho0p2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
-  !      nymsize, ysize(3), 1)
-  ! CALL transpose_y_to_z(rho0p2, tc3, ph3) !->NXM NYM NZ
-  ! CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
-  !      (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
-  ! rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
-  rho0p3(:,:,:) = rho0
+  IF (poissiter.EQ.1) THEN
+    !! Compute rho0
+
+    ! Harmonic average
+    td1(:,:,:) = 1._mytype / rho1(:,:,:)
+    CALL inter6(rho0p1, td1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+    CALL transpose_x_to_y(rho0p1, tc2, ph4)
+    CALL intery6(rho0p2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+         nymsize, ysize(3), 1)
+    CALL transpose_y_to_z(rho0p2, tc3, ph3) !->NXM NYM NZ
+    CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+         (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+    rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
+
+    ! Simple minimum
+    rho0p3(:,:,:) = rho0
+  ENDIF
 
   !! Pressure correction = nabla^2 p - rho0 div(1/rho grad p)
   pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * ta3(:,:,:)
