@@ -195,7 +195,7 @@ end subroutine intt
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1, phi1)
 
   USE param
   USE variables
@@ -206,6 +206,8 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: phi1
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
@@ -265,6 +267,31 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   !! Update old stage
   rhos1(:,:,:) = tg1(:,:,:)
 
+  if (iscalar.eq.1) then
+    !---------------------------------------------------------------------------------
+    ! XXX Convert phi1 back into scalar.
+    !---------------------------------------------------------------------------------
+    phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
+  endif
+  
+  if (ivarcoeff.ne.0) then
+    !---------------------------------------------------------------------------------
+    ! XXX Using variable-coefficient Poisson equation, convert momentum back to
+    !     velocity.
+    !---------------------------------------------------------------------------------
+    if (iskew.ne.2) then
+      !! Rotational or quasi skew-symmetric
+      ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
+      uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
+      uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
+    else
+      !! Skew-symmetric
+      ux1(:,:,:) = ux1(:,:,:) / SQRT(rho1(:,:,:))
+      uy1(:,:,:) = uy1(:,:,:) / SQRT(rho1(:,:,:))
+      uz1(:,:,:) = uz1(:,:,:) / SQRT(rho1(:,:,:))
+    endif
+  endif
+
 ENDSUBROUTINE inttdensity
 
 !********************************************************************
@@ -290,21 +317,43 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
   if (ilmn.ne.0) then
+    if (ivarcoeff.eq.0) then
+      !! We are solving constant-coefficient Poisson equation,
+      !! first convert momentum->velocity
+      if (iskew.ne.2) then
+        !! Rotational or quasi skew-symmetric
+        do ijk = 1, nxyz
+          invrho = 1._mytype / rho(ijk, 1, 1)
+          ux(ijk, 1, 1) = ux(ijk, 1, 1) * invrho
+          uy(ijk, 1, 1) = uy(ijk, 1, 1) * invrho
+          uz(ijk, 1, 1) = uz(ijk, 1, 1) * invrho
+        enddo
+      else
+        !! Skew-symmetric
+        do ijk = 1, nxyz
+          invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
+          ux(ijk, 1, 1) = ux(ijk, 1, 1) * invrho
+          uy(ijk, 1, 1) = uy(ijk, 1, 1) * invrho
+          uz(ijk, 1, 1) = uz(ijk, 1, 1) * invrho
+        enddo
+      endif
+    endif
+    
     if (iskew.ne.2) then
       !! Rotational or quasi skew-symmetric
       do ijk=1, nxyz
         invrho = 1._mytype / rho(ijk, 1, 1)
-        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+        ux(ijk, 1, 1) = ux(ijk, 1, 1) - invrho * px(ijk, 1, 1)
+        uy(ijk, 1, 1) = uy(ijk, 1, 1) - invrho * py(ijk, 1, 1)
+        uz(ijk, 1, 1) = uz(ijk, 1, 1) - invrho * pz(ijk, 1, 1)
       enddo
     else
       !! Skew-symmetric
       do ijk = 1, nxyz
         invrho = 1._mytype / SQRT(rho(ijk, 1, 1))
-        ux(ijk, 1, 1) = (-px(ijk, 1, 1) + ux(ijk, 1, 1)) * invrho
-        uy(ijk, 1, 1) = (-py(ijk, 1, 1) + uy(ijk, 1, 1)) * invrho
-        uz(ijk, 1, 1) = (-pz(ijk, 1, 1) + uz(ijk, 1, 1)) * invrho
+        ux(ijk, 1, 1) = ux(ijk, 1, 1) - invrho * px(ijk, 1, 1)
+        uy(ijk, 1, 1) = uy(ijk, 1, 1) - invrho * py(ijk, 1, 1)
+        uz(ijk, 1, 1) = uz(ijk, 1, 1) - invrho * pz(ijk, 1, 1)
       enddo
     endif
   else
@@ -565,6 +614,8 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
 
     ! #ifndef TWOD
     ! Set the flowfield
+    u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + 1._mytype)
+    u2 = -SQRT(dens1 / dens2) / (1._mytype + SQRT(dens1 / dens2))
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         if (istret.eq.0) then
@@ -578,6 +629,9 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
           ! Set mean field
           ux1(i, j, k) = ux1(i, j, k) + (u1 + u2) / 2._mytype &
                + (u1 - u2) * TANH(2._mytype * y) / 2._mytype
+          uy1(i, j, k) = 0._mytype
+          uz1(i, j, k) = 0._mytype
+          rho1(i, j, k) = 0._mytype
 
           ! Calculate disturbance field (as given in Fortune2004)
           ! NB x and y are swapped relative to Fortune2004
@@ -676,11 +730,11 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
       enddo
     enddo
   else
-  endif
     if (nrank.eq.0) then
       PRINT *, "itype=", itype, " not implemented!"
       STOP
     endif
+  endif
   return
 end subroutine ecoule
 
@@ -836,8 +890,8 @@ end subroutine init
 ! 
 !********************************************************************
 subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-     td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,pp3,&
-     nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock)
+     td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
+     nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock,quiet)
 
   USE param
   USE IBM
@@ -854,19 +908,21 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   !X PENCILS NX NY NZ  -->NXM NY NZ
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,di1,ux1,uy1,uz1,ep1
   real(mytype),dimension(nxmsize,xsize(2),xsize(3)) :: td1,te1,tf1 
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
   !Y PENCILS NXM NY NZ  -->NXM NYM NZ
   real(mytype),dimension(ph1%yst(1):ph1%yen(1),ysize(2),ysize(3)) :: td2,te2,tf2,di2
   real(mytype),dimension(ph1%yst(1):ph1%yen(1),nymsize,ysize(3)) :: ta2,tb2,tc2
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
   !Z PENCILS NXM NYM NZ  -->NXM NYM NZM
   real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),zsize(3)) :: ta3,tb3,tc3,di3
   real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),nzmsize) :: td3,te3,tf3,pp3
-
-
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
 
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nlock
   integer :: code
   real(mytype) :: tmax,tmin,tmoy,tmax1,tmin1,tmoy1
 
+  logical :: quiet
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
@@ -889,9 +945,17 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
 !!! CM call test_min_max('tb1  ','In divergence  ',tb1,size(tb1))
 !!! CM call test_min_max('tc1  ','In divergence  ',tc1,size(tc1))
 
-
   !WORK X-PENCILS
   call decx6(td1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
+  if (ivarcoeff.ne.0) then
+    !! Solving variable-coefficient Poisson equation
+    !  Get divu to x pencils and interpolate to pressure points
+    call transpose_z_to_y(divu3, divu2)
+    call transpose_y_to_x(divu2, divu1)
+    call inter6(te1,divu1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+    td1(:,:,:) = td1(:,:,:) - te1(:,:,:)
+  endif
+  
   call inter6(te1,tb1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
   call inter6(tf1,tc1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
 
@@ -904,7 +968,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call transpose_x_to_y(te1,te2,ph4)
   call transpose_x_to_y(tf1,tf2,ph4)
 
-
   !WORK Y-PENCILS
   call intery6(ta2,td2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
   call decy6(tb2,te2,di2,sy,cfy6,csy6,cwy6,ppyi,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),0)
@@ -914,7 +977,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call transpose_y_to_z(tb2,tb3,ph3)
   call transpose_y_to_z(tc2,tc3,ph3)
 
-
   !WORK Z-PENCILS
   call interz6(td3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
        (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)    
@@ -923,7 +985,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call decz6(tf3,tc3,di3,sz,cfz6,csz6,cwz6,(ph1%zen(1)-ph1%zst(1)+1),&
        (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,0)
 
-
   do k=1,nzmsize
     do j=ph1%zst(2),ph1%zen(2)
       do i=ph1%zst(1),ph1%zen(1)
@@ -931,7 +992,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
       enddo
     enddo
   enddo
-
 
   if (nlock==2) then
     pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
@@ -955,16 +1015,17 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   call MPI_REDUCE(tmin,tmin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
   call MPI_REDUCE(tmoy,tmoy1,1,real_type,MPI_SUM,0,MPI_COMM_WORLD,code)!
 
-
-  if (nrank==0) then
-    if (nlock==2) then
-      print *,'DIV U final Max=',tmax1
-      print *,'DIV U final Min=',tmin1
-      print *,'DIV U final Moy=',tmoy1/real(nproc)
-    else
-      print *,'DIV U* Max=',tmax1
-      print *,'DIV U* Min=',tmin1
-      print *,'DIV U* Moy=',tmoy1/real(nproc)
+  if (quiet.eqv..FALSE.) then
+    if (nrank==0) then
+      if (nlock==2) then
+        print *,'DIV U final Max=',tmax1
+        print *,'DIV U final Min=',tmin1
+        print *,'DIV U final Moy=',tmoy1/real(nproc)
+      else
+        print *,'DIV U* Max=',tmax1
+        print *,'DIV U* Min=',tmin1
+        print *,'DIV U* Moy=',tmoy1/real(nproc)
+      endif
     endif
   endif
 
@@ -995,13 +1056,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
-  IF (nrhoscheme.EQ.0) THEN
-    IF (nrank.EQ.0) THEN
-      PRINT *, "nrhoscheme=0 corresponds to variable-coefficient Poisson equation"
-      PRINT *, "Shoul not be extrapolating drhodt!!!"
-      STOP
-    ENDIF
-  ELSE IF (nscheme.EQ.1) THEN
+  IF (nscheme.EQ.1) THEN
     !! AB2
     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
       drhodt1(:,:,:) = drhodt1(:,:,:) + rho1(:,:,:)
@@ -1109,6 +1164,270 @@ SUBROUTINE divergence_mom(drhodt1, pp3, di1, di2, di3, nxmsize, nymsize, nzmsize
   pp3(:,:,:) = pp3(:,:,:) - divmom3(:,:,:)
 
 ENDSUBROUTINE divergence_mom
+
+!********************************************************************
+!  SUBROUTINE: divergence_corr
+! DESCRIPTION: In LMN with the variable-coefficient poisson equation
+!              compute the correction term
+!              1/rho nabla^2(p) - div( 1/rho grad(p) )
+!********************************************************************
+SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, rho0p1, &
+     py2, pz2, ta2, tb2, tc2, td2, di2, rho0p2, &
+     pz3, pp3corr, ta3, tb3, tc3, di3, rho0p3, res3, pp3, &
+     nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+     divup3norm, poissiter, converged)
+
+  USE MPI
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  INTEGER :: ierr
+
+  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+  INTEGER, INTENT(IN) :: nxmsize, nymsize, nzmsize
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: px1, py1, pz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: td1, te1, tf1, di1
+  REAL(mytype), DIMENSION(nxmsize , xsize(2), xsize(3)) :: ta1, tb1, tc1, rho0p1
+
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: tc2, td2, py2, di2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize , ysize(3)) :: ta2, tb2, pz2, rho0p2
+
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: tc3, pz3, di3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
+       pp3corr, pp3, rho0p3, res3
+
+  REAL(mytype) :: resnorm
+  REAL(mytype), INTENT(IN) :: divup3norm
+  INTEGER, INTENT(IN) :: poissiter
+  LOGICAL, INTENT(OUT) :: converged
+
+  REAL(mytype) :: rho0
+
+  rho0 = MINVAL(rho1)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, rho0, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+  !! Correction = 1/rho0 nabla^2 p - div( 1/rho nabla p )
+  resnorm = 0._mytype
+  
+  !! We should already know grad(p) in X-Pencils
+
+  !!===================================================================================================
+  ! 1) Compute div(grad p)
+
+  !!---------------------------------------------------------------------------------------------------
+  ! X PENCIL
+  CALL decx6(ta1, px1, di1, sx, cfx6, csx6, cwx6, xsize(1), nxmsize, xsize(2), xsize(3), 0)
+  CALL inter6(tb1, py1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+  CALL inter6(tc1, pz1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+  
+  CALL transpose_x_to_y(ta1, tc2, ph4) !->NXM NY NZ
+  CALL transpose_x_to_y(tb1, py2, ph4)
+  CALL transpose_x_to_y(tc1, td2, ph4)
+  
+  !!---------------------------------------------------------------------------------------------------
+  ! Y PENCIL
+  CALL intery6(tb2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 1)
+  CALL decy6(ta2, py2, di2, sy, cfy6, csy6, cwy6, ppyi, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 0)
+  CALL intery6(pz2, td2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 1)
+
+  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+
+  CALL transpose_y_to_z(ta2, tc3, ph3) !->NXM NYM NZ
+  CALL transpose_y_to_z(pz2, pz3, ph3)
+  
+  !!---------------------------------------------------------------------------------------------------
+  ! Z PENCIL
+  CALL interz6(pp3corr, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+  CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
+       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 0)
+  
+  pp3corr(:,:,:) = pp3corr(:,:,:) + ta3(:,:,:)
+  
+  !!===================================================================================================
+  ! 2) Subtract rho0 div(1/rho grad p)
+
+  !!---------------------------------------------------------------------------------------------------
+  ! X PENCIL
+  td1(:,:,:) = px1(:,:,:) / rho1(:,:,:)
+  te1(:,:,:) = py1(:,:,:) / rho1(:,:,:)
+  tf1(:,:,:) = pz1(:,:,:) / rho1(:,:,:)
+  CALL decx6(ta1, td1, di1, sx, cfx6, csx6, cwx6, xsize(1), nxmsize, xsize(2), xsize(3), 0)
+  CALL inter6(tb1, te1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+  CALL inter6(tc1, tf1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+
+  CALL transpose_x_to_y(ta1, tc2, ph4) !->NXM NY NZ
+  CALL transpose_x_to_y(tb1, py2, ph4)
+  CALL transpose_x_to_y(tc1, td2, ph4)
+  
+  !!---------------------------------------------------------------------------------------------------
+  ! Y PENCIL
+  CALL intery6(tb2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 1)
+  CALL decy6(ta2, py2, di2, sy, cfy6, csy6, cwy6, ppyi, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 0)
+  CALL intery6(pz2, td2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+       nymsize, ysize(3), 1)
+
+  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+
+  CALL transpose_y_to_z(ta2, tc3, ph3) !->NXM NYM NZ
+  CALL transpose_y_to_z(pz2, pz3, ph3)
+
+  !!---------------------------------------------------------------------------------------------------
+  ! Z PENCIL
+  CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+  CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
+       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 0)
+
+  ta3(:,:,:) = ta3(:,:,:) + tb3(:,:,:)
+
+  IF (poissiter.EQ.1) THEN
+    !! Compute rho0
+
+    IF (npoissscheme.EQ.0) THEN
+      ! Simple minimum
+      rho0p3(:,:,:) = rho0
+    ELSE
+      ! Harmonic average
+      td1(:,:,:) = 1._mytype / rho1(:,:,:)
+      CALL inter6(rho0p1, td1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+      CALL transpose_x_to_y(rho0p1, tc2, ph4)
+      CALL intery6(rho0p2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+           nymsize, ysize(3), 1)
+      CALL transpose_y_to_z(rho0p2, tc3, ph3) !->NXM NYM NZ
+      CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+           (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+      rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
+    ENDIF
+  ENDIF
+
+  !! Pressure correction = nabla^2 p - rho0 div(1/rho grad p)
+  pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * ta3(:,:,:)
+  
+  !!===================================================================================================
+  ! Convergence test
+  !  | -(div(u^*) - div(u^{k+1})) + dt div(1/rho grad(p^k)) | <= tol * | div(u^{k+1}) |
+  res3(:,:,:) = ta3(:,:,:) - pp3(:,:,:)
+  resnorm = SUM(res3(:,:,:)**2)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, resnorm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+  resnorm = SQRT(resnorm / (nxm * nym * nzm))
+  IF (resnorm.LE.(tol * MAX(divup3norm, 1._mytype))) THEN
+    converged = .TRUE.
+  ENDIF
+
+  IF (nrank.EQ.0) THEN
+    PRINT *, "Poisson iteration ", poissiter, ": |-(divu^* - divu) + div(1/rho gradp)| = ", resnorm, "; |divu| = ", divup3norm
+  ENDIF
+
+  !!===================================================================================================
+  ! Final sum (including original RHS)
+  ! pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * (ta3(:,:,:) - pp3(:,:,:))
+  pp3corr(:,:,:) = pp3corr(:,:,:) + rho0p3(:,:,:) * pp3(:,:,:)
+    
+ENDSUBROUTINE divergence_corr
+
+!********************************************************************
+!  SUBROUTINE: approx_divergence_corr
+! DESCRIPTION: In LMN with the variable-coefficient poisson equation
+!              approximate the correction term
+!              1/rho nabla^2(p) - div( 1/rho grad(p) )
+!********************************************************************
+SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
+     rhos1, rhoss1, rhos01, drhodt1, &
+     td2, te2, tf2, di2, ta2, tb2, tc2, &
+     ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, divu3, &
+     nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+     divup3norm)
+
+  USE MPI
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  INTEGER :: ierr
+
+  INTEGER :: nxmsize, nymsize, nzmsize
+  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, rhos01
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
+  REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: td1, te1, tf1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: divu1
+
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: td2, te2, tf2, di2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize, ysize(3)) :: ta2, tb2, tc2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: divu2
+
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: ta3, tb3, tc3, &
+       di3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: td3, te3, tf3, &
+       pp3corr
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: zero3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+
+  REAL(mytype), INTENT(OUT) :: divup3norm
+  
+  !! Approximate 1/rho0 nabla^2 p following constant-coefficient Poisson equation
+  !  i.e.
+  !  nabla^2 p = 1/dt ( div(rho u)^* - div(rho u)^{k+1} )
+  !            = 1/dt ( div(rho u)^* + drhodt^{k+1} )
+
+  zero3(:,:,:) = 0._mytype
+  CALL divergence (rho1 * ux1, rho1 * uy1, rho1 * uz1, &
+       ep1, ta1, tb1, tc1, di1, td1, te1, tf1, &
+       td2, te2, tf2, di2, ta2, tb2, tc2, &
+       ta3, tb3, tc3, di3, td3, te3, tf3, zero3, pp3corr, &
+       nxmsize, nymsize, nzmsize, ph1, ph3, ph4, 1, .TRUE.)
+  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+  CALL divergence_mom(drhodt1,pp3corr,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+  
+  ! !! Approximate div( 1/rho nabla p ) using variable-coefficient Poisson equation
+  ! !  i.e.
+  ! !  div( 1/rho nabla p ) = 1/Delta t ( div(u^*) - div(u^{k+1}) )
+  ! !
+  ! !  which is already known in pp3.
+  
+  ! pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * pp3(:,:,:)
+
+  ! !! Add original RHS (pp3 = 1/dt ( div(u^*) - div(u^{k+1}) )) to correction
+  ! pp3corr(:,:,:) = pp3corr(:,:,:) + rho0p3(:,:,:) * pp3(:,:,:)
+
+  !! Compute | div(u) |
+
+  ! Z->Y->X
+  CALL transpose_z_to_y(divu3, divu2)
+  CALL transpose_y_to_x(divu2, divu1)
+  CALL inter6(td1,divu1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+
+  ! X->Y
+  CALL transpose_x_to_y(td1, td2, ph4)
+  CALL intery6(ta2,td2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+
+  ! Y->Z
+  CALL transpose_y_to_z(ta2,ta3,ph3)
+  CALL interz6(td3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+       (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+
+  divup3norm = SUM(td3(:,:,:)**2)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, divup3norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+  divup3norm = SQRT(divup3norm / (nxm * nym * nzm))
+  
+ENDSUBROUTINE approx_divergence_corr
 
 !********************************************************************
 !
