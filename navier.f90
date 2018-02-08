@@ -614,6 +614,8 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
 
     ! #ifndef TWOD
     ! Set the flowfield
+    u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + 1._mytype)
+    u2 = -SQRT(dens1 / dens2) / (1._mytype + SQRT(dens1 / dens2))
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         if (istret.eq.0) then
@@ -627,6 +629,9 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
           ! Set mean field
           ux1(i, j, k) = ux1(i, j, k) + (u1 + u2) / 2._mytype &
                + (u1 - u2) * TANH(2._mytype * y) / 2._mytype
+          uy1(i, j, k) = 0._mytype
+          uz1(i, j, k) = 0._mytype
+          rho1(i, j, k) = 0._mytype
 
           ! Calculate disturbance field (as given in Fortune2004)
           ! NB x and y are swapped relative to Fortune2004
