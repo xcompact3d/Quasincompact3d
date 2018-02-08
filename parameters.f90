@@ -90,6 +90,7 @@ read (10,*) tol
 read (10,*) istret
 read (10,*) beta
 read (10,*) ilmn
+read (10,*) npoissscheme
 read (10,*) iskew
 read (10,*) iprops
 read (10,*) iscalar
@@ -199,6 +200,12 @@ if (ilmn.ne.0) then
 
   if (nrhoscheme.le.0) then
     print *, "Poisson tolerance: ", tol
+
+    if (npoissscheme.eq.0) then
+      print *, "Using rho0 = MIN(rho) in var-coeff Poisson equation"
+    else
+      print *, "Using rho0 = harmonic_avg(rho) in var-coeff Poisson equation"
+    endif
   endif
 endif
 

@@ -30,6 +30,7 @@
 0       #istret # y mesh refinement (0:no, 1:center, 2:both sides, 3:bottom)
 0.3     #beta   # Refinement parameter (beta)
 1       #ilmn   # (0:incompressible, 1: Low Mach Number)
+1       #npoisscheme# How to compute rho0 in var-coeff poisson equation? (0: rho0 = MIN(rho), Anything else: harmonic average)
 1       #iskew  # (0:urotu, 1:skew, for the convective terms)
 1       #iprops # (0: constant properties, 1: variable properties)
 0       #iscalar# (0: no scalar, 1:scalar)
