@@ -266,7 +266,7 @@ PROGRAM incompact3d
       poissiter = 0
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
-          if (nrhoscheme.eq.0) then
+          if (ivarcoeff.ne.0) then
             if (poissiter.ne.0) then
               !! Compute correction term
               call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, tg1, &
@@ -309,7 +309,7 @@ PROGRAM incompact3d
         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
 
-        if ((nrhoscheme.ne.0).or.(ilmn.eq.0)) then
+        if ((ilmn.eq.0).or.(ivarcoeff.eq.0)) then
           converged = .TRUE.
         endif
 

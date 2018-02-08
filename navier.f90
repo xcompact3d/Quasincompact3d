@@ -274,7 +274,7 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
     phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
   endif
   
-  if (nrhoscheme.eq.0) then
+  if (ivarcoeff.ne.0) then
     !---------------------------------------------------------------------------------
     ! XXX Using variable-coefficient Poisson equation, convert momentum back to
     !     velocity.
@@ -317,7 +317,7 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz,rho)
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
   if (ilmn.ne.0) then
-    if (nrhoscheme.ne.0) then
+    if (ivarcoeff.eq.0) then
       !! We are solving constant-coefficient Poisson equation,
       !! first convert momentum->velocity
       if (iskew.ne.2) then
@@ -947,7 +947,7 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
 
   !WORK X-PENCILS
   call decx6(td1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
-  if (nrhoscheme.eq.0) then
+  if (ivarcoeff.ne.0) then
     !! Solving variable-coefficient Poisson equation
     !  Get divu to x pencils and interpolate to pressure points
     call transpose_z_to_y(divu3, divu2)
@@ -1053,14 +1053,6 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   INTEGER :: subitr
 
   INTEGER :: ijk, nxyz
-  INTEGER :: nrhoscheme_tmp
-
-  IF (nrhoscheme.LE.0) THEN
-    nrhoscheme_tmp = nrhoscheme
-    nrhoscheme = 3
-  ELSE
-    nrhoscheme_tmp = nrhoscheme
-  ENDIF
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
@@ -1114,8 +1106,6 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
       STOP
     ENDIF
   ENDIF
-
-  nrhoscheme = nrhoscheme_tmp
 
 ENDSUBROUTINE extrapol_rhotrans
 

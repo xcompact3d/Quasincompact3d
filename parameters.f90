@@ -90,6 +90,7 @@ read (10,*) tol
 read (10,*) istret
 read (10,*) beta
 read (10,*) ilmn
+read (10,*) ivarcoeff
 read (10,*) npoissscheme
 read (10,*) iskew
 read (10,*) iprops
@@ -198,7 +199,8 @@ endif
 if (ilmn.ne.0) then
   print *, "Low Mach Number: Enabled"
 
-  if (nrhoscheme.le.0) then
+  if (ivarcoeff.ne.0) then
+    print *, "Var-coeff Poisson: ENABLED"
     print *, "Poisson tolerance: ", tol
 
     if (npoissscheme.eq.0) then
