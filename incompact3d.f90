@@ -51,7 +51,7 @@ PROGRAM incompact3d
   character(len=20) :: filename
 
   logical :: converged
-  integer :: poissiter
+  integer :: poissiter, totalpoissiter
 
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
 
@@ -93,6 +93,7 @@ PROGRAM incompact3d
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
 
+  totalpoissiter = 0
   if (ilit.eq.0) then
     t = 0._mytype
     call init(ux1,uy1,uz1,rho1,ep1,phi1,&
@@ -315,8 +316,9 @@ PROGRAM incompact3d
         poissiter = poissiter + 1
       enddo
 
-      if ((nrank.eq.0).and.((ilmn.eq.0).or.(nrhoscheme.eq.0))) then
+      if (nrank.eq.0) then
         print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+        totalpoissiter = totalpoissiter + poissiter
       endif
       !-----------------------------------------------------------------------------------
 
@@ -381,6 +383,8 @@ PROGRAM incompact3d
          t1/float(nproc)/(ilast-ifirst+1),' seconds'
     print *,'simulation with nx*ny*nz=',nx,ny,nz,'mesh nodes'
     print *,'Mapping p_row*p_col=',p_row,p_col
+    print *,'Mean iterations per Poisson solve: ', &
+         float(totalpoissiter) / float(iadvance_time) / float(ilast - ifirst + 1)
   endif
 
   !call decomp_2d_poisson_finalize
