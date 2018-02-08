@@ -85,13 +85,13 @@ read (10,*) iin
 read (10,*) ifirst
 read (10,*) ilast
 read (10,*) nscheme
-read (10,*) nrhoscheme
-read (10,*) tol
 read (10,*) istret
 read (10,*) beta
 read (10,*) ilmn
+read (10,*) nrhoscheme
 read (10,*) ivarcoeff
 read (10,*) npoissscheme
+read (10,*) tol
 read (10,*) iskew
 read (10,*) iprops
 read (10,*) iscalar
