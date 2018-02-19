@@ -1957,43 +1957,6 @@ subroutine corgp_IBM (ux,uy,uz,px,py,pz,nlock)
   return
 end subroutine corgp_IBM
 
-SUBROUTINE corgp_grav(ux1, uy1, uz1, px1, py1, pz1, nlock)
-
-  USE decomp_2d
-  USE variables
-  USE param
-  
-  IMPLICIT NONE
-
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
-  INTEGER :: nlock
-  INTEGER :: ijk, nxyz
-
-  nxyz = xsize(1) * xsize(2) * xsize(3)
-
-  IF ((itime.EQ.1).AND.(itr.EQ.1)) THEN
-    px1(:,:,:) = 0._mytype
-    py1(:,:,:) = 0._mytype
-    pz1(:,:,:) = 0._mytype
-  ENDIF
-
-  IF (nlock.EQ.1) THEN
-    DO ijk = 1, nxyz
-      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) - px1(ijk, 1, 1)
-      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) - py1(ijk, 1, 1)
-      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) - pz1(ijk, 1, 1)
-    ENDDO
-  ELSE IF (nlock.EQ.2) THEN
-    DO ijk = 1, nxyz
-      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + px1(ijk, 1, 1)
-      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + py1(ijk, 1, 1)
-      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + pz1(ijk, 1, 1)
-    ENDDO
-  ENDIF
-  
-ENDSUBROUTINE corgp_grav
-
 !*******************************************************************
 !
 !
@@ -2049,19 +2012,19 @@ SUBROUTINE apply_grav(ux1, uy1, uz1, rho1)
   IF ((frx.GT.0._mytype).OR.(frx.LT.0._mytype)) THEN
     invfr = 1._mytype / frx
     DO ijk = 1, nxyz
-      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
     ENDDO
   ENDIF
   IF ((fry.GT.0._mytype).OR.(fry.LT.0._mytype)) THEN
     invfr = 1._mytype / fry
     DO ijk = 1, nxyz
-      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
     ENDDO
   ENDIF
   IF ((frz.GT.0._mytype).OR.(frz.LT.0._mytype)) THEN
     invfr = 1._mytype / frz
     DO ijk = 1, nxyz
-      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens2) * invfr * gdt(itr)
+      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
     ENDDO
   ENDIF
   

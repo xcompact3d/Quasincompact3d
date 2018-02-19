@@ -226,9 +226,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
-      call corgp_grav(ux1, uy1, uz1, px1, py1, pz1, 1)
       call apply_grav(ux1, uy1, uz1, rho1)
-      call corgp_grav(ux1, uy1, uz1, px1, py1, pz1, 2)
 
       call pre_correc(ux1,uy1,uz1,rho1)
 
