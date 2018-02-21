@@ -1721,6 +1721,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: zero3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
 
+  REAL(mytype) :: divup3normlocal
   REAL(mytype), INTENT(OUT) :: divup3norm
   
   !! Approximate 1/rho0 nabla^2 p following constant-coefficient Poisson equation
@@ -1764,9 +1765,9 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   CALL interz6(td3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
        (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
 
-  divup3norm = SUM(td3(:,:,:)**2)
-  CALL MPI_ALLREDUCE(MPI_IN_PLACE, divup3norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-  divup3norm = SQRT(divup3norm / (nxm * nym * nzm))
+  divup3normlocal = SUM(td3(:,:,:)**2)
+  CALL MPI_ALLREDUCE(divup3normlocal, divup3norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+  divup3norm = SQRT(divup3norm)
   
 ENDSUBROUTINE approx_divergence_corr
 

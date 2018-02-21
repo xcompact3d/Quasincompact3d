@@ -1125,18 +1125,18 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)), INTENT(IN) :: sol_num, sol_exact
   CHARACTER(LEN=*), INTENT(IN) :: name
 
-  REAL(mytype) :: err
+  REAL(mytype) :: err, errlocal
   INTEGER :: ijk
   INTEGER :: nvect1
   INTEGER :: ierr
 
   nvect1 = xsize(1) * xsize(2) * xsize(3)
-  err = 0._mytype
+  errlocal = 0._mytype
   DO ijk = 1,nvect1
-    err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
+    errlocal = errlocal + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
   ENDDO
 
-  CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+  CALL MPI_ALLREDUCE(errlocal, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
   err = err / float(nxm * nym * nzm)
   err = SQRT(err)
 
