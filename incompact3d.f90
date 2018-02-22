@@ -47,7 +47,7 @@ PROGRAM incompact3d
 
   integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
   real(mytype) :: x,y,z,tmp1
-  double precision :: t1,t2
+  double precision :: t1,t2,t1poiss,t2poiss,tpoisstotal
   character(len=20) :: filename
 
   logical :: converged
@@ -153,6 +153,7 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
+  tpoisstotal = 0._mytype
   do itime=ifirst,ilast
 
     t=(itime-1)*dt
@@ -270,6 +271,7 @@ PROGRAM incompact3d
       ! Solution of the Poisson equation
       converged = .FALSE.
       poissiter = 0
+      t1poiss = MPI_WTIME()
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
           if (ivarcoeff.ne.0) then
@@ -321,9 +323,11 @@ PROGRAM incompact3d
 
         poissiter = poissiter + 1
       enddo
+      t2poiss = MPI_WTIME()
+      tpoisstotal = tpoisstotal + (t2poiss - t1poiss)
 
       if (nrank.eq.0) then
-        print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+        print *, "Solved Poisson equation in ", poissiter, " iteration(s), took ", t2poiss - t1poiss, "s"
         totalpoissiter = totalpoissiter + poissiter
       endif
       !-----------------------------------------------------------------------------------
@@ -384,6 +388,9 @@ PROGRAM incompact3d
   t2=MPI_WTIME()-t1
   call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
        MPI_COMM_WORLD,code)
+  t2 = tpoisstotal
+  call MPI_ALLREDUCE(t2, tpoisstotal, 1, MPI_REAL8, MPI_SUM, &
+       MPI_COMM_WORLD, code)
   if (nrank.eq.0) then
     print *,'time per time_step: ', &
          t1/float(nproc)/(ilast-ifirst+1),' seconds'
@@ -391,6 +398,8 @@ PROGRAM incompact3d
     print *,'Mapping p_row*p_col=',p_row,p_col
     print *,'Mean iterations per Poisson solve: ', &
          float(totalpoissiter) / float(iadvance_time) / float(ilast - ifirst + 1)
+    print *,'Fraction of time spent in Poisson equation: ', &
+         tpoisstotal / t1
   endif
 
   !call decomp_2d_poisson_finalize
