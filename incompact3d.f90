@@ -194,6 +194,7 @@ PROGRAM incompact3d
       call convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ux2,uy2,uz2,rho2,mu2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,mu3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+      call apply_grav(ta1, tb1, tc1, rho1)
 
       if (iscalar.eq.1) then
         !---------------------------------------------------------------------------------
@@ -226,8 +227,6 @@ PROGRAM incompact3d
 !!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
-
-      call apply_grav(ux1, uy1, uz1, rho1)
 
       call pre_correc(ux1,uy1,uz1,rho1)
 
