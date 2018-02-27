@@ -2040,7 +2040,7 @@ subroutine body(ux,uy,uz,ep1)
   return  
 end subroutine body
 
-SUBROUTINE apply_grav(ux1, uy1, uz1, rho1)
+SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
 
   USE decomp_2d
   USE variables
@@ -2048,31 +2048,34 @@ SUBROUTINE apply_grav(ux1, uy1, uz1, rho1)
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, rho1
-  REAL(mytype) :: invfr
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, rho1
+  REAL(mytype) :: invfrx, invfry, invfrz
 
   INTEGER :: ijk, nxyz
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
   IF ((frx.GT.0._mytype).OR.(frx.LT.0._mytype)) THEN
-    invfr = 1._mytype / frx
-    DO ijk = 1, nxyz
-      ux1(ijk, 1, 1) = ux1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
-    ENDDO
+    invfrx = 1._mytype / frx
+  ELSE
+    invfrx = 0._mytype
   ENDIF
   IF ((fry.GT.0._mytype).OR.(fry.LT.0._mytype)) THEN
-    invfr = 1._mytype / fry
-    DO ijk = 1, nxyz
-      uy1(ijk, 1, 1) = uy1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
-    ENDDO
+    invfry = 1._mytype / fry
+  ELSE
+    invfry = 0._mytype
   ENDIF
   IF ((frz.GT.0._mytype).OR.(frz.LT.0._mytype)) THEN
-    invfr = 1._mytype / frz
-    DO ijk = 1, nxyz
-      uz1(ijk, 1, 1) = uz1(ijk, 1, 1) + (rho1(ijk, 1, 1) - dens1) * invfr * gdt(itr)
-    ENDDO
+    invfrz = 1._mytype / frz
+  ELSE
+    invfrz = 0._mytype
   ENDIF
+
+  DO ijk = 1, nxyz
+    ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrx
+    tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfry
+    tc1(ijk, 1, 1) = tc1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrz
+  ENDDO
   
 ENDSUBROUTINE apply_grav
 
