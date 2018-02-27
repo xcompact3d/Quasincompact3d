@@ -1512,10 +1512,10 @@ ENDSUBROUTINE divergence_mom
 !              compute the correction term
 !              1/rho nabla^2(p) - div( 1/rho grad(p) )
 !********************************************************************
-SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, rho0p1, &
-     py2, pz2, ta2, tb2, tc2, td2, di2, rho0p2, &
-     pz3, pp3corr, ta3, tb3, tc3, di3, rho0p3, res3, pp3, &
-     nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+     py2, pz2, ta2, tb2, tc2, td2, di2, &
+     pz3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+     nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
      divup3norm, poissiter, converged)
 
   USE MPI
@@ -1527,31 +1527,30 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   INTEGER :: ierr
 
-  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+  TYPE(DECOMP_INFO) :: ph1, ph2, ph3, ph4
   INTEGER, INTENT(IN) :: nxmsize, nymsize, nzmsize
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: px1, py1, pz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: td1, te1, tf1, di1
-  REAL(mytype), DIMENSION(nxmsize , xsize(2), xsize(3)) :: ta1, tb1, tc1, rho0p1
+  REAL(mytype), DIMENSION(nxmsize , xsize(2), xsize(3)) :: ta1, tb1, tc1
 
   REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: tc2, td2, py2, di2
-  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize , ysize(3)) :: ta2, tb2, pz2, rho0p2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize , ysize(3)) :: ta2, tb2, pz2
 
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: tc3, pz3, di3
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
-       pp3corr, pp3, rho0p3, res3
+       pp3corr, pp3, rho0p3, tg3
 
-  REAL(mytype) :: resnorm
+  REAL(mytype) :: resnorm, resnormlocal, pressnorm, pressnormlocal
   REAL(mytype), INTENT(IN) :: divup3norm
   INTEGER, INTENT(IN) :: poissiter
   LOGICAL, INTENT(OUT) :: converged
 
-  REAL(mytype) :: rho0
+  LOGICAL :: file_exists
 
-  rho0 = MINVAL(rho1)
-  CALL MPI_ALLREDUCE(MPI_IN_PLACE, rho0, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
+  REAL(mytype) :: rho0, rho0local
 
   !! Correction = 1/rho0 nabla^2 p - div( 1/rho nabla p )
   resnorm = 0._mytype
@@ -1559,43 +1558,17 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   !! We should already know grad(p) in X-Pencils
 
   !!===================================================================================================
-  ! 1) Compute div(grad p)
-
-  !!---------------------------------------------------------------------------------------------------
-  ! X PENCIL
-  CALL decx6(ta1, px1, di1, sx, cfx6, csx6, cwx6, xsize(1), nxmsize, xsize(2), xsize(3), 0)
-  CALL inter6(tb1, py1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
-  CALL inter6(tc1, pz1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
-  
-  CALL transpose_x_to_y(ta1, tc2, ph4) !->NXM NY NZ
-  CALL transpose_x_to_y(tb1, py2, ph4)
-  CALL transpose_x_to_y(tc1, td2, ph4)
-  
-  !!---------------------------------------------------------------------------------------------------
-  ! Y PENCIL
-  CALL intery6(tb2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
-       nymsize, ysize(3), 1)
-  CALL decy6(ta2, py2, di2, sy, cfy6, csy6, cwy6, ppyi, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
-       nymsize, ysize(3), 0)
-  CALL intery6(pz2, td2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
-       nymsize, ysize(3), 1)
-
-  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
-
-  CALL transpose_y_to_z(ta2, tc3, ph3) !->NXM NYM NZ
-  CALL transpose_y_to_z(pz2, pz3, ph3)
-  
-  !!---------------------------------------------------------------------------------------------------
-  ! Z PENCIL
-  CALL interz6(pp3corr, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
-       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
-  CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
-       (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 0)
-  
-  pp3corr(:,:,:) = pp3corr(:,:,:) + ta3(:,:,:)
+  ! Check convergence
+  pressnormlocal = SUM((pp3corr(:,:,:) - tg3(:,:,:))**2)
+  CALL MPI_ALLREDUCE(pressnormlocal, pressnorm, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  pressnorm = SQRT(pressnorm)
+  IF (pressnorm.LE.tol) THEN
+    converged = .TRUE.  
+  ENDIF
+  tg3(:,:,:) = pp3corr(:,:,:)
   
   !!===================================================================================================
-  ! 2) Subtract rho0 div(1/rho grad p)
+  ! 1) Compute residual r = -div(1/rho grad p) + (div u^* - div u)
 
   !!---------------------------------------------------------------------------------------------------
   ! X PENCIL
@@ -1630,51 +1603,112 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
        (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
   CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
        (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 0)
-
-  ta3(:,:,:) = ta3(:,:,:) + tb3(:,:,:)
-
-  IF (poissiter.EQ.1) THEN
-    !! Compute rho0
-
-    IF (npoissscheme.EQ.0) THEN
-      ! Simple minimum
-      rho0p3(:,:,:) = rho0
-    ELSE
-      ! Harmonic average
-      td1(:,:,:) = 1._mytype / rho1(:,:,:)
-      CALL inter6(rho0p1, td1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
-      CALL transpose_x_to_y(rho0p1, tc2, ph4)
-      CALL intery6(rho0p2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
-           nymsize, ysize(3), 1)
-      CALL transpose_y_to_z(rho0p2, tc3, ph3) !->NXM NYM NZ
-      CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
-           (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
-      rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
-    ENDIF
-  ENDIF
-
-  !! Pressure correction = nabla^2 p - rho0 div(1/rho grad p)
-  pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * ta3(:,:,:)
+  
+  !!----------------------------------------------------------------------------------------------------
+  ! Subtract div(1/rho gradp) from div u^* - div u
+  pp3corr(:,:,:) = pp3(:,:,:) - (ta3(:,:,:) + tb3(:,:,:))
   
   !!===================================================================================================
   ! Convergence test
   !  | -(div(u^*) - div(u^{k+1})) + dt div(1/rho grad(p^k)) | <= tol * | div(u^{k+1}) |
-  res3(:,:,:) = ta3(:,:,:) - pp3(:,:,:)
-  resnorm = SUM(res3(:,:,:)**2)
-  CALL MPI_ALLREDUCE(MPI_IN_PLACE, resnorm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-  resnorm = SQRT(resnorm / (nxm * nym * nzm))
-  IF (resnorm.LE.(tol * MAX(divup3norm, 1._mytype))) THEN
+  resnormlocal = SUM(pp3corr(:,:,:)**2)
+  CALL MPI_ALLREDUCE(resnormlocal, resnorm, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  resnorm = SQRT(resnorm)
+  IF (resnorm.LE.(MAX(tol * divup3norm, 1.0e-14_mytype))) THEN
     converged = .TRUE.
   ENDIF
 
   IF (nrank.EQ.0) THEN
-    PRINT *, "Poisson iteration ", poissiter, ": |-(divu^* - divu) + div(1/rho gradp)| = ", resnorm, "; |divu| = ", divup3norm
+    INQUIRE(FILE="VARPOISSON.log", EXIST=file_exists)
+    IF (file_exists.EQV..TRUE.) THEN
+      OPEN(10, FILE="VARPOISSON.log", STATUS="old", ACTION="write", POSITION="append")
+    ELSE
+      OPEN(10, FILE="VARPOISSON.log", STATUS="new", ACTION="write")
+      WRITE(10, *) "| ITIME | ITR | POISSITER | POISSON RESIDUAL NORM | DIVU NORM | DELTA P NORM |"
+    ENDIF
+    WRITE(10, *) itime, itr, poissiter, resnorm, divup3norm, pressnorm
+    CLOSE(10)
   ENDIF
 
   !!===================================================================================================
-  ! Final sum (including original RHS)
-  ! pp3corr(:,:,:) = pp3corr(:,:,:) - rho0p3(:,:,:) * (ta3(:,:,:) - pp3(:,:,:))
-  pp3corr(:,:,:) = pp3corr(:,:,:) + rho0p3(:,:,:) * pp3(:,:,:)
+
+  IF (converged.EQV..FALSE.) THEN
+
+    !!===================================================================================================
+    ! 2) Scale the residual by density
+    
+    IF (poissiter.EQ.1) THEN
+      !! Compute (and store) rho0
+      
+      IF (npoissscheme.EQ.0) THEN
+        ! Simple minimum
+        rho0local = MINVAL(rho1)
+        CALL MPI_ALLREDUCE(rho0local, rho0, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
+        rho0p3(:,:,:) = rho0
+      ELSE
+        ! Harmonic average
+        td1(:,:,:) = 1._mytype / rho1(:,:,:)
+        CALL inter6(ta1, td1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+        CALL transpose_x_to_y(ta1, tc2, ph4)
+        CALL intery6(ta2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+             nymsize, ysize(3), 1)
+        CALL transpose_y_to_z(ta2, tc3, ph3) !->NXM NYM NZ
+        CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+             (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+        rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
+      ENDIF
+    ENDIF
+
+    pp3corr(:,:,:) = rho0p3(:,:,:) * pp3corr(:,:,:)
+    
+    !!===================================================================================================
+    ! 3) Compute div(grad p)
+
+    ! td1(:,:,:) = (1._mytype - rho0 / rho1(:,:,:)) * px1(:,:,:)
+    ! te1(:,:,:) = (1._mytype - rho0 / rho1(:,:,:)) * py1(:,:,:)
+    ! tf1(:,:,:) = (1._mytype - rho0 / rho1(:,:,:)) * pz1(:,:,:)
+    td1(:,:,:) = px1(:,:,:)
+    te1(:,:,:) = py1(:,:,:)
+    tf1(:,:,:) = pz1(:,:,:)
+    
+    !!---------------------------------------------------------------------------------------------------
+    ! X PENCIL
+    CALL decx6(ta1, td1, di1, sx, cfx6, csx6, cwx6, xsize(1), nxmsize, xsize(2), xsize(3), 0)
+    CALL inter6(tb1, te1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+    CALL inter6(tc1, tf1, di1, sx, cifxp6, cisxp6, ciwxp6, xsize(1), nxmsize, xsize(2), xsize(3), 1)
+    
+    CALL transpose_x_to_y(ta1, tc2, ph4) !->NXM NY NZ
+    CALL transpose_x_to_y(tb1, py2, ph4)
+    CALL transpose_x_to_y(tc1, td2, ph4)
+    
+    !!---------------------------------------------------------------------------------------------------
+    ! Y PENCIL
+    CALL intery6(tb2, tc2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+         nymsize, ysize(3), 1)
+    CALL decy6(ta2, py2, di2, sy, cfy6, csy6, cwy6, ppyi, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+         nymsize, ysize(3), 0)
+    CALL intery6(pz2, td2, di2, sy, cifyp6, cisyp6, ciwyp6, (ph1%yen(1) - ph1%yst(1) + 1), ysize(2), &
+         nymsize, ysize(3), 1)
+    
+    ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+    
+    CALL transpose_y_to_z(ta2, tc3, ph3) !->NXM NYM NZ
+    CALL transpose_y_to_z(pz2, pz3, ph3)
+    
+    !!---------------------------------------------------------------------------------------------------
+    ! Z PENCIL
+    CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
+         (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
+    CALL decz6(ta3, pz3, di3, sz, cfz6, csz6, cwz6, (ph1%zen(1) - ph1%zst(1) + 1), &
+         (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 0)
+
+    ta3(:,:,:) = ta3(:,:,:) + tb3(:,:,:)
+
+    !!===================================================================================================
+    ! 4) Compute final sum
+
+    pp3corr(:,:,:) = pp3corr(:,:,:) + ta3(:,:,:)
+  ENDIF
     
 ENDSUBROUTINE divergence_corr
 
@@ -1687,7 +1721,7 @@ ENDSUBROUTINE divergence_corr
 SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
      rhos1, rhoss1, rhos01, drhodt1, &
      td2, te2, tf2, di2, ta2, tb2, tc2, &
-     ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, divu3, &
+     ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
      nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
      divup3norm)
 
@@ -1705,6 +1739,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, rhos01
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: momx1, momy1, momz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
   REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: td1, te1, tf1
@@ -1717,7 +1752,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: ta3, tb3, tc3, &
        di3
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: td3, te3, tf3, &
-       pp3corr
+       pp3corr, tg3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: zero3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
 
@@ -1730,7 +1765,10 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   !            = 1/dt ( div(rho u)^* + drhodt^{k+1} )
 
   zero3(:,:,:) = 0._mytype
-  CALL divergence (rho1 * ux1, rho1 * uy1, rho1 * uz1, &
+  momx1(:,:,:) = rho1(:,:,:) * ux1(:,:,:)
+  momy1(:,:,:) = rho1(:,:,:) * uy1(:,:,:)
+  momz1(:,:,:) = rho1(:,:,:) * uz1(:,:,:)
+  CALL divergence (momx1, momy1, momz1, &
        ep1, ta1, tb1, tc1, di1, td1, te1, tf1, &
        td2, te2, tf2, di2, ta2, tb2, tc2, &
        ta3, tb3, tc3, di3, td3, te3, tf3, zero3, pp3corr, &
@@ -1768,6 +1806,13 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   divup3normlocal = SUM(td3(:,:,:)**2)
   CALL MPI_ALLREDUCE(divup3normlocal, divup3norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
   divup3norm = SQRT(divup3norm)
+
+  !! Set/store old pressure
+  IF (itime.EQ.1) THEN
+    tg3(:,:,:) = 0._mytype
+  ELSE
+    tg3(:,:,:) = pp3corr(:,:,:)
+  ENDIF
   
 ENDSUBROUTINE approx_divergence_corr
 
