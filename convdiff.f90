@@ -999,18 +999,20 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     IF (iprops.EQ.0) THEN
       ! Calculate divergence of velocity using 2nd derivatives for accuracy
       CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-      divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
+      divu3(:,:,:) = divu3(:,:,:) + ta3(:,:,:)
     ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
       CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
     ENDIF
+
+    divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) / temperature3(:,:,:))
     
     ! XXX add dpdt and additional source terms
-    
-    ! divu3 = divu3 / (rho3 * temperature3 * Re * Pr)
-    divu3(:,:,:) = invpressure0 * divu3(:,:,:) ! rho*T = pressure0 = constant (in space)
+
+    ! Finally, we have so far computed rho div(u), want div(u)
+    divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
   ELSE
     rho2(:,:,:) = 1._mytype
     rho3(:,:,:) = 1._mytype
