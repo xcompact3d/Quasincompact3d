@@ -1534,7 +1534,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
        pp3corr, pp3, rho0p3, tg3
 
-  REAL(mytype) :: resnorm, resnormlocal, pressnorm, pressnormlocal
+  REAL(mytype) :: resnorm, resnormlocal, pressnorm, pressnormlocal, deltadivunormlocal, deltadivunorm
   REAL(mytype), INTENT(IN) :: divup3norm
   INTEGER, INTENT(IN) :: poissiter
   LOGICAL, INTENT(OUT) :: converged
@@ -1609,15 +1609,19 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
     converged = .TRUE.
   ENDIF
 
+  deltadivunormlocal = SUM(pp3(:,:,:)**2)
+  CALL MPI_ALLREDUCE(deltadivunormlocal, deltadivunorm, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  deltadivunorm = SQRT(deltadivunorm)
+
   IF (nrank.EQ.0) THEN
     INQUIRE(FILE="VARPOISSON.log", EXIST=file_exists)
     IF (file_exists.EQV..TRUE.) THEN
       OPEN(10, FILE="VARPOISSON.log", STATUS="old", ACTION="write", POSITION="append")
     ELSE
       OPEN(10, FILE="VARPOISSON.log", STATUS="new", ACTION="write")
-      WRITE(10, *) "| ITIME | ITR | POISSITER | POISSON RESIDUAL NORM | DIVU NORM | DELTA P NORM |"
+      WRITE(10, *) "| ITIME | ITR | POISSITER | POISSON RESIDUAL NORM | DIVU^{n+1} NORM | DIVU^* - DIVU^{n+1} NORM | DELTA P NORM |"
     ENDIF
-    WRITE(10, *) itime, itr, poissiter, resnorm, divup3norm, pressnorm
+    WRITE(10, *) itime, itr, poissiter, resnorm, divup3norm, deltadivunorm, pressnorm
     CLOSE(10)
   ENDIF
 
