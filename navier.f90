@@ -1511,6 +1511,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   USE MPI
   USE decomp_2d
+  USE decomp_2d_io
   USE variables
   USE param
 
@@ -1542,6 +1543,9 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   LOGICAL :: file_exists
 
   REAL(mytype) :: rho0, rho0local
+
+  REAL(mytype), DIMENSION(xszV(1), xszV(2), xszV(3)) :: uvisu
+  character(len=20) :: filename
 
   !! Correction = 1/rho0 nabla^2 p - div( 1/rho nabla p )
   resnorm = 0._mytype
@@ -1625,7 +1629,26 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
     CLOSE(10)
   ENDIF
 
-  !!===================================================================================================
+!   !!===================================================================================================
+!   ! Visualise the residual
+!   !WORK Z-PENCILS
+!   call interiz6(tc3,pp3corr,di3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+!        (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+!   !WORK Y-PENCILS
+!   call transpose_z_to_y(tc3,ta2,ph3) !nxm nym nz
+!   call interiy6(tc2,ta2,di2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+!        (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+!   !WORK X-PENCILS
+!   call transpose_y_to_x(tc2,ta1,ph2) !nxm ny nz
+!   call interi6(td1,ta1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+!        nxmsize,xsize(1),xsize(2),xsize(3),1)
+!   !The pressure field on the main mesh is in td1
+!   !PRESSURE
+!   uvisu=0.
+!   call fine_to_coarseV(1,td1,uvisu)
+! 990 format('res',I1,"-",I1,"-",I3.3)
+!   write(filename, 990) itime/imodulo, itr, poissiter
+!   call decomp_2d_write_one(1,uvisu,filename,2)
 
   IF (converged.EQV..FALSE.) THEN
 
