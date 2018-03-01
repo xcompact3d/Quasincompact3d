@@ -1008,15 +1008,6 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
         bxz1(j, k) = 0._mytype
       enddo
     enddo
-    
-    ! if (t.lt.1._mytype) then
-    !   do k = 1, xsize(3)
-    !     do j = 1, xsize(2)
-    !       bxx1(j, k) = bxx1(j, k) * SIN(t * (PI / 2._mytype))
-    !       rho1(1, j, k) = rho1(1, j, k) * SIN(t * (PI / 2._mytype))
-    !     enddo
-    !   enddo
-    ! endif
   else if (itype.eq.6) then
     t=0._mytype
     !xv=1._mytype/100._mytype
@@ -2099,9 +2090,9 @@ subroutine pre_correc(ux,uy,uz,rho)
   integer, dimension(2) :: dims, dummy_coords
   logical, dimension(2) :: dummy_periods
 
-  real(mytype) :: Ain, Aout
+  real(mytype) :: Aout
 
-  integer :: i1, in, j1, jn, k1, kn
+  integer :: istart, iend, jstart, jend, kstart, kend
 
   if (itime==1) then
     dpdyx1=0._mytype
@@ -2171,11 +2162,9 @@ subroutine pre_correc(ux,uy,uz,rho)
 
     !! Compute inflow
     ut1 = 0._mytype
-    Ain = 0._mytype
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         ut1 = ut1 + bxx1(j, k) * dy * dz
-        Ain = Ain + dy * dz
       enddo
     enddo
 
@@ -2200,7 +2189,6 @@ subroutine pre_correc(ux,uy,uz,rho)
     ! endif
   
     call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-    call MPI_ALLREDUCE(MPI_IN_PLACE, Ain, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
     ! ut11 = ut11 / nproc
 
     !! Compute outflow
@@ -2229,7 +2217,6 @@ subroutine pre_correc(ux,uy,uz,rho)
   !****************************************************
   
   if (nclx.eq.2) then
-
     if (ncly.eq.2) then
       if (xstart(2).eq.1) then
         j = 1
@@ -2414,11 +2401,11 @@ subroutine pre_correc(ux,uy,uz,rho)
            dims, dummy_periods, dummy_coords, code)
 
       IF (nclx.EQ.2) THEN
-        i1 = 2
-        in = xsize(1) - 1
+        istart = 2
+        iend = xsize(1) - 1
       ELSE
-        i1 = 1
-        in = xsize(1)
+        istart = 1
+        iend = xsize(1)
       ENDIF
       
       IF (dims(2).EQ.1) THEN
