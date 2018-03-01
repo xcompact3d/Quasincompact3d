@@ -400,8 +400,8 @@ PROGRAM incompact3d
     print *,'Mapping p_row*p_col=',p_row,p_col
     print *,'Mean iterations per Poisson solve: ', &
          float(totalpoissiter) / float(iadvance_time) / float(ilast - ifirst + 1)
-    print *,'Fraction of time spent in Poisson equation: ', &
-         tpoisstotal / t1
+    print *,'Time spent in Poisson equation (%): ', &
+         100._mytype * tpoisstotal / t1
   endif
 
   !call decomp_2d_poisson_finalize
