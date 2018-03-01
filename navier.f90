@@ -998,11 +998,11 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
             ! ux1(i,j,k) = ux1(i,j,k) + SIN((x / xlx) * (0.5_mytype)) * gauss
           end do
         endif
-        if (itime.le.1) then
-          do i = 1, xsize(1)
-            rho1(i,j,k) = dens2
-          enddo
-        endif
+        ! if (itime.le.1) then
+        !   do i = 1, xsize(1)
+        !     rho1(i,j,k) = dens2
+        !   enddo
+        ! endif
 
         bxy1(j, k) = 0._mytype
         bxz1(j, k) = 0._mytype
