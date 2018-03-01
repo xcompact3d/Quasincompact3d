@@ -61,6 +61,10 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: divu2
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: divu3
 
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: clx1, cly1, clz1
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: clx2, cly2, clz2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: clx3, cly3, clz3
+  
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: mu1
   real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: mu2
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: mu3
@@ -72,6 +76,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k
   integer :: code
   real(mytype) :: x,y,z
+
+  real(mytype) :: invfr
 
   real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
 
@@ -263,6 +269,14 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
 !!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
 !!! CM call test_min_max('tc3  ','In convdiff    ',tc3,size(tc3))
 
+  clx3(:,:,:) = 0._mytype
+  cly3(:,:,:) = 0._mytype
+  clz3(:,:,:) = 0._mytype
+  IF (ncly.EQ.2) THEN
+    !! Apply y-normal BCs (in Z pencil)
+    CALL entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
+  ENDIF
+
   call transpose_z_to_y(ta3,ta2)
   call transpose_z_to_y(tb3,tb2)
   call transpose_z_to_y(tc3,tc2)
@@ -275,6 +289,12 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   endif
   
   !WORK Y-PENCILS
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+    CALL transpose_z_to_y(clx3, clx2)
+    CALL transpose_z_to_y(cly3, cly2)
+    CALL transpose_z_to_y(clz3, clz2)
+  ENDIF
 
 !!! CM call test_min_max('tg2  ','In convdiff    ',tg2,size(tg2))
 !!! CM call test_min_max('th2  ','In convdiff    ',th2,size(th2))
@@ -349,6 +369,16 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * mu2(:,:,:) * te2(:,:,:)
   endif
 
+  IF (nclz.EQ.2) THEN
+    !! Apply Z-normal BCs
+    CALL entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
+  ENDIF
+
+  !WORK X-PENCILS
+  call transpose_y_to_x(ta2,ta1)
+  call transpose_y_to_x(tb2,tb1)
+  call transpose_y_to_x(tc2,tc1) !diff
+  
   !! XXX First move advection terms to make room to work
   call transpose_y_to_x(tg2,tg1)
   call transpose_y_to_x(th2,th1)
@@ -378,6 +408,12 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   endif
 
   !WORK X-PENCILS
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+    CALL transpose_y_to_x(clx2, clx1)
+    CALL transpose_y_to_x(cly2, cly1)
+    CALL transpose_y_to_x(clz2, clz1)
+  ENDIF
 
   !DIFFUSIVE TERMS IN X
   call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
@@ -531,6 +567,17 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
       tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
     endif
   endif
+
+  CALL fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1)
+
+  !! Setting entrainment boundary conditions
+  IF (nclz.eq.2) THEN
+    CALL set_velocity_entrainment_z(clx1, cly1, clz1)
+  ENDIF !! End Z BC
+
+  IF (ncly.EQ.2) THEN
+    CALL set_velocity_entrainment_y(clx1, cly1, clz1)
+  ENDIF !! End Y BC
 
   ! !! MMS Source term
   ! call momentum_source_mms(ta1,tb1,tc1)
@@ -952,18 +999,20 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     IF (iprops.EQ.0) THEN
       ! Calculate divergence of velocity using 2nd derivatives for accuracy
       CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-      divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) + ta3(:,:,:))
+      divu3(:,:,:) = divu3(:,:,:) + ta3(:,:,:)
     ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
       CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
     ENDIF
+
+    divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) / temperature3(:,:,:))
     
     ! XXX add dpdt and additional source terms
-    
-    ! divu3 = divu3 / (rho3 * temperature3 * Re * Pr)
-    divu3(:,:,:) = invpressure0 * divu3(:,:,:) ! rho*T = pressure0 = constant (in space)
+
+    ! Finally, we have so far computed rho div(u), want div(u)
+    divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
   ELSE
     rho2(:,:,:) = 1._mytype
     rho3(:,:,:) = 1._mytype
@@ -1352,3 +1401,551 @@ SUBROUTINE momentum_source_mms(mmsx1, mmsy1, mmsz1)
   ENDDO ! End loop over k
 
 ENDSUBROUTINE momentum_source_mms
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: entrainment_bcy
+!! DESCRIPTION: Implements entrainment boundary conditions on y
+!!              boundary.
+!!       NOTE : In z stencil, based on work of Ioannou Vasilis.
+!!--------------------------------------------------------------------
+SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: ux3, uy3, uz3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: clx3, cly3, clz3
+
+  REAL(mytype) :: uu1, uv1, uw1
+  REAL(mytype) :: y, z, yc, zc, ya, x
+  REAL(mytype) :: x1, x2, y1, y2, r1, r2
+  REAL(mytype) :: l_fringe, xph_fringe
+  INTEGER :: i, j, k, iph_fringe
+
+  l_fringe = 1._mytype
+  xph_fringe = xlx - l_fringe
+  DO i = 1, zsize(1)
+    x = (i + zstart(1) - 2) * dx
+    IF (x.GT.xph_fringe) THEN
+      EXIT
+    ELSE
+      iph_fringe = i
+    ENDIF
+  ENDDO
+  iph_fringe = zsize(1)
+
+  IF (ncly.EQ.2) THEN
+    yc = yly / 2._mytype
+    zc = zlz / 2._mytype
+    IF (zstart(2).EQ.1) THEN
+      j = 1
+      y = -yc
+      DO k = 1, zsize(3)
+        !z = dz * (k - 1) - zc
+        z = (k + zstart(3) - 2) * dz - zc
+        x2 = y
+        y2 = z
+        x1 = y + dy
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug1 in entrainment_bcy"
+          STOP
+        ELSE
+          IF (k.EQ.1) THEN ! First z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j + 1, k + 1)
+              cly3(i, j, k) = uy3(i, j + 1, k + 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k + 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k + 1)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = 0._mytype !uz3(i, j + 1, k + 1)
+            ENDDO
+          ELSEIF (k.EQ.((nz - 1) / 2 + 1)) THEN ! Mid z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j + 1, k)
+              cly3(i, j, k) = uy3(i, j + 1, k) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = uz3(i, j + 1, k)
+            ENDDO
+          ELSEIF (k.EQ.nz) THEN ! Final z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j + 1, k - 1)
+              cly3(i, j, k) = uy3(i, j + 1, k - 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j + 1, k - 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j + 1, k - 1)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = 0._mytype !uz3(i, j + 1, k - 1)
+            ENDDO
+          ELSE ! General z-point
+            IF (z.GT.0._mytype) THEN
+              ya = y2 - dz
+              DO i = 1, iph_fringe
+                uu1 = ux3(i, j + 1, k - 1) &
+                     + (ux3(i, j + 1, k) - ux3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy3(i, j + 1, k - 1) &
+                     + (uy3(i, j + 1, k) - uy3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz3(i, j + 1, k - 1) &
+                     + (uz3(i, j + 1, k) - uz3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, zsize(1)
+                clx3(i, j, k) = ux3(i, j + 1, k - 1)
+                cly3(i, j, k) = 0._mytype
+                clz3(i, j, k) = uz3(i, j + 1, k - 1)
+              ENDDO
+            ELSEIF (z.LT.0._mytype) THEN
+              ya = y2 + dz
+              DO i = 1, iph_fringe
+                uu1 = ux3(i, j + 1, k + 1) &
+                     + (ux3(i, j + 1, k + 1) - ux3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+                uv1 = uy3(i, j + 1, k + 1) &
+                     + (uy3(i, j + 1, k + 1) - uy3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+                uw1 = uz3(i, j + 1, k + 1) &
+                     + (uz3(i, j + 1, k + 1) - uz3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, zsize(1)
+                clx3(i, j, k) = ux3(i, j + 1, k + 1)
+                cly3(i, j, k) = 0._mytype
+                clz3(i, j, k) = uz3(i, j + 1, k + 1)
+              ENDDO
+            ELSE ! z = 0
+            ENDIF
+          ENDIF ! End checking where in z we are
+        ENDIF
+      ENDDO !! End loop over k
+    ENDIF !! End if (ztstart(2).eq.1), i.e. first y boundary
+
+    IF (zend(2).EQ.ny) THEN
+      j = zsize(2)
+      y = yc
+      DO k = 1, zsize(3)
+        !z = dz * (k - 1) - zc
+        z = (k + zstart(3) - 2) * dz - zc
+        x2 = y
+        y2 = z
+        x1 = y - dy
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug2 in entrainment_bcy"
+          STOP
+        ELSE
+          IF (k.EQ.1) THEN ! First z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j - 1, k + 1)
+              cly3(i, j, k) = uy3(i, j - 1, k + 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k + 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k + 1)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = 0._mytype !uz3(i, j - 1, k + 1)
+            ENDDO
+          ELSEIF (k.EQ.(nz - 1) / 2 + 1) THEN ! Middle z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j - 1, k)
+              cly3(i, j, k) = uy3(i, j - 1, k) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = uz3(i, j - 1, k)
+            ENDDO
+          ELSEIF (k.EQ.nz) THEN ! Last z-point
+            DO i = 1, iph_fringe
+              clx3(i, j, k) = ux3(i, j - 1, k - 1)
+              cly3(i, j, k) = uy3(i, j - 1, k - 1) * r1 / r2
+              clz3(i, j, k) = uz3(i, j - 1, k - 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, zsize(1)
+              clx3(i, j, k) = ux3(i, j - 1, k - 1)
+              cly3(i, j, k) = 0._mytype
+              clz3(i, j, k) = 0._mytype !uz3(i, j - 1, k - 1)
+            ENDDO
+          ELSE ! General z-point
+            IF (z.GT.0._mytype) THEN
+              ya = y2 - dz
+              DO i = 1, iph_fringe
+                uu1 = ux3(i, j - 1, k - 1) &
+                     + (ux3(i, j - 1, k) - ux3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy3(i, j - 1, k - 1) &
+                     + (uy3(i, j - 1, k) - uy3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz3(i, j - 1, k - 1) &
+                     + (uz3(i, j - 1, k) - uz3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, zsize(1)
+                clx3(i, j, k) = ux3(i, j - 1, k - 1)
+                cly3(i, j, k) = 0._mytype
+                clz3(i, j, k) = uz3(i, j - 1, k - 1)
+              ENDDO
+            ELSEIF (z.LT.0._mytype) THEN
+              ya = y2 + dz
+              DO i = 1, iph_fringe
+                uu1 = ux3(i, j - 1, k + 1) &
+                     + (ux3(i, j - 1, k + 1) - ux3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+                uv1 = uy3(i, j - 1, k + 1) &
+                     + (uy3(i, j - 1, k + 1) - uy3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+                uw1 = uz3(i, j - 1, k + 1) &
+                     + (uz3(i, j - 1, k + 1) - uz3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
+
+                clx3(i, j, k) = uu1
+                cly3(i, j, k) = uv1 * r1 / r2
+                clz3(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, zsize(1)
+                clx3(i, j, k) = ux3(i, j - 1, k + 1)
+                cly3(i, j, k) = 0._mytype
+                clz3(i, j, k) = uz3(i, j - 1, k + 1)
+              ENDDO
+            ELSE ! z = 0
+            ENDIF
+          ENDIF !! End checking where we are in k
+        ENDIF !! End error check
+      ENDDO !! End loop over k
+    ENDIF !! End if (zend(2).eq.ny), i.e. last y boundary
+  ENDIF !! End check that y is Dirichlet BC
+ENDSUBROUTINE entrainment_bcy
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: entrainment_bcz
+!! DESCRIPTION: Implements entrainment boundary conditions on z
+!!              boundary
+!!        NOTE: In Y stencil, based on work of Ioannou Vasilis.
+!!--------------------------------------------------------------------
+SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
+
+  USE decomp_2d
+  USE variables
+  USE param
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(IN) :: ux2, uy2, uz2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: clx2, cly2, clz2
+
+  REAL(mytype) :: uu1, uv1, uw1
+  REAL(mytype) :: y, z, yc, zc, ya, x
+  REAL(mytype) :: x1, x2, y1, y2, r1, r2
+  REAL(mytype) :: l_fringe, xph_fringe
+  INTEGER :: i, j, k, iph_fringe
+
+  l_fringe = 1._mytype
+  xph_fringe = xlx - l_fringe
+  DO i = 1, ysize(1)
+    x = (i + ystart(1) - 2) * dx
+    IF (x.GT.xph_fringe) THEN
+      EXIT
+    ELSE
+      iph_fringe = i
+    ENDIF
+  ENDDO
+  iph_fringe = ysize(1)
+
+  IF (nclz.EQ.2) THEN
+    yc = yly / 2._mytype
+    zc = zlz / 2._mytype
+
+    IF (ystart(3).EQ.1) THEN
+      k = 1
+      z = -zc
+      DO j = 1, ysize(2)
+        !y = (j - 1) * dy - yc
+        y = (j +ystart(2) - 2) * dy - yc
+        x2 = z
+        y2 = y
+        x1 = z + dz
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug1 error in entrainment_bcz"
+          STOP
+        ELSE
+          IF (j.EQ.1) THEN ! First y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j + 1, k + 1)
+              cly2(i, j, k) = uy2(i, j + 1, k + 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j + 1, k + 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j + 1, k + 1)
+              cly2(i, j, k) = 0._mytype !uy2(i, j + 1, k + 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSE IF(j.EQ.((ny - 1) / 2 + 1)) THEN ! Middle y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j, k + 1)
+              cly2(i, j, k) = uy2(i, j, k + 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j, k + 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j, k + 1)
+              cly2(i, j, k) = uy2(i, j, k + 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSE IF(j.EQ.ny) THEN ! Last y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j - 1, k + 1)
+              cly2(i, j, k) = uy2(i, j - 1, k + 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j - 1, k + 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j - 1, k + 1)
+              cly2(i, j, k) = 0._mytype !uy2(i, j - 1, k + 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSE ! General y point
+            IF(y.GT.0._mytype) THEN
+              ya = y2 - dy
+              DO i = 1, iph_fringe
+                uu1 = ux2(i, j - 1, k + 1) &
+                     + (ux2(i, j, k + 1) - ux2(i, j - 1, k + 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy2(i, j - 1, k + 1) &
+                     + (uy2(i, j, k + 1) - uy2(i, j - 1, k + 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz2(i, j - 1, k + 1) &
+                     + (uz2(i, j, k + 1) - uz2(i, j - 1, k + 1)) * (y1 - ya) / (y2 - ya)
+
+                clx2(i, j, k) = uu1
+                cly2(i, j, k) = uv1 * r1 / r2 
+                clz2(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, ysize(1)
+                clx2(i, j, k) = ux2(i, j - 1, k + 1)
+                cly2(i, j, k) = uy2(i, j - 1, k + 1)
+                clz2(i, j, k) = 0._mytype
+              ENDDO
+            ELSE IF (y.LT.0._mytype) THEN
+              ya = y2 + dy
+              DO i = 1, iph_fringe
+                uu1 = ux2(i, j + 1, k + 1) &
+                     + (ux2(i, j + 1, k + 1) - ux2(i, j, k + 1)) * (y1 - ya) / (ya - y2)
+                uv1 = uy2(i, j + 1, k + 1) &
+                     + (uy2(i, j + 1, k + 1) - uy2(i, j, k + 1)) * (y1 - ya) / (ya - y2)
+                uw1 = uz2(i, j + 1, k + 1) &
+                     + (uz2(i, j + 1, k + 1) - uz2(i, j, k + 1)) * (y1 - ya) / (ya - y2)
+
+                clx2(i, j, k) = uu1
+                cly2(i, j, k) = uv1 * r1 / r2
+                clz2(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, ysize(1)
+                clx2(i, j, k) = ux2(i, j + 1, k + 1)
+                cly2(i, j, k) = uy2(i, j + 1, k + 1)
+                clz2(i, j, k) = 0._mytype
+              ENDDO
+            ENDIF
+          ENDIF !! End checking where in y we are
+        END IF !! End error-check
+      ENDDO !! End loop over j
+    ENDIF !! End if (ystart(3).eq.1) i.e. first z boundary (k = 1)
+
+    IF (yend(3).EQ.nz) THEN
+      k = ysize(3)
+      z = zc
+      DO j = 1, ysize(2)
+        y = (j + ystart(2) - 2) * dy - yc
+        x2 = z
+        y2 = y
+        x1 = z - dz
+        y1 = y2 * x1 / x2
+        r1 = SQRT(x1**2 + y1**2)
+        r2 = SQRT(x2**2 + y2**2)
+        IF (r1.GT.r2) THEN
+          PRINT *, "Bug2 in entrainment_bcz"
+          STOP
+        ELSE
+          IF (j.EQ.1) THEN ! First y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j + 1, k - 1)
+              cly2(i, j, k) = uy2(i, j + 1, k - 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j + 1, k - 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j + 1, k - 1)
+              cly2(i, j, k) = 0._mytype !uy2(i, j + 1, k - 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSEIF (j.EQ.((ny - 1) / 2 + 1)) THEN ! Mid y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j, k - 1)
+              cly2(i, j, k) = uy2(i, j, k - 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j, k - 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j, k - 1)
+              cly2(i, j, k) = uy2(i, j, k - 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSEIF (j.EQ.ny) THEN ! Last y point
+            DO i = 1, iph_fringe
+              clx2(i, j, k) = ux2(i, j - 1, k - 1)
+              cly2(i, j, k) = uy2(i, j - 1, k - 1) * r1 / r2
+              clz2(i, j, k) = uz2(i, j - 1, k - 1) * r1 / r2
+            ENDDO
+            DO i = iph_fringe + 1, ysize(1)
+              clx2(i, j, k) = ux2(i, j - 1, k - 1)
+              cly2(i, j, k) = 0._mytype !uy2(i, j - 1, k - 1)
+              clz2(i, j, k) = 0._mytype
+            ENDDO
+          ELSE ! General y point
+            IF (y.GT.0._mytype) THEN
+              ya = y2 - dy
+              DO i = 1, iph_fringe
+                uu1 = ux2(i, j - 1, k - 1) &
+                     + (ux2(i, j, k - 1) - ux2(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uv1 = uy2(i, j - 1, k - 1) &
+                     + (uy2(i, j, k - 1) - uy2(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+                uw1 = uz2(i, j - 1, k - 1) &
+                     + (uz2(i, j, k - 1) - uz2(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
+
+                clx2(i, j, k) = uu1
+                cly2(i, j, k) = uv1 * r1 / r2
+                clz2(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, ysize(1)
+                clx2(i, j, k) = ux2(i, j - 1, k - 1)
+                cly2(i, j, k) = uy2(i, j - 1, k - 1)
+                clz2(i, j, k) = 0._mytype
+              ENDDO
+            ELSE IF (y.LT.0._mytype) THEN
+              ya = y2 + dy
+              DO i = 1, iph_fringe
+                uu1 = ux2(i, j + 1, k - 1) &
+                     + (ux2(i, j + 1, k - 1) - ux2(i, j, k - 1)) * (y1 - ya) / (ya - y2)
+                uv1 = uy2(i, j + 1, k - 1) &
+                     + (uy2(i, j + 1, k - 1) - uy2(i, j, k - 1)) * (y1 - ya) / (ya - y2)
+                uw1 = uz2(i, j + 1, k - 1) &
+                     + (uz2(i, j + 1, k - 1) - uz2(i, j, k - 1)) * (y1 - ya) / (ya - y2)
+
+                clx2(i, j, k) = uu1
+                cly2(i, j, k) = uv1 * r1 / r2
+                clz2(i, j, k) = uw1 * r1 / r2
+              ENDDO
+              DO i = iph_fringe + 1, ysize(1)
+                clx2(i, j, k) = ux2(i, j + 1, k - 1)
+                cly2(i, j, k) = uy2(i, j + 1, k - 1)
+                clz2(i, j, k) = 0._mytype
+              ENDDO
+            ELSE
+            ENDIF
+          ENDIF !! End checking where in y we are
+        ENDIF !! End error-check
+      ENDDO !! End loop over j
+    ENDIF !! End if (yend(3).eq.nz) i.e. the end of z (k = nz)
+    
+  ENDIF !! End check that z is Dirichlet BC
+  
+ENDSUBROUTINE entrainment_bcz
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: fringe_bcx
+!! DESCRIPTION: Implements fringe boundary conditions on x.
+!!        NOTE: X-PENCIL. Based on work of Ioannou Vasilis.
+!!--------------------------------------------------------------------
+SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
+
+  USE MPI
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1, rho1
+  ! INTEGER, INTENT(IN) :: bc1, bcn
+  
+  REAL(mytype) :: ucf, f_fringe
+  REAL(mytype) :: gauss, g_umax, g_rext, g_rext2
+  REAL(mytype) :: l_fringe, xph_fringe
+  REAL(mytype) :: x, y, z, yc, zc, r2, y1, y2, y3, r1, r3
+  INTEGER :: i, j, k, iph_fringe, ctr, ierr
+
+  l_fringe = 1._mytype
+  ucf = 0.1_mytype * u1 * (PI * 0.5_mytype**2) / (yly * zlz)
+  g_rext = 1.5_mytype / 2.14_mytype
+  g_rext2 = g_rext**2
+  
+  g_umax = ((0.5_mytype**2) * u1) &
+       / (g_rext2 * (1._mytype - 1._mytype / EXP(1._mytype)))
+  g_umax = g_umax - ucf
+
+  yc = yly / 2._mytype
+  zc = zlz / 2._mytype
+
+  ! !! Xstart
+  ! IF (bc1.EQ.1) THEN
+  ! ENDIF !! End XSTART BC
+  
+  !! Xend
+  ! IF (bcn.EQ.1) THEN
+    xph_fringe = xlx - l_fringe
+    iph_fringe = CEILING(xph_fringe * DBLE(nx - 1) / xlx)
+
+    g_umax = 0._mytype
+    DO k = 1, nz
+      z = DBLE(k - 1) * dz - zc
+      DO j = 1, ny
+        y = DBLE(j - 1) * dy - yc
+        r2 = y**2 + z**2
+        gauss = EXP(-r2 / g_rext2) + ucf
+
+        g_umax = g_umax + gauss * dy * dz
+      ENDDO
+    ENDDO
+    g_umax = (u1 * (PI * 0.5_mytype**2) - ucf * (yly * zlz)) / g_umax
+
+    DO k = 1, xsize(3)
+      z = DBLE(k + xstart(3) - 2) * dz - zc
+      DO j = 1, xsize(2)
+        y = DBLE(j + xstart(2) - 2) * dy - yc
+
+        r2 = y**2 + z**2
+        gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+        DO i = iph_fringe, xsize(1)
+          x = DBLE(i + xstart(1) - 2) * dx
+          f_fringe = COS(((x - xph_fringe) / l_fringe) * PI / 2._mytype)
+          f_fringe = f_fringe**2
+          ! f_fringe = 1._mytype - SIN(((x - xph_fringe) / l_fringe) * (2._mytype * PI / 4._mytype))
+          ! f_fringe = COS(((x - xph_fringe) / l_fringe) * (PI / 2._mytype)) &
+          !      * (1._mytype - SIN(((x - xph_fringe) / l_fringe) * (PI / 2._mytype)))
+
+          ta1(i, j, k) = f_fringe * ta1(i, j, k) + rho1(i, j, k) * (gauss - ux1(i, j, k)) &
+               * (1._mytype - f_fringe)
+          tb1(i, j, k) = f_fringe * tb1(i, j, k) + rho1(i, j, k) * (0._mytype - uy1(i, j, k)) &
+               * (1._mytype - f_fringe)
+          tc1(i, j, k) = f_fringe * tc1(i, j, k) + rho1(i, j, k) * (0._mytype - uz1(i, j, k)) &
+               * (1._mytype - f_fringe)
+        ENDDO !! End loop over i
+      ENDDO !! End loop over j
+    ENDDO !! End loop over k
+  ! ENDIF !! End XEND BC
+  
+ENDSUBROUTINE fringe_bcx

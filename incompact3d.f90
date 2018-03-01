@@ -47,7 +47,7 @@ PROGRAM incompact3d
 
   integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
   real(mytype) :: x,y,z,tmp1
-  double precision :: t1,t2
+  double precision :: t1,t2,t1poiss,t2poiss,tpoisstotal
   character(len=20) :: filename
 
   logical :: converged
@@ -96,6 +96,7 @@ PROGRAM incompact3d
   totalpoissiter = 0
   if (ilit.eq.0) then
     t = 0._mytype
+    itime = 0
     call init(ux1,uy1,uz1,rho1,ep1,phi1,&
          gx1,gy1,gz1,rhos1,phis1,&
          hx1,hy1,hz1,rhoss1,phiss1,&
@@ -152,6 +153,7 @@ PROGRAM incompact3d
 
 !!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
 
+  tpoisstotal = 0._mytype
   do itime=ifirst,ilast
 
     t=(itime-1)*dt
@@ -172,6 +174,12 @@ PROGRAM incompact3d
         call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
         call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
+      if (ncly.eq.2) then
+        call set_density_entrainment_y(rho1, uy1)
+      endif
+      if (nclz.eq.2) then
+        call set_density_entrainment_z(rho1, uz1)
+      endif
 
       !-----------------------------------------------------------------------------------
       ! Update fluid properties
@@ -186,6 +194,7 @@ PROGRAM incompact3d
       call convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ux2,uy2,uz2,rho2,mu2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,mu3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
+      call apply_grav(ta1, tb1, tc1, rho1)
 
       if (iscalar.eq.1) then
         !---------------------------------------------------------------------------------
@@ -220,9 +229,6 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
       call pre_correc(ux1,uy1,uz1,rho1)
-      ! call pre_correc_tractionfree(ux1, uy1, uz1, rho1, td1, te1, di1, &
-      !      ta2, tb2, di2, &
-      !      ta3, pp3, di3, nxmsize, nymsize, nzmsize, ph2, ph3)
 
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
@@ -264,22 +270,26 @@ PROGRAM incompact3d
       ! Solution of the Poisson equation
       converged = .FALSE.
       poissiter = 0
+      t1poiss = MPI_WTIME()
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
           if (ivarcoeff.ne.0) then
+            if ((nrank.eq.0).and.(poissiter.eq.0)) then
+              print *, "Solving variable-coefficient pressure-Poisson equation"
+            endif
             if (poissiter.ne.0) then
               !! Compute correction term
-              call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, tg1, &
-                   te2, tf2, ta2, tb2, tc2, td2, di2, tg2, &
-                   td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, tg3, pp3, &
-                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+              call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+                   te2, tf2, ta2, tb2, tc2, td2, di2, &
+                   td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+                   nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
                    divup3norm, poissiter, converged)
             else
               !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
               call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
                    di1, rhos1, rhoss1, rhos01, drhodt1, &
                    td2, te2, tf2, di2, ta2, tb2, tc2, &
-                   ta3, tb3, tc3, di3, td3, te3, tf3, pp3corr, divu3, &
+                   ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
                    nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
                    divup3norm)
             endif
@@ -296,7 +306,7 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
 
         if (converged.eqv..FALSE.) then
-          !POISSON Z-->Z 
+          !POISSON Z-->Z
           call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
           
           !Z-->Y-->X
@@ -315,9 +325,11 @@ PROGRAM incompact3d
 
         poissiter = poissiter + 1
       enddo
+      t2poiss = MPI_WTIME()
+      tpoisstotal = tpoisstotal + (t2poiss - t1poiss)
 
       if (nrank.eq.0) then
-        print *, "Solved Poisson equation in ", poissiter, " iteration(s)"
+        print *, "Solved Poisson equation in ", poissiter, " iteration(s), took ", t2poiss - t1poiss, "s"
         totalpoissiter = totalpoissiter + poissiter
       endif
       !-----------------------------------------------------------------------------------
@@ -378,6 +390,9 @@ PROGRAM incompact3d
   t2=MPI_WTIME()-t1
   call MPI_ALLREDUCE(t2,t1,1,MPI_REAL8,MPI_SUM, &
        MPI_COMM_WORLD,code)
+  t2 = tpoisstotal
+  call MPI_ALLREDUCE(t2, tpoisstotal, 1, MPI_REAL8, MPI_SUM, &
+       MPI_COMM_WORLD, code)
   if (nrank.eq.0) then
     print *,'time per time_step: ', &
          t1/float(nproc)/(ilast-ifirst+1),' seconds'
@@ -385,6 +400,8 @@ PROGRAM incompact3d
     print *,'Mapping p_row*p_col=',p_row,p_col
     print *,'Mean iterations per Poisson solve: ', &
          float(totalpoissiter) / float(iadvance_time) / float(ilast - ifirst + 1)
+    print *,'Fraction of time spent in Poisson equation: ', &
+         tpoisstotal / t1
   endif
 
   !call decomp_2d_poisson_finalize
