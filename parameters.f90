@@ -67,6 +67,9 @@ read (10,*) zlz
 read (10,*) re
 read (10,*) pr
 read (10,*) sc
+read (10,*) frx
+read (10,*) fry
+read (10,*) frz
 read (10,*) u1 
 read (10,*) u2
 read (10,*) dens1
@@ -154,6 +157,7 @@ write(*,1105) dens1,dens2
 write(*,1106) re
 write(*,1107) dt
 write(*,1112) pr
+write(*,1114) frx,fry,frz
 
 if (nscheme.eq.1) then
   print *,'Temporal scheme   : Adams-bashforth 2'
@@ -222,17 +226,18 @@ else
   STOP
 endif
 
- 1101 format(' Spatial Resolution: (nx,ny,nz)=(',I4,',',I4,',',I4,')')
- 1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')
- 1103 format(' Domain dimension  : (lx,ly,lz)=(',F6.1,',',F6.1,',',F6.1,')')
- 1104 format(' High and low speed: u1=',F6.2,' and u2=',F6.2)
- 1105 format(' High and low density: dens1=',F6.2,' and dens2=',F6.2)
- 1106 format(' Reynolds number Re: ',F15.8)
- 1107 format(' Time step dt      : ',F15.8)
- 1108 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
- 1110 format(' Object length     : ',F6.2)
- 1112 format(' Prandtl number    : ',F6.2)
- 1113 format(' Schmidt number    : ',F6.2)
+1101 format(' Spatial Resolution: (nx,ny,nz)=(',I4,',',I4,',',I4,')')
+1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')
+1103 format(' Domain dimension  : (lx,ly,lz)=(',F6.1,',',F6.1,',',F6.1,')')
+1104 format(' High and low speed: u1=',F6.2,' and u2=',F6.2)
+1105 format(' High and low density: dens1=',F6.2,' and dens2=',F6.2)
+1106 format(' Reynolds number Re: ',F15.8)
+1107 format(' Time step dt      : ',F15.8)
+1108 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
+1110 format(' Object length     : ',F6.2)
+1112 format(' Prandtl number    : ',F6.2)
+1113 format(' Schmidt number    : ',F6.2)
+1114 format(' Froude number     : (frx,fry,frz)=(',F6.2,',',F6.2,',',F6.2,')')
 endif
 xnu=1._mytype/re 
    

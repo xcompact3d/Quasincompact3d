@@ -45,6 +45,9 @@ real(mytype), save, allocatable, dimension(:,:,:) :: phi1, phi2, phi3
 real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz1, phis1, phiss1
 real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
+real(mytype), save, allocatable, dimension(:,:,:) :: clx1, clx2, clx3
+real(mytype), save, allocatable, dimension(:,:,:) :: cly1, cly2, cly3
+real(mytype), save, allocatable, dimension(:,:,:) :: clz1, clz2, clz3
 
 ! Additional variables required for LMN
 real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01, rho0p3
@@ -117,6 +120,9 @@ contains
     call alloc_x(px1, opt_global=.true.)
     call alloc_x(py1, opt_global=.true.)
     call alloc_x(phi1, opt_global=.true.)
+    call alloc_x(clx1, opt_global=.true.)
+    call alloc_x(cly1, opt_global=.true.)
+    call alloc_x(clz1, opt_global=.true.)
     call alloc_x(gx1);call alloc_x(gy1);call alloc_x(gz1);call alloc_x(phis1) 
     call alloc_x(hx1);call alloc_x(hy1);call alloc_x(hz1);call alloc_x(phiss1)
     call alloc_x(ta1);call alloc_x(tb1);call alloc_x(tc1)
@@ -182,6 +188,7 @@ contains
     call alloc_y(tg2);call alloc_y(th2);call alloc_y(ti2)
     call alloc_y(tj2)
     call alloc_y(di2);call alloc_y(phi2)
+    call alloc_y(clx2);call alloc_y(cly2);call alloc_y(clz2)
     call alloc_y(rho2)
     call alloc_y(temperature2)
     call alloc_y(mu2)
@@ -194,6 +201,7 @@ contains
     call alloc_z(td3);call alloc_z(te3);call alloc_z(tf3)
     call alloc_z(tg3);call alloc_z(th3);call alloc_z(ti3)
     call alloc_z(di3);call alloc_z(phi3)
+    call alloc_z(clx3);call alloc_z(cly3);call alloc_z(clz3)
     call alloc_z(rho3)
     call alloc_z(temperature3)
     call alloc_z(divu3)
