@@ -48,10 +48,10 @@ module variables
 !2-->every 2 mesh nodes
 !4-->every 4 mesh nodes
 !nvisu = size for visualization collection
-integer,parameter :: nx=128, ny=513, nz=8
+integer,parameter :: nx=129, ny=64, nz=64
 integer,parameter :: nstat=1, nvisu=1
 integer,parameter :: p_row=4, p_col=2
-integer,parameter :: nxm=nx, nym=ny - 1, nzm=nz
+integer,parameter :: nxm=nx-1, nym=ny, nzm=nz
 !end module variables
 
 !module filter
@@ -138,10 +138,12 @@ use decomp_2d, only : mytype
   integer :: ifft, ivirt,istret,iforc_entree,iturb
   integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles
   integer :: isave,ilit,idebmod, imodulo, idemarre, icommence, irecord
+  integer :: ilmn, nrhoscheme, npoissscheme, ivarcoeff
   integer :: iscalar
+  integer :: iprops
   integer :: nxboite, istat,iread,iadvance_time 
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2
-  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr
+  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2,frx,fry,frz,tol
   real(mytype) :: t,xxk1,xxk2
   integer :: itr,itime
   character :: filesauve*80, filenoise*80, &

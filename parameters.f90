@@ -67,8 +67,13 @@ read (10,*) zlz
 read (10,*) re
 read (10,*) pr
 read (10,*) sc
+read (10,*) frx
+read (10,*) fry
+read (10,*) frz
 read (10,*) u1 
-read (10,*) u2 
+read (10,*) u2
+read (10,*) dens1
+read (10,*) dens2
 read (10,*) noise 
 read (10,*) noise1
 read (10,*) dt
@@ -85,7 +90,13 @@ read (10,*) ilast
 read (10,*) nscheme
 read (10,*) istret
 read (10,*) beta
+read (10,*) ilmn
+read (10,*) nrhoscheme
+read (10,*) ivarcoeff
+read (10,*) npoissscheme
+read (10,*) tol
 read (10,*) iskew
+read (10,*) iprops
 read (10,*) iscalar
 read (10,1000) a 
 read (10,1000) a 
@@ -116,51 +127,117 @@ print *,'==========================================================='
 print *,''
 print *,''
 print *,''
-if (itype.eq.1) print *,'Constant flow field'
-if (itype.eq.2) print *,'Channel flow'
-if (itype.eq.3) print *,'Wake flow'
-if (itype.eq.4) print *,'Mixing layer with splitter plate'
-if (itype.eq.5) print *,'Channel flow'
-if (itype.eq.6) print *,'Taylor Green vortices'
-if (itype.eq.7) print *,'Cavity flow'
-if (itype.eq.8) print *,'Flat plate Boundary layer'
-if (itype.eq.9) print *,'Water tank'
+if (itype.eq.1) then
+  print *,'Constant flow field'
+else if (itype.eq.2) then
+  print *,'Channel flow'
+else if (itype.eq.3) then
+  print *,'Wake flow'
+else if (itype.eq.4) then
+  print *,'Mixing layer with splitter plate'
+else if (itype.eq.5) then
+  print *,'Channel flow'
+else if (itype.eq.6) then
+  print *,'Taylor Green vortices'
+else if (itype.eq.7) then
+  print *,'Cavity flow'
+else if (itype.eq.8) then
+  print *,'Flat plate Boundary layer'
+else if (itype.eq.9) then
+  print *,'Water tank'
+else
+  print *, "Unknown itype=", itype
+  STOP
+endif
 write(*,1101) nx,ny,nz
 write(*,1103) xlx,yly,zlz 
 write(*,1102) nclx,ncly,nclz 
 write(*,1104) u1,u2 
-write(*,1105) re
-write(*,1106) dt
+write(*,1105) dens1,dens2 
+write(*,1106) re
+write(*,1107) dt
 write(*,1112) pr
-if (nscheme.eq.1) print *,'Temporal scheme   : Adams-bashforth 4'
-if (nscheme.eq.2) print *,'Temporal scheme   : Runge-Kutta 3'
-if (nscheme.eq.3) print *,'Temporal scheme   : Runge-Kutta 4'
-if (iscalar.eq.0) print *,'Passive scalar    : off'
-if (iscalar.eq.1) then
-   print *,'Passive scalar : on'
-   write (*,1113) sc
-endif
-if (ivirt.eq.0) print *,'Immersed boundary : off'
-if (ivirt.eq.1) then
-   print *,'Immersed boundary : on old school'
-   write(*,1107) cex,cey,cez
-   write(*,1110) ra
-endif
-if (ivirt.eq.2) then
-   print *,'Immersed boundary : on with Lagrangian Poly'
+write(*,1114) frx,fry,frz
+
+if (nscheme.eq.1) then
+  print *,'Temporal scheme   : Adams-bashforth 2'
+else if (nscheme.eq.2) then
+  print *,'Temporal scheme   : Runge-Kutta 3'
+else if (nscheme.eq.3) then
+  print *,'Temporal scheme   : Runge-Kutta 4'
+else if (nscheme.eq.4) then
+  print *,"Temporal scheme   : Adams-bashforth 4?"
+else
+  print *,"Unknown nscheme=", nscheme
+  STOP
 endif
 
+if (iprops.eq.0) then
+  print *, "Variable props    : off"
+else
+  print *, "Variable props    : on"
+endif
 
- 1101 format(' Spatial Resolution: (nx,ny,nz)=(',I4,',',I4,',',I4,')')
- 1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')
- 1103 format(' Domain dimension  : (lx,ly,lz)=(',F6.1,',',F6.1,',',F6.1,')')
- 1104 format(' High and low speed: u1=',F6.2,' and u2=',F6.2)
- 1105 format(' Reynolds number Re: ',F15.8)
- 1106 format(' Time step dt      : ',F15.8)
- 1107 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
- 1110 format(' Object length     : ',F6.2)
- 1112 format(' Prandtl number    : ',F6.2)
- 1113 format(' Schmidt number    : ',F6.2)
+if (iscalar.eq.0) then
+  print *, 'Passive scalar    : off'
+else if (iscalar.eq.1) then
+  print *, 'Passive scalar : on'
+  write (*,1113) sc
+else
+  print *, "Unknown iscalar=", iscalar
+endif
+
+if (ivirt.eq.0) then
+  print *,'Immersed boundary : off'
+else if (ivirt.eq.1) then
+  print *,'Immersed boundary : on old school'
+  write(*,1108) cex,cey,cez
+  write(*,1110) ra
+else if (ivirt.eq.2) then
+  print *,'Immersed boundary : on with Lagrangian Poly'
+else
+  print *, "Unknown ivirt=", ivirt
+  STOP
+endif
+
+if (ilmn.ne.0) then
+  print *, "Low Mach Number: Enabled"
+
+  if (ivarcoeff.ne.0) then
+    print *, "Var-coeff Poisson: ENABLED"
+    print *, "Poisson tolerance: ", tol
+
+    if (npoissscheme.eq.0) then
+      print *, "Using rho0 = MIN(rho) in var-coeff Poisson equation"
+    else
+      print *, "Using rho0 = harmonic_avg(rho) in var-coeff Poisson equation"
+    endif
+  endif
+endif
+
+if (iskew.eq.0) then
+  print *, "Adv-MOM: Rotational"
+else if (iskew.eq.1) then
+  print *, "Adv-MOM: Quasi-skew symmetric"
+else if (iskew.eq.2) then
+  print *, "Adv-MOM: Skew symmetric"
+else
+  print *, "Unknown iskew=", iskew
+  STOP
+endif
+
+1101 format(' Spatial Resolution: (nx,ny,nz)=(',I4,',',I4,',',I4,')')
+1102 format(' Boundary condition: (nclx,ncly,nclz)=(',I1,',',I1,',',I1,')')
+1103 format(' Domain dimension  : (lx,ly,lz)=(',F6.1,',',F6.1,',',F6.1,')')
+1104 format(' High and low speed: u1=',F6.2,' and u2=',F6.2)
+1105 format(' High and low density: dens1=',F6.2,' and dens2=',F6.2)
+1106 format(' Reynolds number Re: ',F15.8)
+1107 format(' Time step dt      : ',F15.8)
+1108 format(' Object centred at : (',F6.2,',',F6.2,',',F6.2,')')
+1110 format(' Object length     : ',F6.2)
+1112 format(' Prandtl number    : ',F6.2)
+1113 format(' Schmidt number    : ',F6.2)
+1114 format(' Froude number     : (frx,fry,frz)=(',F6.2,',',F6.2,',',F6.2,')')
 endif
 xnu=1._mytype/re 
    

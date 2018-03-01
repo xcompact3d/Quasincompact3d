@@ -1,0 +1,10 @@
+#!/bin/sh
+
+mpiexec -np 8 ./incompact3d | tee OUTPUT.log
+mv ux* DATA/
+mv uy* DATA/
+mv uz* DATA/
+mv vort* DATA/
+mv pp* DATA/
+mv rho* DATA/
+mv OUTPUT.log DATA/
