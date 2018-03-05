@@ -1221,8 +1221,9 @@ end subroutine init
 !
 ! 
 !********************************************************************
-subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-     td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
+subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
+     td2,te2,tf2,di2,ta2,tb2,tc2,&
+     ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
      nxmsize,nymsize,nzmsize,ph1,ph3,ph4,nlock,quiet)
 
   USE param
@@ -1238,7 +1239,7 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   integer :: nxmsize,nymsize,nzmsize
 
   !X PENCILS NX NY NZ  -->NXM NY NZ
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,di1,ux1,uy1,uz1,ep1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,di1,ux1,uy1,uz1,ep1,drhodt1
   real(mytype),dimension(nxmsize,xsize(2),xsize(3)) :: td1,te1,tf1 
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: divu1
   !Y PENCILS NXM NY NZ  -->NXM NYM NZ
@@ -1279,8 +1280,11 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
 
   !WORK X-PENCILS
   call decx6(td1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
-  if (ivarcoeff.ne.0) then
-    !! Solving variable-coefficient Poisson equation
+  if ((ilmn.ne.0) &               ! We are solving LMN equations AND
+       .and.(((ivarcoeff.ne.0) &  ! (We are solving variable-coefficient Poisson equation
+       .and.(nlock.ne.3)) &       !  but not making an initial guess based on const-coeff
+       .or.(nlock.eq.2))) then    ! OR regardless of Poisson type we have solved it and would
+                                  ! like to check how well we done!)
     !  Get divu to x pencils and interpolate to pressure points
     call transpose_z_to_y(divu3, divu2)
     call transpose_y_to_x(divu2, divu1)
@@ -1325,6 +1329,13 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
     enddo
   enddo
 
+  if ((ilmn.ne.0) &                                 ! We are solving LMN equations AND
+       .and.(((ivarcoeff.eq.0).and.(nlock.eq.1))) & ! (We are solving constant-coefficient Poisson equation
+       .or.(nlock.eq.3)) then                       ! OR special case of predicting first step of var-coeff)
+    !! Apply extrapolated divergence of momentum
+    call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+  endif
+
   if (nlock==2) then
     pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
   endif
@@ -1350,13 +1361,19 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
   if (quiet.eqv..FALSE.) then
     if (nrank==0) then
       if (nlock==2) then
-        print *,'DIV U final Max=',tmax1
-        print *,'DIV U final Min=',tmin1
-        print *,'DIV U final Moy=',tmoy1/real(nproc)
+        print *,'ERR DIV U final Max=',tmax1
+        print *,'ERR DIV U final Min=',tmin1
+        print *,'ERR DIV U final Moy=',tmoy1/real(nproc)
       else
-        print *,'DIV U* Max=',tmax1
-        print *,'DIV U* Min=',tmin1
-        print *,'DIV U* Moy=',tmoy1/real(nproc)
+        if ((ilmn.eq.0).or.((ivarcoeff.ne.0).and.(nlock.ne.3))) then
+          print *,'ERR DIV U* Max=',tmax1
+          print *,'ERR DIV U* Min=',tmin1
+          print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
+        else 
+          print *,'ERR DIV (RHO U)* Max=',tmax1
+          print *,'ERR DIV (RHO U)* Min=',tmin1
+          print *,'ERR DIV (RHO U)* Moy=',tmoy1/real(nproc)
+        endif
       endif
     endif
   endif
@@ -1786,13 +1803,11 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   momx1(:,:,:) = rho1(:,:,:) * ux1(:,:,:)
   momy1(:,:,:) = rho1(:,:,:) * uy1(:,:,:)
   momz1(:,:,:) = rho1(:,:,:) * uz1(:,:,:)
-  CALL divergence (momx1, momy1, momz1, &
-       ep1, ta1, tb1, tc1, di1, td1, te1, tf1, &
-       td2, te2, tf2, di2, ta2, tb2, tc2, &
-       ta3, tb3, tc3, di3, td3, te3, tf3, zero3, pp3corr, &
-       nxmsize, nymsize, nzmsize, ph1, ph3, ph4, 1, .TRUE.)
   CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
-  CALL divergence_mom(drhodt1,pp3corr,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+  CALL divergence (momx1, momy1, momz1, ep1, ta1, tb1, tc1, di1, td1, te1, tf1, drhodt1, &
+       td2, te2, tf2, di2, ta2, tb2, tc2, &
+       ta3, tb3, tc3, di3, td3, te3, tf3, divu3, pp3corr, &
+       nxmsize, nymsize, nzmsize, ph1, ph3, ph4, 3, .TRUE.)
   
   ! !! Approximate div( 1/rho nabla p ) using variable-coefficient Poisson equation
   ! !  i.e.

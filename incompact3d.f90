@@ -241,6 +241,11 @@ PROGRAM incompact3d
         ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
         !     velocity.
         !-----------------------------------------------------------------------------------
+
+        if (ivarcoeff.eq.0) then
+          !! Predict drhodt at new timestep
+          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+        endif
       endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
@@ -262,8 +267,9 @@ PROGRAM incompact3d
 !!$      endif
 
       !X-->Y-->Z
-      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,&
+           ta3,tb3,tc3,di3,td3,te3,tf3,divu3,pp3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,1,.FALSE.)
 
       !-----------------------------------------------------------------------------------
@@ -274,6 +280,8 @@ PROGRAM incompact3d
       do while(converged.eqv..FALSE.)
         if (ilmn.ne.0) then
           if (ivarcoeff.ne.0) then
+            !! LMN: variable coefficient Poisson
+
             if ((nrank.eq.0).and.(poissiter.eq.0)) then
               print *, "Solving variable-coefficient pressure-Poisson equation"
             endif
@@ -294,9 +302,7 @@ PROGRAM incompact3d
                    divup3norm)
             endif
           else
-            ! LMN: Approximate ddt rho^{k+1} for use as a constraint for div(rho u)^{k+1}
-            call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
-            call divergence_mom(drhodt1,pp3,di1,di2,di3,nxmsize,nymsize,nzmsize,ph1,ph3,ph4)
+            !! LMN: constant coefficient Poisson
             pp3corr(:,:,:) = pp3(:,:,:)
           endif
         endif
@@ -342,8 +348,9 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       !does not matter -->output=DIV U=0 (in dv3)
-      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,&
-           td2,te2,tf2,di2,ta2,tb2,tc2,ta3,tb3,tc3,di3,td3,te3,tf3,divu3,dv3,&
+      call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
+           td2,te2,tf2,di2,ta2,tb2,tc2,&
+           ta3,tb3,tc3,di3,td3,te3,tf3,divu3,dv3,&
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2,.FALSE.)
 
       call test_speed_min_max(ux1,uy1,uz1)
