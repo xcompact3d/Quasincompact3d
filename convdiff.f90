@@ -939,16 +939,16 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     ! Update thermal conductivity
     CALL calckappa(kappa1, temperature1)
     
-    IF (iprops.EQ.0) THEN
-      ! Calculate divergence of velocity using 2nd derivatives for accuracy
-      CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
-    ELSE
+    ! IF (iprops.EQ.0) THEN
+    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    !   CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+    ! ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL derx (ta1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
       tb1(:,:,:) = kappa1(:,:,:) * ta1(:,:,:)
       CALL derx (ta1, tb1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
       CALL transpose_x_to_y(kappa1, kappa2)
-    ENDIF
+    ! ENDIF
     
     ! Transpose to Y
     CALL transpose_x_to_y(rho1, rho2)
@@ -961,28 +961,28 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     ! Update temperature
     CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
     
-    IF (iprops.EQ.0) THEN
-      ! Calculate divergence of velocity using 2nd derivatives for accuracy
-      IF(istret.NE.0) THEN
-        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-        CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-        DO k = 1, ysize(3)
-          DO j = 1, ysize(2)
-            DO i = 1, ysize(1)
-              tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
-            ENDDO
-          ENDDO
-        ENDDO
-      ELSE
-        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-      ENDIF
-    ELSE
+    ! IF (iprops.EQ.0) THEN
+    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    !   IF(istret.NE.0) THEN
+    !     CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    !     CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+    !     DO k = 1, ysize(3)
+    !       DO j = 1, ysize(2)
+    !         DO i = 1, ysize(1)
+    !           tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+    !         ENDDO
+    !       ENDDO
+    !     ENDDO
+    !   ELSE
+    !     CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+    !   ENDIF
+    ! ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
       tc2(:,:,:) = kappa2(:,:,:) * tb2(:,:,:)
       CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
       CALL transpose_y_to_z(kappa2, kappa3)
-    ENDIF
+    ! ENDIF
     ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
     
     ! Transpose to Z
@@ -996,16 +996,16 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     ! Update temperature
     CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
     
-    IF (iprops.EQ.0) THEN
-      ! Calculate divergence of velocity using 2nd derivatives for accuracy
-      CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-      divu3(:,:,:) = divu3(:,:,:) + ta3(:,:,:)
-    ELSE
+    ! IF (iprops.EQ.0) THEN
+    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
+    !   CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+    !   divu3(:,:,:) = divu3(:,:,:) + ta3(:,:,:)
+    ! ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
       CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-    ENDIF
+    ! ENDIF
 
     divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) / temperature3(:,:,:))
     
