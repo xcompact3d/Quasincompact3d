@@ -1893,9 +1893,7 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
   g_rext = 1.5_mytype / 2.14_mytype
   g_rext2 = g_rext**2
   
-  g_umax = ((0.5_mytype**2) * u1) &
-       / (g_rext2 * (1._mytype - 1._mytype / EXP(1._mytype)))
-  g_umax = g_umax - ucf
+  g_umax = 1._mytype
 
   yc = yly / 2._mytype
   zc = zlz / 2._mytype
@@ -1909,26 +1907,13 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
     xph_fringe = xlx - l_fringe
     iph_fringe = CEILING(xph_fringe * DBLE(nx - 1) / xlx)
 
-    g_umax = 0._mytype
-    DO k = 1, nz
-      z = DBLE(k - 1) * dz - zc
-      DO j = 1, ny
-        y = DBLE(j - 1) * dy - yc
-        r2 = y**2 + z**2
-        gauss = EXP(-r2 / g_rext2) + ucf
-
-        g_umax = g_umax + gauss * dy * dz
-      ENDDO
-    ENDDO
-    g_umax = (u1 * (PI * 0.5_mytype**2) - ucf * (yly * zlz)) / g_umax
-
     DO k = 1, xsize(3)
       z = DBLE(k + xstart(3) - 2) * dz - zc
       DO j = 1, xsize(2)
         y = DBLE(j + xstart(2) - 2) * dy - yc
 
         r2 = y**2 + z**2
-        gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+        gauss = bxxn_scale * (g_umax * EXP(-r2 / g_rext2) + ucf)
         DO i = iph_fringe, xsize(1)
           x = DBLE(i + xstart(1) - 2) * dx
           f_fringe = COS(((x - xph_fringe) / l_fringe) * PI / 2._mytype)

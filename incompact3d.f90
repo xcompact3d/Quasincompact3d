@@ -172,6 +172,9 @@ PROGRAM incompact3d
 
       if (nclx.eq.2) then
         call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
+        if ((ilmn.ne.0).and.(itime.eq.ifirst).and.(itr.eq.1)) then
+          call compute_outflux_lmn(rho1, di1, di2, di3)
+        endif
         call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
       endif
       if (ncly.eq.2) then
@@ -228,6 +231,10 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
+      if (max(nclx, ncly, nclz).eq.2) then
+        !! We have Dirichlet boundaries, compute the boundary mass flux constraint
+        call compute_outflux_lmn(rho1, di1, di2, di3)
+      endif
       call pre_correc(ux1,uy1,uz1,rho1)
 
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))

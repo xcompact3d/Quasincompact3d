@@ -531,48 +531,44 @@ subroutine outflow (ux, uy, uz, rho, phi)
   ! volflux = volflux / (yly * zlz)
   ! cx(:,:) = volflux * gdt(itr) * udx
 
-  ! ! Gaussian outflow (to balance inlet mass flux)
-  ! g_rext = 1.5_mytype / 2.14_mytype ! 2.14 is the magic number of (r/R) giving e^(-r**2 / R**2) = 0.01
-  ! g_rext2 = g_rext**2
-  ! ! g_umax = ((0.5_mytype**2) * u1) &
-  ! !      / (g_rext2 * (1._mytype - 1._mytype / EXP(1._mytype)))
-  ! ! g_umax = g_umax - ucf
-  ! g_umax = 1._mytype ! We will calculate this later to balance mass flux
+  !! Gaussian outflow (to balance inlet mass flux)
+  g_rext = 1.5_mytype / 2.14_mytype ! 2.14 is the magic number of (r/R) giving e^(-r**2 / R**2) = 0.01
+  g_rext2 = g_rext**2
+  g_umax = 1._mytype ! We will calculate this later to balance mass flux
 
-  ! yc = 0.5_mytype * yly
-  ! zc = 0.5_mytype * zlz
+  yc = 0.5_mytype * yly
+  zc = 0.5_mytype * zlz
 
-  ! volflux = u1 * (PI * 0.5_mytype**2)
-  ! volflux_out = 0._mytype
-  ! ucf = 0.1_mytype * volflux / (yly * zlz)
-  ! DO k = 1, nz
-  !   z = DBLE(k - 1) * dz - zc
-  !   DO j = 1, ny
-  !     y = DBLE(j - 1) * dy - yc
+  volflux = outflux ! The required outflux, computed by compute_outflux_lmn
+  volflux_out = 0._mytype
+  ucf = 0.1_mytype * volflux / (yly * zlz)
+  DO k = 1, nz
+    z = DBLE(k - 1) * dz - zc
+    DO j = 1, ny
+      y = DBLE(j - 1) * dy - yc
 
-  !     r2 = y**2 + z**2
-  !     gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+      r2 = y**2 + z**2
+      gauss = g_umax * EXP(-r2 / g_rext2) + ucf
 
-  !     volflux_out = volflux_out + gauss * dy * dz
-  !   ENDDO
-  ! ENDDO
-  ! g_umax = volflux / volflux_out
-  ! u2 = g_umax
+      volflux_out = volflux_out + gauss * dy * dz
+    ENDDO
+  ENDDO
+  bxxn_scale = volflux / volflux_out
 
-  ! DO k = 1, xsize(3)
-  !   z = DBLE(k + xstart(3) - 2) * dz - zc
-  !   DO j = 1, xsize(2)
-  !     y = DBLE(j + xstart(2) - 2) * dy - yc
+  DO k = 1, xsize(3)
+    z = DBLE(k + xstart(3) - 2) * dz - zc
+    DO j = 1, xsize(2)
+      y = DBLE(j + xstart(2) - 2) * dy - yc
 
-  !     r2 = y**2 + z**2
-  !     gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+      r2 = y**2 + z**2
+      gauss = bxxn_scale * (g_umax * EXP(-r2 / g_rext2) + ucf)
       
-  !     cx(j, k) = gauss * (gdt(itr) * udx)
-  !   ENDDO
-  ! ENDDO
+      cx(j, k) = gauss * (gdt(itr) * udx)
+    ENDDO
+  ENDDO
 
-  volflux = u1 * (PI * 0.5_mytype**2) / (yly * zlz)
-  cx(:,:) = volflux * gdt(itr) * udx
+  ! volflux = u1 * (PI * 0.5_mytype**2) / (yly * zlz)
+  ! cx(:,:) = volflux * gdt(itr) * udx
 
   ! !! Volume correction
   ! volflux = 0._mytype
@@ -646,6 +642,71 @@ subroutine outflow (ux, uy, uz, rho, phi)
 
   return
 end subroutine outflow
+
+SUBROUTINE compute_outflux_lmn(rho1, di1, di2, di3)
+
+  USE MPI
+  USE decomp_2d
+  USE param
+  USE variables
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1, gradtempx1, di1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2, gradtempy2, di2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3, gradtempz3, di3
+
+  INTEGER :: i, j, k
+
+  REAL(mytype) :: invpr
+
+  INTEGER :: ierr
+  REAL(mytype) :: outflux_local
+
+  outflux_local = 0._mytype
+
+  temperature1(:,:,:) = 1._mytype / rho1(:,:,:)
+  invpr = 1._mytype / pr
+
+  IF (nclx.EQ.2) THEN
+    CALL derx (gradtempx1,temperature1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    DO k = 1, xsize(3)
+      DO j = 1, xsize(2)
+        outflux_local = outflux_local + bxx1(j, k) * (dy * dz)
+        outflux_local = outflux_local + (xnu * invpr) * (gradtempx1(nx, j, k) - gradtempx1(1, j, k)) &
+             * (dy * dz)
+      ENDDO
+    ENDDO
+  ENDIF
+
+  CALL transpose_x_to_y(temperature1, temperature2)
+  IF (ncly.EQ.2) THEN
+    CALL dery (gradtempy2,temperature2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    DO k = 1, ysize(3)
+      DO i = 1, ysize(1)
+        outflux_local = outflux_local + (byy1(i, k) - byyn(i, k)) * (dx * dz)
+        outflux_local = outflux_local + (xnu * invpr) * (gradtempy2(i, ny, k) - gradtempy2(i, 1, k)) &
+             * (dx * dz)
+      ENDDO
+    ENDDO
+  ENDIF
+
+  CALL transpose_y_to_z(temperature2, temperature3)
+  IF (nclz.EQ.2) THEN
+    CALL derz (gradtempz3,temperature3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    DO j = 1, zsize(2)
+      DO i = 1, zsize(1)
+        outflux_local = outflux_local + (bzz1(i, j) - bzzn(i, j)) * (dx * dy)
+        outflux_local = outflux_local + (xnu * invpr) * (gradtempz3(i, j, nz) - gradtempz3(i, j, 1)) &
+             * (dx * dy)
+      ENDDO
+    ENDDO
+  ENDIF
+  
+  CALL MPI_ALLREDUCE(outflux_local, outflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  
+ENDSUBROUTINE compute_outflux_lmn
 
 SUBROUTINE set_velocity_entrainment_y(clx1, cly1, clz1)
 
@@ -2203,35 +2264,39 @@ subroutine pre_correc(ux,uy,uz,rho)
   if (nclx==2) then
 
     !! Compute inflow
-    ut1 = 0._mytype
-    do k = 1, xsize(3)
-      do j = 1, xsize(2)
-        ut1 = ut1 + bxx1(j, k) * dy * dz
+    if (ilmn.eq.0) then
+      ut1 = 0._mytype
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          ut1 = ut1 + bxx1(j, k) * dy * dz
+        enddo
       enddo
-    enddo
-
-    ! if (ncly.eq.2) then
-    !   do k = 1, xsize(3)
-    !     do i = 1, xsize(1)
-    !       ut1 = ut1 + byy1(i, k) * dx * dz
-    !       ut1 = ut1 - byyn(i, k) * dx * dz
-    !       Ain = Ain + 2._mytype * dx * dz
-    !     enddo
-    !   enddo
-    ! endif
-
-    ! if (nclz.eq.2) then
-    !   do j = 1, xsize(2)
-    !     do i = 1, xsize(1)
-    !       ut1 = ut1 + bzz1(i, j) * dx * dy
-    !       ut1 = ut1 - bzzn(i, j) * dx * dy
-    !       Ain = Ain + 2._mytype * dx * dy
-    !     enddo
-    !   enddo
-    ! endif
-  
-    call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-    ! ut11 = ut11 / nproc
+      
+      ! if (ncly.eq.2) then
+      !   do k = 1, xsize(3)
+      !     do i = 1, xsize(1)
+      !       ut1 = ut1 + byy1(i, k) * dx * dz
+      !       ut1 = ut1 - byyn(i, k) * dx * dz
+      !       Ain = Ain + 2._mytype * dx * dz
+      !     enddo
+      !   enddo
+      ! endif
+      
+      ! if (nclz.eq.2) then
+      !   do j = 1, xsize(2)
+      !     do i = 1, xsize(1)
+      !       ut1 = ut1 + bzz1(i, j) * dx * dy
+      !       ut1 = ut1 - bzzn(i, j) * dx * dy
+      !       Ain = Ain + 2._mytype * dx * dy
+      !     enddo
+      !   enddo
+      ! endif
+      
+      call MPI_ALLREDUCE(ut1, ut11, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+      ! ut11 = ut11 / nproc
+    else
+      ut11 = outflux
+    endif
 
     !! Compute outflow
     ut  =  0._mytype
