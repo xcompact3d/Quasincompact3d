@@ -91,8 +91,8 @@ bstx  = (3._mytype/44._mytype )/dx2
 !bsix  = (3./44. )/dx2
 !csix  = 0.
 !NUMERICAL DISSIPATION (see publications for help)
-!fpi2=4._mytype
-      fpi2=(48./7)/(pi*pi)
+fpi2=4._mytype        ! Uncomment this line to add some small scale numerical dissipation
+!fpi2=(48./7)/(pi*pi) !
 alsaix=(45._mytype*fpi2*pi*pi-272._mytype)/(2._mytype*(45._mytype*fpi2*pi*pi-208._mytype))
 asix  =((6._mytype-9._mytype*alsaix)/4._mytype)/dx2
 bsix  =((-3._mytype+24._mytype*alsaix)/5._mytype)/(4._mytype*dx2)
