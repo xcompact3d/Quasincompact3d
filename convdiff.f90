@@ -951,15 +951,15 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     ! ENDIF
     
     ! Transpose to Y
-    CALL transpose_x_to_y(rho1, rho2)
+    CALL transpose_x_to_y(temperature1, temperature2)
     CALL transpose_x_to_y(ta1, ta2)
     
     !-------------------------------------------------------------------
     ! Y pencil
     !-------------------------------------------------------------------
     
-    ! Update temperature
-    CALL calctemp_eos(temperature2, rho2, pressure0, ysize)
+    ! Update density
+    CALL calcrho_eos(rho2, temperature2, pressure0, ysize)
     
     ! IF (iprops.EQ.0) THEN
     !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
@@ -986,15 +986,15 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
     ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
     
     ! Transpose to Z
-    CALL transpose_y_to_z(rho2, rho3)
+    CALL transpose_y_to_z(temperature2, temperature3)
     CALL transpose_y_to_z(ta2, ta3)
     
     !-------------------------------------------------------------------
     ! Z pencil
     !-------------------------------------------------------------------
     
-    ! Update temperature
-    CALL calctemp_eos(temperature3, rho3, pressure0, zsize)
+    ! Update density
+    CALL calcrho_eos(rho3, temperature3, pressure0, zsize)
     
     ! IF (iprops.EQ.0) THEN
     !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
@@ -1058,6 +1058,33 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
   temperature1(:,:,:) = pressure0 / rho1(:,:,:)
   
 ENDSUBROUTINE calctemp_eos
+
+!!--------------------------------------------------------------------
+!!  SUBROUTINE: calcrho_eos
+!! DESCRIPTION: Given the new temperature field, calculate density
+!!              using the equation of state.
+!!--------------------------------------------------------------------
+SUBROUTINE calcrho_eos(rho1, temperature1, pressure0, arrsize)
+
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  INTEGER, DIMENSION(3), INTENT(IN) :: arrsize
+
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(OUT) :: rho1
+
+  REAL(mytype), INTENT(IN) :: pressure0
+
+  !!------------------------------------------------------------------
+  !! Very simple EOS
+  !!   p = rho T
+  !!------------------------------------------------------------------
+  rho1(:,:,:) = pressure0 / temperature1(:,:,:)
+  
+ENDSUBROUTINE calcrho_eos
 
 !!--------------------------------------------------------------------
 !!  SUBROUTINE: calcvisc
