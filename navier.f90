@@ -209,6 +209,11 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: phi1
 
+  REAL(mytype) :: udenslim, ldenslim
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
 
@@ -266,6 +271,15 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
 
   !! Update old stage
   rhos1(:,:,:) = tg1(:,:,:)
+
+  !! Limiting
+  CALL test_density_min_max(rho1)
+  udenslim = MAX(dens1, dens2)
+  ldenslim = MIN(dens1, dens2)
+  DO ijk = 1, nxyz
+    rho1(ijk, 1, 1) = MAX(rho1(ijk, 1, 1), ldenslim)
+    rho1(ijk, 1, 1) = MIN(rho1(ijk, 1, 1), udenslim)
+  ENDDO
 
   if (iscalar.eq.1) then
     !---------------------------------------------------------------------------------

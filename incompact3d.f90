@@ -361,7 +361,6 @@ PROGRAM incompact3d
            nxmsize,nymsize,nzmsize,ph1,ph3,ph4,2,.FALSE.)
 
       call test_speed_min_max(ux1,uy1,uz1)
-      call test_density_min_max(rho1)
       if (iscalar.eq.1) then
         call test_scalar_min_max(phi1)
       endif
