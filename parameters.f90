@@ -91,6 +91,7 @@ read (10,*) nscheme
 read (10,*) istret
 read (10,*) beta
 read (10,*) ilmn
+read (10,*) isolvetemp
 read (10,*) nrhoscheme
 read (10,*) ivarcoeff
 read (10,*) npoissscheme
@@ -202,6 +203,12 @@ endif
 
 if (ilmn.ne.0) then
   print *, "Low Mach Number: Enabled"
+
+  if (isolvetemp.eq.0) then
+    print *, "Solving for density"
+  else
+    print *, "Solving for temperature"
+  endif
 
   if (ivarcoeff.ne.0) then
     print *, "Var-coeff Poisson: ENABLED"

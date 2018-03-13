@@ -785,7 +785,7 @@ endif
 end subroutine scalar
 
 !!--------------------------------------------------------------------
-!!  Subroutine: density
+!!  Subroutine: conv_density
 !!
 !! Description: Advances density in time for LMN.
 !!
@@ -806,7 +806,7 @@ end subroutine scalar
 !!              and transpose temperature array when we do this with
 !!              density anyway.
 !!--------------------------------------------------------------------
-SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
+SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
      uy2, uz2, rho2, di2, ta2, tb2, tc2, td2, &
      uz3, rho3, divu3, di3, ta3, tb3, &
      epsi)
@@ -893,7 +893,77 @@ SUBROUTINE density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   ! !! MMS Source term
   ! CALL density_source_mms(ta1)
   
-ENDSUBROUTINE density
+ENDSUBROUTINE conv_density
+
+!!--------------------------------------------------------------------
+!!--------------------------------------------------------------------
+SUBROUTINE convdiff_temperature(ux1, uy1, uz1, temperature1, di1, ta1, tb1,&
+     uy2, uz2, temperature2, di2, ta2, tb2,&
+     uz3, temperature3, di3, ta3, tb3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
+  
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2, td2
+  
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
+
+  !!----------------------------------------------------------------
+  ! Accumulate advection
+
+  !----------------------------------------
+  ! X-pencils
+  CALL derx (tb1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
+
+  ! Go to Y
+  CALL transpose_x_to_y(temperature1, temperature2)
+  CALL transpose_x_to_y(uy1, uy2)
+  CALL transpose_x_to_y(uz1, uz2)
+
+  !----------------------------------------
+  !Y PENCILS
+  CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
+
+  ! Go to Z
+  CALL transpose_y_to_z(temperature2, temperature3)
+  CALL transpose_y_to_z(uz2, uz3)
+
+  !----------------------------------------
+  ! Z PENCILS
+  CALL derz (tb3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:) + temperature3(:,:,:) * divu3(:,:,:)
+
+  !!----------------------------------------------------------------
+  ! Add diffusion and get back to X
+  ! XXX The diffusion term is equivalent to T div(u)
+  ta3(:,:,:) = temperature3(:,:,:) * divu3(:,:,:)
+
+  ! Subtract advection from diffusion
+  ta3(:,:,:) = ta3(:,:,:) - tb3(:,:,:)
+
+  CALL transpose_z_to_y(ta3, ta2)
+
+  ta2(:,:,:) = ta2(:,:,:) - tb2(:,:,:)
+  
+  CALL transpose_y_to_z(ta2, ta1)
+
+  ta1(:,:,:) = ta1(:,:,:) - tb1(:,:,:)
+  
+ENDSUBROUTINE convdiff_temperature
 
 !!--------------------------------------------------------------------
 !!  SUBROUTINE: calc_divu

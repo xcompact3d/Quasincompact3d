@@ -52,7 +52,8 @@ real(mytype), save, allocatable, dimension(:,:,:) :: clz1, clz2, clz3
 ! Additional variables required for LMN
 real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01, rho0p3
 real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
-real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
+real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3, &
+     temperatures1, temperaturess1
 real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 real(mytype), save, allocatable, dimension(:,:,:) :: kappa1, kappa2, kappa3
@@ -132,7 +133,9 @@ contains
     call alloc_x(rho1, opt_global=.true.)
     call alloc_x(temperature1, opt_global=.true.)
     call alloc_x(rhos1)
+    call alloc_x(temperatures1)
     call alloc_x(rhoss1)
+    call alloc_x(temperaturess1)
     call alloc_x(rhos01)
     call alloc_x(drhodt1)
     call alloc_x(mu1, opt_global=.true.)

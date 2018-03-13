@@ -210,14 +210,22 @@ PROGRAM incompact3d
       endif
 
       if (ilmn.ne.0) then
-        ! Update density
-        !    X->Y->Z->Y->X
-        ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
-        !     transpose operations by operating on Z->Y->X.
-        ! XXX tg1 contains the density forcing term.
-        call density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
-             uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-             uz3,rho3,divu3,di3,ta3,tb3,ep1)
+        if (isolvetemp.eq.0) then
+          ! Update density
+          !    X->Y->Z->Y->X
+          ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+          !     transpose operations by operating on Z->Y->X.
+          ! XXX tg1 contains the density forcing term.
+          call conv_density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
+               uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+               uz3,rho3,divu3,di3,ta3,tb3,ep1)
+        else
+          ! Update temperature
+          call convdiff_temperature(ux1,uy1,uz1,temperature1,di1,tg1,th1,&
+               uy2,uz2,temperature2,di2,ta2,tb2,&
+               uz3,temperature3,di3,ta3,tb3)
+          call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
+        endif
       endif
 
       !X PENCILS
@@ -226,6 +234,38 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
       !-----------------------------------------------------------------------------------
+
+      if (ilmn.ne.0) then
+        !! Update density
+        if (isolvetemp.eq.0) then
+          call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1,ux1,uy1,uz1,phi1)
+          !-------------------------------------------------------------------------------
+          ! XXX phi1 now contains the new scalar value.
+          ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
+          !     velocity.
+          !-------------------------------------------------------------------------------
+
+          ! Update temperature using EOS
+          call calctemp_eos(temperature1, rho1, pressure0, xsize)
+        else
+          ! Update density using EOS
+          call calcrho_eos(rho1, temperature1, pressure0, xsize)
+        endif
+
+        if (ivarcoeff.eq.0) then
+          !! Predict drhodt at new timestep
+          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+        else
+          !! Convert back to primitive variables
+          if (isolvetemp.ne.0) then
+            ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
+            uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
+            uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
+          endif
+          if (iscalar.ne.0) then
+          endif
+        endif
+      endif
 
 !!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
@@ -240,20 +280,6 @@ PROGRAM incompact3d
 !!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
-
-      if (ilmn.ne.0) then
-        call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1,ux1,uy1,uz1,phi1)
-        !-----------------------------------------------------------------------------------
-        ! XXX phi1 now contains the new scalar value.
-        ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
-        !     velocity.
-        !-----------------------------------------------------------------------------------
-
-        if (ivarcoeff.eq.0) then
-          !! Predict drhodt at new timestep
-          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
-        endif
-      endif
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
       !      This updates the temperature field using the density field.

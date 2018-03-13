@@ -309,6 +309,64 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
 ENDSUBROUTINE inttdensity
 
 !********************************************************************
+!********************************************************************
+SUBROUTINE intttemperature(temperature1, temperatures1, temperaturess1, tg1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1, temperatures1, temperaturess1
+
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+    !! AB2 or RK3
+
+    IF (((nscheme.EQ.1).AND.(itime.EQ.1).AND.(ilit.EQ.0)).OR.&
+         ((nscheme.EQ.2).AND.(itr.EQ.1))) THEN
+      temperature1(:,:,:) = temperature1(:,:,:) + gdt(itr) * tg1(:,:,:)
+    ELSE
+      temperature1(:,:,:) = temperature1(:,:,:) + adt(itr) * tg1(:,:,:) &
+           + bdt(itr) * temperatures1(:,:,:)
+    ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+    !! RK3
+    IF (nrank.EQ.0) THEN
+      PRINT *, "LMN: RK4 not ready!"
+      STOP
+    ENDIF
+  ELSE
+    !! AB3
+    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+      IF (nrank.EQ.0) THEN
+        PRINT  *, 'start with Euler', itime
+      ENDIF
+      temperature1(:,:,:) = temperature1(:,:,:) + dt * tg1(:,:,:)
+    ELSE
+      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+          PRINT *, 'then with AB2', itime
+        ENDIF
+        temperature1(:,:,:) = temperature1(:,:,:) - 0.5_mytype * dt &
+             * (temperatures1(:,:,:) - 3._mytype * tg1(:,:,:))
+      ELSE
+        temperature1(:,:,:) = temperature1(:,:,:) + adt(itr) * tg1(:,:,:) &
+             + bdt(itr) * temperatures1(:,:,:) + cdt(itr) * temperaturess1(:,:,:)
+      ENDIF
+
+      !! Update oldold stage
+      temperaturess1(:,:,:) = temperatures1(:,:,:)
+    ENDIF
+  ENDIF
+
+  !! Update old stage
+  temperatures1(:,:,:) = tg1(:,:,:)
+  
+ENDSUBROUTINE intttemperature
+
+!********************************************************************
 !
 ! 
 !********************************************************************
