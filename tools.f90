@@ -121,6 +121,47 @@ subroutine test_density_min_max(rho)
   return
 end subroutine test_density_min_max
 
+subroutine test_temperature_min_max(temperature)
+
+  USE decomp_2d
+  USE decomp_2d_poisson
+  USE variables
+  USE param
+  USE var
+  USE MPI
+
+  implicit none
+
+  integer :: i,j,k
+  real(mytype) :: temperaturemax,temperaturemin,cfl
+  real(mytype) :: temperaturemax1,temperaturemin1
+
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: temperature
+  integer :: code
+
+  ! temperaturemax=-1609._mytype
+  ! temperaturemin=1609._mytype
+  ! do k=1,xsize(3)
+  !   do j=1,xsize(2)
+  !     do i=1,xsize(1)
+  !       if (temperature(i,j,k).gt.temperaturemax) temperaturemax=temperature(i,j,k)
+  !       if (temperature(i,j,k).lt.temperaturemin) temperaturemin=temperature(i,j,k)
+  !     enddo
+  !   enddo
+  ! enddo
+  temperaturemax = MAXVAL(temperature)
+  temperaturemin = MINVAL(temperature)
+
+  call MPI_REDUCE(temperaturemax,temperaturemax1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+  call MPI_REDUCE(temperaturemin,temperaturemin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+  if (nrank==0) then
+    print *,'TEMPERATURE max=',temperaturemax1
+    print *,'TEMPERATURE min=',temperaturemin1
+  endif
+
+  return
+end subroutine test_temperature_min_max
+
 !*******************************************************************
 !
 !

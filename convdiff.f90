@@ -897,9 +897,9 @@ ENDSUBROUTINE conv_density
 
 !!--------------------------------------------------------------------
 !!--------------------------------------------------------------------
-SUBROUTINE convdiff_temperature(ux1, uy1, uz1, temperature1, di1, ta1, tb1,&
-     uy2, uz2, temperature2, di2, ta2, tb2,&
-     uz3, temperature3, di3, ta3, tb3)
+SUBROUTINE convdiff_temperature(ux1, uy1, uz1, rho1, temperature1, di1, ta1, tb1,&
+     uy2, uz2, rho2, temperature2, di2, ta2, tb2,&
+     uz3, rho3, temperature3, di3, ta3, tb3)
 
   USE param
   USE variables
@@ -908,17 +908,20 @@ SUBROUTINE convdiff_temperature(ux1, uy1, uz1, temperature1, di1, ta1, tb1,&
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1, td1, epsi
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1, rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1
   
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2, td2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2, rho2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2
   
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3, rho3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
+
+  REAL(mytype) :: invpr
+
+  invpr = 1._mytype / pr
 
   !!----------------------------------------------------------------
   ! Accumulate advection
@@ -932,6 +935,7 @@ SUBROUTINE convdiff_temperature(ux1, uy1, uz1, temperature1, di1, ta1, tb1,&
   CALL transpose_x_to_y(temperature1, temperature2)
   CALL transpose_x_to_y(uy1, uy2)
   CALL transpose_x_to_y(uz1, uz2)
+  CALL transpose_x_to_y(rho1, rho2)
 
   !----------------------------------------
   !Y PENCILS
@@ -941,29 +945,155 @@ SUBROUTINE convdiff_temperature(ux1, uy1, uz1, temperature1, di1, ta1, tb1,&
   ! Go to Z
   CALL transpose_y_to_z(temperature2, temperature3)
   CALL transpose_y_to_z(uz2, uz3)
+  CALL transpose_y_to_z(rho2, rho3)
 
   !----------------------------------------
   ! Z PENCILS
   CALL derz (tb3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:) + temperature3(:,:,:) * divu3(:,:,:)
+  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
 
   !!----------------------------------------------------------------
   ! Add diffusion and get back to X
   ! XXX The diffusion term is equivalent to T div(u)
-  ta3(:,:,:) = temperature3(:,:,:) * divu3(:,:,:)
-
-  ! Subtract advection from diffusion
-  ta3(:,:,:) = ta3(:,:,:) - tb3(:,:,:)
+  call derzz (tb3,temperature3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  ta3(:,:,:) = (xnu * invpr / rho3(:,:,:)) * ta3(:,:,:) - tb3(:,:,:)
 
   CALL transpose_z_to_y(ta3, ta2)
 
   ta2(:,:,:) = ta2(:,:,:) - tb2(:,:,:)
+  call deryy (tb2,temperature2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+  ta2(:,:,:) = ta2(:,:,:) + (xnu * invpr / rho2(:,:,:)) * tb2(:,:,:)
   
-  CALL transpose_y_to_z(ta2, ta1)
+  CALL transpose_y_to_x(ta2, ta1)
 
   ta1(:,:,:) = ta1(:,:,:) - tb1(:,:,:)
+  call derxx (tb1,temperature1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  ta1(:,:,:) = ta1(:,:,:) + (xnu * invpr / rho1(:,:,:)) * tb1(:,:,:)
   
 ENDSUBROUTINE convdiff_temperature
+
+SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfracss1, ta1, tb1, tc1, di1, &
+     uy2, uz2, rho2, massfrac2, ta2, tb2, tc2, di2, &
+     uz3, rho3, massfrac3, ta3, tb3, tc3, di3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: massfrac1, massfracs1, massfracss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1
+  
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2, rho2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: massfrac2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: di2, ta2, tb2, tc2
+  
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: uz3, rho3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: massfrac3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3, tc3
+
+  INTEGER :: ijk, nxyz
+
+  REAL(mytype) :: invsc
+
+  invsc = 1._mytype / sc
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
+  !!----------------------------------------------------------------
+  ! Accumulate diffusion - advection
+
+  !----------------------------------------
+  ! X-pencils
+  CALL derx (ta1, massfrac1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  tb1(:,:,:) = rho1(:,:,:) * ta1(:,:,:)
+  call derx (tc1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+  ta1(:,:,:) = (xnu * invsc / rho1(:,:,:)) * tc1(:,:,:) - ux1(:,:,:) * ta1(:,:,:)
+
+  ! Go to Y
+  CALL transpose_x_to_y(massfrac1, massfrac2)
+  CALL transpose_x_to_y(uy1, uy2)
+  CALL transpose_x_to_y(uz1, uz2)
+  CALL transpose_x_to_y(rho1, rho2)
+
+  !----------------------------------------
+  !Y PENCILS
+  CALL dery (ta2, massfrac2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  tb2(:,:,:) = rho2(:,:,:) * ta2(:,:,:)
+  CALL dery (tc2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+  ta2(:,:,:) = (xnu * invsc / rho2(:,:,:)) * tc2(:,:,:) - uy2(:,:,:) * ta2(:,:,:)
+
+  ! Go to Z
+  CALL transpose_y_to_z(massfrac2, massfrac3)
+  CALL transpose_y_to_z(uz2, uz3)
+  CALL transpose_y_to_z(rho2, rho3)
+
+  !----------------------------------------
+  ! Z PENCILS
+  CALL derz (ta3, massfrac3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  tb3(:,:,:) = rho3(:,:,:) * ta3(:,:,:)
+  CALL derz (tc3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+  ta3(:,:,:) = (xnu * invsc / rho3(:,:,:)) * tc3(:,:,:) - uz3(:,:,:) * ta3(:,:,:)
+
+  ! Get back to X
+  CALL transpose_z_to_y(ta3, tb2)
+  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+  CALL transpose_y_to_x(ta2, tb1)
+  ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
+
+  !! Integrate in time
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+    !! AB2 or RK3
+
+    IF (((nscheme.EQ.1).AND.(itime.EQ.1).AND.(ilit.EQ.0)).OR.&
+         ((nscheme.EQ.2).AND.(itr.EQ.1))) THEN
+      massfrac1(:,:,:) = massfrac1(:,:,:) + gdt(itr) * ta1(:,:,:)
+    ELSE
+      massfrac1(:,:,:) = massfrac1(:,:,:) + adt(itr) * ta1(:,:,:) &
+           + bdt(itr) * massfracs1(:,:,:)
+    ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+    !! RK3
+    IF (nrank.EQ.0) THEN
+      PRINT *, "LMN: RK4 not ready!"
+      STOP
+    ENDIF
+  ELSE
+    !! AB3
+    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+      IF (nrank.EQ.0) THEN
+        PRINT  *, 'start with Euler', itime
+      ENDIF
+      massfrac1(:,:,:) = massfrac1(:,:,:) + dt * ta1(:,:,:)
+    ELSE
+      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+          PRINT *, 'then with AB2', itime
+        ENDIF
+        massfrac1(:,:,:) = massfrac1(:,:,:) - 0.5_mytype * dt &
+             * (massfracs1(:,:,:) - 3._mytype * ta1(:,:,:))
+      ELSE
+        massfrac1(:,:,:) = massfrac1(:,:,:) + adt(itr) * ta1(:,:,:) &
+             + bdt(itr) * massfracs1(:,:,:) + cdt(itr) * massfracss1(:,:,:)
+      ENDIF
+
+      !! Update oldold stage
+      massfracss1(:,:,:) = massfracs1(:,:,:)
+    ENDIF
+  ENDIF
+
+  !! Update old stage
+  massfracs1(:,:,:) = ta1(:,:,:)
+
+  !! Limiting
+  DO ijk = 1, nxyz
+    massfrac1(ijk, 1, 1) = MAX(massfrac1(ijk, 1, 1), 0._mytype)
+    massfrac1(ijk, 1, 1) = MIN(massfrac1(ijk, 1, 1), 1._mytype)
+  ENDDO
+  
+ENDSUBROUTINE convdiff_massfrac
 
 !!--------------------------------------------------------------------
 !!  SUBROUTINE: calc_divu
@@ -971,9 +1101,9 @@ ENDSUBROUTINE convdiff_temperature
 !!              the temperature field, ensuring the gradient of
 !!              thermodynamic pressure is zero.
 !!--------------------------------------------------------------------
-SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
-     ta2, tb2, tc2, rho2, temperature2, kappa2, di2, &
-     divu3, ta3, tb3, rho3, temperature3, kappa3, di3, &
+SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, &
+     ta2, tb2, tc2, rho2, temperature2, massfrac2, kappa2, di2, &
+     divu3, ta3, tb3, rho3, temperature3, massfrac3, kappa3, di3, &
      pressure0)
 
   USE param
@@ -984,110 +1114,132 @@ SUBROUTINE calc_divu(ta1, tb1, rho1, temperature1, kappa1, di1, &
 
   INTEGER i, j, k
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, di1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: temperature1, kappa1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, temperature1, massfrac1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: kappa1
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, tb2, tc2, di2
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2, kappa2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: rho2, temperature2, massfrac2, kappa2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3, tb3, di3
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3, kappa3
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: divu3, rho3, temperature3, massfrac3, kappa3
   REAL(mytype), INTENT(IN) :: pressure0
 
-  REAL(mytype) :: invpressure0, invpr
+  REAL(mytype) :: invpressure0, invpr, invsc
   
   IF (ilmn.NE.0) THEN
     invpressure0 = 1._mytype / pressure0
     invpr = 1._mytype / pr
+    invsc = 1._mytype / sc
     
     !-------------------------------------------------------------------
     ! X pencil
     !-------------------------------------------------------------------
-    
-    ! Update temperature
-    CALL calctemp_eos(temperature1, rho1, pressure0, xsize)
-    
-    ! Update thermal conductivity
-    CALL calckappa(kappa1, temperature1)
-    
-    ! IF (iprops.EQ.0) THEN
-    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    !   CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
-    ! ELSE
+
+    ! Temperature
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      CALL derxx (ta1, temperature1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+    ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
+    
+      ! Update thermal conductivity
+      CALL calckappa(kappa1, temperature1)
+
       CALL derx (ta1, temperature1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
       tb1(:,:,:) = kappa1(:,:,:) * ta1(:,:,:)
       CALL derx (ta1, tb1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
       CALL transpose_x_to_y(kappa1, kappa2)
-    ! ENDIF
+    ENDIF
+    ta1(:,:,:) = (xnu * invpr / temperature1(:,:,:)) * ta1(:,:,:)
+
+    ! Massfrac
+    if (imulticomponent.ne.0) then
+      call derx (tb1,massfrac1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+      tb1(:,:,:) = rho1(:,:,:) * tb1(:,:,:)
+      call derx (tc1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+      ta1(:,:,:) = ta1(:,:,:) + (xnu * invsc &
+           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc1(:,:,:)
+    endif
     
     ! Transpose to Y
+    CALL transpose_x_to_y(rho1, rho2)
     CALL transpose_x_to_y(temperature1, temperature2)
+    CALL transpose_x_to_y(massfrac1, massfrac2)
     CALL transpose_x_to_y(ta1, ta2)
     
     !-------------------------------------------------------------------
     ! Y pencil
     !-------------------------------------------------------------------
-    
-    ! Update density
-    CALL calcrho_eos(rho2, temperature2, pressure0, ysize)
-    
-    ! IF (iprops.EQ.0) THEN
-    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    !   IF(istret.NE.0) THEN
-    !     CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    !     CALL dery (tc2, temperature2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-    !     DO k = 1, ysize(3)
-    !       DO j = 1, ysize(2)
-    !         DO i = 1, ysize(1)
-    !           tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
-    !         ENDDO
-    !       ENDDO
-    !     ENDDO
-    !   ELSE
-    !     CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
-    !   ENDIF
-    ! ELSE
+
+    ! Temperature
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      IF(istret.NE.0) THEN
+        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+        CALL dery (tc2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+        DO k = 1, ysize(3)
+          DO j = 1, ysize(2)
+            DO i = 1, ysize(1)
+              tb2(i, j, k) = tb2(i, j, k) * pp2y(j) - pp4y(j) * tc2(i, j, k)
+            ENDDO
+          ENDDO
+        ENDDO
+      ELSE
+        CALL deryy (tb2, temperature2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+      ENDIF
+    ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL dery (tb2, temperature2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
       tc2(:,:,:) = kappa2(:,:,:) * tb2(:,:,:)
-      CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 1)
+      CALL dery (tb2, tc2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
       CALL transpose_y_to_z(kappa2, kappa3)
-    ! ENDIF
-    ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+    ENDIF
+    ta2(:,:,:) = ta2(:,:,:) + (xnu * invpr / temperature2(:,:,:)) * tb2(:,:,:)
+
+    ! Massfrac
+    if (imulticomponent.ne.0) then
+      CALL dery (tb2, massfrac2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+      tb2(:,:,:) = rho2(:,:,:) * tb2(:,:,:)
+      CALL dery (tc2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
+      ta2(:,:,:) = ta2(:,:,:) + (xnu * invsc &
+           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc2(:,:,:)
+    endif
     
     ! Transpose to Z
+    CALL transpose_y_to_z(rho2, rho3)
     CALL transpose_y_to_z(temperature2, temperature3)
+    CALL transpose_y_to_z(massfrac2, massfrac3)
     CALL transpose_y_to_z(ta2, ta3)
     
     !-------------------------------------------------------------------
     ! Z pencil
     !-------------------------------------------------------------------
-    
-    ! Update density
-    CALL calcrho_eos(rho3, temperature3, pressure0, zsize)
-    
-    ! IF (iprops.EQ.0) THEN
-    !   ! Calculate divergence of velocity using 2nd derivatives for accuracy
-    !   CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-    ! ELSE
+
+    ! Temperature
+    IF (iprops.EQ.0) THEN
+      ! Calculate divergence of velocity using 2nd derivatives for accuracy
+      CALL derzz (divu3, temperature3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+    ELSE
       ! Variable properties, must retain conservative form to ensure mass conservation!
       CALL derz (divu3, temperature3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = kappa3(:,:,:) * divu3(:,:,:)
       CALL derz (divu3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-    ! ENDIF
-    divu3(:,:,:) = divu3(:,:,:) + ta3(:,:,:)
+    ENDIF
+    divu3(:,:,:) = ta3(:,:,:) + (xnu * invpr / temperature3(:,:,:)) * divu3(:,:,:)
 
-    divu3(:,:,:) = (xnu * invpr) * (divu3(:,:,:) / temperature3(:,:,:))
+    ! Massfrac
+    if (imulticomponent.ne.0) then
+      CALL derz (tb3, massfrac3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+      tb3(:,:,:) = rho3(:,:,:) * tb3(:,:,:)
+      CALL derz (ta3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+      divu3(:,:,:) = divu3(:,:,:) + (xnu * invsc &
+           * (dens2 - dens1) / ((dens2 - dens1) * massfrac3(:,:,:) + dens1)) * ta3(:,:,:)
+    endif
+
+    ! So far have rho * divu, want divu
+    divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
     
     ! XXX add dpdt and additional source terms
-
-    ! Finally, we have so far computed rho div(u), want div(u)
-    divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
   ELSE
-    rho2(:,:,:) = 1._mytype
-    rho3(:,:,:) = 1._mytype
-
-    temperature1(:,:,:) = 1._mytype
     temperature2(:,:,:) = 1._mytype
     temperature3(:,:,:) = 1._mytype
 
@@ -1107,9 +1259,10 @@ ENDSUBROUTINE calc_divu
 !! DESCRIPTION: Given the new density field, calculate temperature
 !!              using the equation of state.
 !!--------------------------------------------------------------------
-SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
+SUBROUTINE calctemp_eos(temperature1, rho1, massfrac1, pressure0, arrsize)
 
   USE variables
+  USE param
   USE decomp_2d
 
   IMPLICIT NONE
@@ -1117,15 +1270,31 @@ SUBROUTINE calctemp_eos(temperature1, rho1, pressure0, arrsize)
   INTEGER, DIMENSION(3), INTENT(IN) :: arrsize
 
   REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(OUT) :: temperature1
-  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: rho1, massfrac1
 
   REAL(mytype), INTENT(IN) :: pressure0
+  REAL(mytype) :: W1, W2, Wbar
+  REAL(mytype) :: dmulticomponent
 
-  !!------------------------------------------------------------------
-  !! Very simple EOS
-  !!   p = rho T
-  !!------------------------------------------------------------------
-  temperature1(:,:,:) = pressure0 / rho1(:,:,:)
+  INTEGER :: ijk, nxyz
+
+  IF (imulticomponent.EQ.0) THEN
+    dmulticomponent = 0._mytype
+  ELSE
+    dmulticomponent = 1._mytype
+  ENDIF
+
+  !! Molecular weights @ STP = density * R
+  !! (Assumes STP is T = 1, P = 1.
+  W1 = dens1
+  W2 = dens2
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+  DO ijk = 1, nxyz
+    Wbar = massfrac1(ijk, 1, 1) / W1 + (1._mytype - massfrac1(ijk, 1, 1)) / W2
+    Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
+    temperature1(ijk, 1, 1) = pressure0 / (rho1(ijk, 1, 1) / Wbar)
+  ENDDO
   
 ENDSUBROUTINE calctemp_eos
 
@@ -1134,25 +1303,42 @@ ENDSUBROUTINE calctemp_eos
 !! DESCRIPTION: Given the new temperature field, calculate density
 !!              using the equation of state.
 !!--------------------------------------------------------------------
-SUBROUTINE calcrho_eos(rho1, temperature1, pressure0, arrsize)
+SUBROUTINE calcrho_eos(rho1, temperature1, massfrac1, pressure0, arrsize)
 
   USE variables
+  USE param
   USE decomp_2d
 
   IMPLICIT NONE
 
   INTEGER, DIMENSION(3), INTENT(IN) :: arrsize
 
-  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(IN) :: temperature1, massfrac1
   REAL(mytype), DIMENSION(arrsize(1), arrsize(2), arrsize(3)), INTENT(OUT) :: rho1
 
   REAL(mytype), INTENT(IN) :: pressure0
+  REAL(mytype) :: W1, W2, Wbar
+  REAL(mytype) :: dmulticomponent
 
-  !!------------------------------------------------------------------
-  !! Very simple EOS
-  !!   p = rho T
-  !!------------------------------------------------------------------
-  rho1(:,:,:) = pressure0 / temperature1(:,:,:)
+  INTEGER :: ijk, nxyz
+
+  IF (imulticomponent.EQ.0) THEN
+    dmulticomponent = 0._mytype
+  ELSE
+    dmulticomponent = 1._mytype
+  ENDIF
+
+  !! Molecular weights @ STP = density * R
+  !! (Assumes STP is T = 1, P = 1.
+  W1 = dens1
+  W2 = dens2
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+  DO ijk = 1, nxyz
+    Wbar = massfrac1(ijk, 1, 1) / W1 + (1._mytype - massfrac1(ijk, 1, 1)) / W2
+    Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
+    rho1(ijk, 1, 1) = pressure0 / (temperature1(ijk, 1, 1) / Wbar)
+  ENDDO
   
 ENDSUBROUTINE calcrho_eos
 

@@ -195,7 +195,7 @@ end subroutine intt
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1, phi1)
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
 
   USE param
   USE variables
@@ -206,8 +206,6 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: phi1
 
   REAL(mytype) :: udenslim, ldenslim
   INTEGER :: ijk, nxyz
@@ -281,32 +279,61 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1, ux1, uy1, uz1,
     rho1(ijk, 1, 1) = MIN(rho1(ijk, 1, 1), udenslim)
   ENDDO
 
-  if (iscalar.eq.1) then
-    !---------------------------------------------------------------------------------
-    ! XXX Convert phi1 back into scalar.
-    !---------------------------------------------------------------------------------
-    phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
-  endif
-  
-  if (ivarcoeff.ne.0) then
-    !---------------------------------------------------------------------------------
-    ! XXX Using variable-coefficient Poisson equation, convert momentum back to
-    !     velocity.
-    !---------------------------------------------------------------------------------
-    if (iskew.ne.2) then
-      !! Rotational or quasi skew-symmetric
-      ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
-      uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
-      uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
-    else
-      !! Skew-symmetric
-      ux1(:,:,:) = ux1(:,:,:) / SQRT(rho1(:,:,:))
-      uy1(:,:,:) = uy1(:,:,:) / SQRT(rho1(:,:,:))
-      uz1(:,:,:) = uz1(:,:,:) / SQRT(rho1(:,:,:))
-    endif
-  endif
-
 ENDSUBROUTINE inttdensity
+
+!********************************************************************
+!********************************************************************
+SUBROUTINE eval_densitycoeffs(rho1, temperature1, ta1, rhos1, rhoss1, rhos01, drhodt1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, temperature1, ta1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos1, rhoss1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos01, drhodt1
+  
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+    !! AB2 or RK3
+
+    ! First store -rho1 in drhodt1 incase we use simple extrapolation
+    drhodt1(:,:,:) = -rho1(:,:,:)
+
+    IF (nscheme.EQ.1) THEN
+      !! AB2
+      rhos01(:,:,:) = rhoss1(:,:,:)
+      rhoss1(:,:,:) = rho1(:,:,:)
+    ELSE IF (itr.EQ.1) THEN
+      !! RK3, first iteration
+      rhos01(:,:,:) = rhoss1(:,:,:)
+      rhoss1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
+    ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+    !! RK4
+    !! XXX Not implemented!
+    IF (nrank.EQ.0) THEN
+      PRINT  *, 'LMN: RK4 not ready'
+      STOP
+    ENDIF
+  ELSE
+    !! AB3
+    !! XXX Not implemented
+    IF (nrank.EQ.0) THEN
+      PRINT  *, 'LMN: AB3 not ready'
+      STOP
+    ENDIF
+  ENDIF
+
+  !! Update old stage
+  rhos1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
+   
+ENDSUBROUTINE eval_densitycoeffs
 
 !********************************************************************
 !********************************************************************
@@ -320,6 +347,9 @@ SUBROUTINE intttemperature(temperature1, temperatures1, temperaturess1, tg1)
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1, temperatures1, temperaturess1
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
 
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
     !! AB2 or RK3
@@ -363,6 +393,13 @@ SUBROUTINE intttemperature(temperature1, temperatures1, temperaturess1, tg1)
 
   !! Update old stage
   temperatures1(:,:,:) = tg1(:,:,:)
+
+  !! Limiting
+  CALL test_temperature_min_max(temperature1)
+  DO ijk = 1, nxyz
+    temperature1(ijk, 1, 1) = MAX(temperature1(ijk, 1, 1), 1._mytype)
+    temperature1(ijk, 1, 1) = MIN(temperature1(ijk, 1, 1), 1._mytype)
+  ENDDO
   
 ENDSUBROUTINE intttemperature
 
@@ -446,7 +483,7 @@ end subroutine corgp
 !*********************************************************
 !
 !*********************************************************
-subroutine inflow (ux, uy, uz, rho, phi)
+subroutine inflow (ux, uy, uz, rho, temperature, massfrac, phi)
 
   USE param
   USE IBM
@@ -456,10 +493,10 @@ subroutine inflow (ux, uy, uz, rho, phi)
   implicit none
 
   integer :: k, j, n, nmodes
-  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
-  real(mytype) :: r1, r2, r3, y, z, um, theta, freq, St, mf
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, temperature, phi, massfrac
+  real(mytype) :: r1, r2, r3, y, z, um, theta, freq, St, mf, s
 
-  call ecoule(ux, uy, uz, rho)
+  call ecoule(ux, uy, uz, rho, temperature, massfrac)
 
   call random_number(bxo)
   call random_number(byo)
@@ -469,6 +506,7 @@ subroutine inflow (ux, uy, uz, rho, phi)
 
   St = 0.3
   freq = St * u1 / (1._mytype)
+  s = SIN(t * (PI / 2._mytype))
   if (iin.eq.1) then  
     do k = 1, xsize(3)
       z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
@@ -508,15 +546,19 @@ subroutine inflow (ux, uy, uz, rho, phi)
           !! Additional forcing
           um = 0._mytype
           DO n = 1, nmodes
-            um = um + SIN(2._mytype * PI * n * (t * freq) + theta)
+            um = um + SIN(2._mytype * PI * (t * freq) / (DBLE(n)) + theta)
           ENDDO
           um = 0.2_mytype * um / DBLE(nmodes)
+          IF (t.LT.1._mytype) THEN
+            um = um * SIN(t * (0.5_mytype * PI))
+          ENDIF
+          um = s * um
           bxx1(j, k) = (1._mytype + um) * bxx1(j, k)
 
           bxx1(j, k) = bxx1(j, k) + noise1 * (1._mytype - 2._mytype * bxo(j, k))
           bxy1(j, k) = bxy1(j, k) + noise1 * (1._mytype - 2._mytype * byo(j, k))
           bxz1(j, k) = bxz1(j, k) + noise1 * (1._mytype - 2._mytype * bzo(j, k))
-          bxx1(j, k) = MAX(bxx1(j, k), 0._mytype) ! Prevent backflow
+          bxx1(j, k) = MAX(bxx1(j, k), u2) ! Prevent backflow
           
           ! if ((mf * bxx1(j, k)).gt.0._mytype) then
           !   rho(1, j, k) = mf / bxx1(j, k)
@@ -540,7 +582,7 @@ end subroutine inflow
 !*********************************************************
 !
 !*********************************************************
-subroutine outflow (ux, uy, uz, rho, phi)
+subroutine outflow (ux, uy, uz, rho, temperature, massfrac, phi)
 
   USE param
   USE variables
@@ -550,7 +592,7 @@ subroutine outflow (ux, uy, uz, rho, phi)
   implicit none
 
   integer :: j, k, i,  code
-  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, phi
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: ux, uy, uz, rho, temperature, massfrac, phi
   real(mytype) :: udx, udy, udz, uddx, uddy, uddz, uxmax, &
        uxmin, vphase, coef, uxmax1, uxmin1, volflux, volflux_out
   real(mytype), dimension(xsize(2), xsize(3)) :: cx
@@ -612,30 +654,38 @@ subroutine outflow (ux, uy, uz, rho, phi)
   zc = 0.5_mytype * zlz
 
   volflux = outflux ! The required outflux, computed by compute_outflux_lmn
-  volflux_out = 0._mytype
-  ucf = 0.1_mytype * volflux / (yly * zlz)
-  DO k = 1, nz
-    z = DBLE(k - 1) * dz - zc
-    DO j = 1, ny
-      y = DBLE(j - 1) * dy - yc
+  ! volflux_out = 0._mytype
+  ! ucf = 0.1_mytype * u1 * (PI * 0.5_mytype**2) / (yly * zlz)
+  ! DO k = 1, nz
+  !   z = DBLE(k - 1) * dz - zc
+  !   DO j = 1, ny
+  !     y = DBLE(j - 1) * dy - yc
 
-      r2 = y**2 + z**2
-      gauss = g_umax * EXP(-r2 / g_rext2) + ucf
+  !     r2 = y**2 + z**2
+  !     gauss = g_umax * EXP(-r2 / g_rext2) + ucf
 
-      volflux_out = volflux_out + gauss * dy * dz
-    ENDDO
-  ENDDO
-  bxxn_scale = volflux / volflux_out
+  !     volflux_out = volflux_out + gauss * dy * dz
+  !   ENDDO
+  ! ENDDO
+  ! bxxn_scale = volflux / volflux_out
 
-  DO k = 1, xsize(3)
-    z = DBLE(k + xstart(3) - 2) * dz - zc
-    DO j = 1, xsize(2)
-      y = DBLE(j + xstart(2) - 2) * dy - yc
+  ! DO k = 1, xsize(3)
+  !   z = DBLE(k + xstart(3) - 2) * dz - zc
+  !   DO j = 1, xsize(2)
+  !     y = DBLE(j + xstart(2) - 2) * dy - yc
 
-      r2 = y**2 + z**2
-      gauss = bxxn_scale * (g_umax * EXP(-r2 / g_rext2) + ucf)
+  !     r2 = y**2 + z**2
+  !     gauss = bxxn_scale * (g_umax * EXP(-r2 / g_rext2) + ucf)
       
-      cx(j, k) = gauss * (gdt(itr) * udx)
+  !     cx(j, k) = gauss * (gdt(itr) * udx)
+  !   ENDDO
+  ! ENDDO
+
+  !! Set average outflux
+  volflux = volflux / (xlx * yly)
+  DO k = 1, xsize(3)
+    DO j = 1, xsize(2)
+      cx(j, k) = volflux * (gdt(itr) * udx)
     ENDDO
   ENDDO
 
@@ -690,15 +740,27 @@ subroutine outflow (ux, uy, uz, rho, phi)
         bxyn(j, k) = uy(nx, j, k) - cx(j, k) * (uy(nx, j, k) - uy(nx - 1, j, k))
         bxzn(j, k) = uz(nx, j, k) - cx(j, k) * (uz(nx, j, k) - uz(nx - 1, j, k))
         ! bxyn(j, k) = 0._mytype 
-        ! bxzn(j, k) = 0._mytype 
+        ! bxzn(j, k) = 0._mytype
+
+        massfrac(nx, j, k) = massfrac(nx, j, k) - cx(j, k) &
+             * (massfrac(nx, j, k) - massfrac(nx - 1, j, k))
       enddo
     enddo
-    
-    do k = 1, xsize(3)
-      do j = 1, xsize(2)
-        rho(nx, j, k) = rho(nx, j, k) - cx(j, k) * (rho(nx, j, k) - rho(nx - 1, j, k))
+
+    if (isolvetemp.eq.0) then
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          rho(nx, j, k) = rho(nx, j, k) - cx(j, k) * (rho(nx, j, k) - rho(nx - 1, j, k))
+        enddo
       enddo
-    enddo
+    else
+      do k = 1, xsize(3)
+        do j = 1, xsize(2)
+          temperature(nx, j, k) = temperature(nx, j, k) - cx(j, k) &
+               * (temperature(nx, j, k) - temperature(nx - 1, j, k))
+        enddo
+      enddo
+    endif
 
     if (iscalar.eq.1) then
       do k = 1, xsize(3)
@@ -715,7 +777,9 @@ subroutine outflow (ux, uy, uz, rho, phi)
   return
 end subroutine outflow
 
-SUBROUTINE compute_outflux_lmn(rho1, di1, di2, di3)
+SUBROUTINE compute_outflux_lmn(temperature1, gradtempx1, di1,&
+     temperature2, gradtempy2, di2,&
+     temperature3, gradtempz3, di3)
 
   USE MPI
   USE decomp_2d
@@ -724,8 +788,8 @@ SUBROUTINE compute_outflux_lmn(rho1, di1, di2, di3)
   
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1, gradtempx1, di1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: temperature1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: gradtempx1, di1
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: temperature2, gradtempy2, di2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: temperature3, gradtempz3, di3
 
@@ -738,7 +802,6 @@ SUBROUTINE compute_outflux_lmn(rho1, di1, di2, di3)
 
   outflux_local = 0._mytype
 
-  temperature1(:,:,:) = 1._mytype / rho1(:,:,:)
   invpr = 1._mytype / pr
 
   IF (nclx.EQ.2) THEN
@@ -825,6 +888,8 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   INTEGER :: i, j, k
 
+  REAL(mytype) :: cy
+
   IF (ilmn.NE.0) THEN
     j = 1
     IF (xstart(2).EQ.1) THEN
@@ -835,7 +900,8 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
             rho1(i, j, k) = dens2
           ELSE
             !! OUTFLOW
-            rho1(i, j, k) = rho1(i, j + 1, k)
+            cy = uy1(i, j, k) * gdt(itr) / dy
+            rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
           ENDIF
         ENDDO
       ENDDO
@@ -849,7 +915,8 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
             rho1(i, j, k) = dens2
           ELSE
             !! OUTFLOW
-            rho1(i, j, k) = rho1(i, j - 1, k)
+            cy = uy1(i, j, k) * gdt(itr) / dy
+            rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j - 1, k))
           ENDIF
         ENDDO
       ENDDO
@@ -903,6 +970,8 @@ SUBROUTINE set_density_entrainment_z(rho1, uz1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   INTEGER :: i, j, k
 
+  REAL(mytype) :: cz
+
   IF (ilmn.NE.0) THEN
     IF (xstart(3).EQ.1) THEN
       k = 1
@@ -913,7 +982,8 @@ SUBROUTINE set_density_entrainment_z(rho1, uz1)
             rho1(i, j, k) = dens2
           ELSE
             !! OUTFLOW
-            rho1(i, j, k) = rho1(i, j, k + 1)
+            cz = uz1(i, j, k) * gdt(itr) / dz
+            rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k + 1) - rho1(i, j, k))
           ENDIF
         ENDDO
       ENDDO
@@ -927,7 +997,8 @@ SUBROUTINE set_density_entrainment_z(rho1, uz1)
             rho1(i, j, k) = dens2
           ELSE
             !! OUTFLOW
-            rho1(i, j, k) = rho1(i, j, k - 1)
+            cz = uz1(i, j, k) * gdt(itr) / dz
+            rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k) - rho1(i, j, k - 1))
           ENDIF
         ENDDO
       ENDDO
@@ -940,7 +1011,7 @@ ENDSUBROUTINE set_density_entrainment_z
 !
 !
 !**********************************************************************
-subroutine ecoule(ux1,uy1,uz1,rho1)
+subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
 
   USE param
   USE IBM
@@ -950,7 +1021,7 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   implicit none
 
   integer  :: i,j,k,jj1,jj2 
-  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1
+  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,rho1,temperature1,massfrac1
   real(mytype) :: x,y,z,ym
   real(mytype) :: xspec,yspec,zspec
   real(mytype) :: r1,r2,r3,r
@@ -960,6 +1031,7 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
   real(mytype) :: b2, D
   real(mytype) :: gauss, g_umax, ucf
   real(mytype) :: g_rext
+  real(mytype) :: s
 
   bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
   byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -1095,46 +1167,69 @@ subroutine ecoule(ux1,uy1,uz1,rho1)
       enddo
       g_umax = (u1 * (PI * 0.5_mytype**2) - ucf * (yly * zlz)) / g_umax
     endif
+
+    if (t.lt.1._mytype) then
+      s = SIN(t * (0.5_mytype * PI))
+    else
+      s = 1._mytype
+    endif
     
     do k=1,xsize(3)
       z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
       do j=1,xsize(2)
         if (istret.eq.0) then
-          y=(j+xstart(2)-2)*dy-yly/2._mytype
+          y=(j + xstart(2) - 2) * dy - yly / 2._mytype
         else
           y=yp(j)-yly/2._mytype
         endif
         r = SQRT(y**2 + z**2)
         
         ! Set the mean profile
-        if (r.gt.0._mytype) then
-          bxx1(j, k) = 0.5_mytype * u1 * (1._mytype &
+        if (r.gt.0._mytype) then ! Avoid division by zero
+          bxx1(j, k) = u2 - (u2 - u1) * 0.5_mytype * (1._mytype &
                - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          rho1(1, j, k) = dens2 - (dens2 - dens1) &
-               * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-        else
+          bxx1(j, k) = MAX(bxx1(j, k), u2) ! Ensure a minimum velocity
+
+          ! if (r.lt.0.5_mytype * D) then ! jet
+            massfrac1(1, j, k) = 0._mytype - (0._mytype - 1._mytype) &
+                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+          ! else ! co-flow
+          !   massfrac1(1, j, k) = 0._mytype
+          ! endif
+
+          if (isolvetemp.eq.0) then
+            rho1(1, j, k) = dens2 - (dens2 - dens1) &
+                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+          else
+            temperature1(1, j, k) = 1._mytype
+          endif
+        else ! r = 0, set centreline values
           bxx1(j, k) = u1
-          rho1(1, j, k) = dens1
+          massfrac1(1, j, k) = 1._mytype
+          if (isolvetemp.eq.0) then
+            rho1(1, j, k) = dens1
+          else
+            temperature1(1, j, k) = 1._mytype
+          endif
         endif
 
-        if (itime.eq.0) then
-          do i = 1, xsize(1)
-            ! x = (i + xstart(1) - 2) * dx
-            ! if (r.le.(0.5_mytype * D + (x / xlx) * (1.5_mytype - 0.5_mytype * D))) then
-            !   ux1(i,j,k) = (ux1(i,j,k) - bxx1(j, k)) + u1 * (0.5_mytype * D &
-            !        / (0.5_mytype * D + (x / xlx) * (1.5_mytype - 0.5_mytype * D)))**2
-            ! endif
+        !! Smooth inflow in time, s = SIN(t * PI / 2) if t < 1, 1 otherwise
+        ! bxx1(j, k) = s * bxx1(j, k) + (1._mytype - s) * u2
+        rho1(1, j, k) = s * rho1(1, j, k) + (1._mytype - s) * dens2
+        temperature1(1, j, k) = s * temperature1(1, j, k) + (1._mytype - s) * 1._mytype
+        massfrac1(1, j, k) = s * massfrac1(1, j, k) + (1._mytype - s) * 0._mytype
 
-            ! gauss = g_umax * EXP(-(r / g_rext)**2) + ucf
-            ux1(i,j,k) = ux1(i,j,k) - bxx1(j,k)
-            ! ux1(i,j,k) = ux1(i,j,k) + (1._mytype - SIN((x / xlx) * (0.5_mytype * PI))) * bxx1(j,k)
-            ! ux1(i,j,k) = ux1(i,j,k) + SIN((x / xlx) * (0.5_mytype)) * gauss
-          end do
-        endif
-        ! if (itime.le.1) then
+        ! if (itime.eq.0) then
+        !   !! Comment out this loop to make a "tube"
         !   do i = 1, xsize(1)
-        !     rho1(i,j,k) = dens2
-        !   enddo
+        !     ux1(i,j,k) = ux1(i,j,k) - bxx1(j,k)
+
+        !     ! !! Uncomment this section to have smooth transition from inflow to outflow condition
+        !     ! x = (i + xstart(1) - 2) * dx
+        !     ! gauss = g_umax * EXP(-(r / g_rext)**2) + ucf
+        !     ! ux1(i,j,k) = ux1(i,j,k) + (1._mytype - SIN((x / xlx) * (0.5_mytype * PI))) * bxx1(j,k)
+        !     ! ux1(i,j,k) = ux1(i,j,k) + SIN((x / xlx) * (0.5_mytype * PI)) * gauss
+        !   end do
         ! endif
 
         bxy1(j, k) = 0._mytype
@@ -1200,9 +1295,9 @@ end subroutine ecoule
 !
 !
 !********************************************************************
-subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
-     gx1,gy1,gz1,rhos1,phis1,&
-     hx1,hy1,hz1,rhoss1,phiss1,&
+subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
+     gx1,gy1,gz1,rhos1,temperatures1,massfracs1,phis1,&
+     hx1,hy1,hz1,rhoss1,temperaturess1,massfracss1,phiss1,&
      pressure0)
 
   USE decomp_2d
@@ -1217,6 +1312,8 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1,phis1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1,phiss1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,rhos1,rhoss1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: temperature1,temperatures1,temperaturess1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: massfrac1,massfracs1,massfracss1
   real(mytype) :: pressure0
 
   real(mytype) :: x,y,z,r,um,r1,r2,r3
@@ -1274,18 +1371,28 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
       enddo
     enddo
 
-    ! LMN: set density
-    do k = 1, xsize(3)
-      z = float(k + xstart(3) - 2) * dz
-      do j = 1, xsize(2)
-        y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-        do i = 1, xsize(1)
-          x = float(i + xstart(1) - 2) * dx
+    !! Set initial massfrac field:
+    ! massfrac = 1 -> rho = dens1
+    !          = 0 -> rho = dens2
+    massfrac1(:,:,:) = 0._mytype
+    ! massfrac1(:,:,:) = 1._mytype
 
-          rho1(i, j, k) = dens2
+    if (isolvetemp.eq.0) then
+      ! LMN: set density
+      do k = 1, xsize(3)
+        z = float(k + xstart(3) - 2) * dz
+        do j = 1, xsize(2)
+          y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
+          do i = 1, xsize(1)
+            x = float(i + xstart(1) - 2) * dx
+            
+            rho1(i, j, k) = dens2
+          enddo
         enddo
       enddo
-    enddo
+    else
+      temperature1(:,:,:) = 1._mytype
+    endif
     
     if (iscalar==1) then
       do k=1,xsize(3)
@@ -1312,9 +1419,13 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
   endif
 
   !MEAN FLOW PROFILE
-  call ecoule(ux1,uy1,uz1,rho1)
+  call ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
   if (ilmn.eq.0) then
     rho1(:,:,:) = 1._mytype
+    temperature1(:,:,:) = 1._mytype
+  endif
+  if (imulticomponent.eq.0) then
+    massfrac1(:,:,:) = 1._mytype
   endif
   !INIT FOR G AND U=MEAN FLOW + NOISE
   do k=1,xsize(3)
@@ -1330,8 +1441,25 @@ subroutine init (ux1,uy1,uz1,rho1,ep1,phi1,&
         hy1(i,j,k)=gy1(i,j,k)
         hz1(i,j,k)=gz1(i,j,k)
 
+        massfrac1(i,j,k)=massfrac1(1,j,k)
+        massfracs1(i,j,k)=massfrac1(i,j,k)
+        massfracss1(i,j,k)=massfracs1(i,j,k)
+      enddo
+    enddo
+  enddo
+
+  if (isolvetemp.eq.0) then
+    call calctemp_eos(temperature1,rho1,massfrac1,pressure0,xsize)
+  else
+    call calcrho_eos(rho1,temperature1,massfrac1,pressure0,xsize)
+  endif
+  do k=1,xsize(3)
+    do j=1,xsize(2)
+      do i=1,xsize(1)
         rhos1(i,j,k) = rho1(i,j,k)
         rhoss1(i,j,k) = rhos1(i,j,k)
+        temperatures1(i,j,k) = temperature1(i,j,k)
+        temperaturess1(i,j,k) = temperatures1(i,j,k)
       enddo
     enddo
   enddo
@@ -1541,8 +1669,9 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   IF (nscheme.EQ.1) THEN
     !! AB2
     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
-      drhodt1(:,:,:) = drhodt1(:,:,:) + rho1(:,:,:)
+      drhodt1(:,:,:) = rho1(:,:,:) + drhodt1(:,:,:) ! drhodt1 stores -rho^k
     ELSE
+      ! drhodt = (3 rho^{k+1} - 4 rho^k + rho^{k-1}) / (2 dt)
       drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhoss1(:,:,:) + rhos01(:,:,:)
       drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
     ENDIF
@@ -1559,7 +1688,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
     ELSE IF (nrhoscheme.EQ.2) THEN
       !! Alternative approximation:
       !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
-      drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
+      drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:)) / gdt(itr) ! drhodt1 stores -rho^k
     ELSE
       !! Golanski
       IF (itime.GT.1) THEN
@@ -1579,7 +1708,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
         ! full timestep
 
         drhodt1(:,:,:) = rhos1(:,:,:)
-        ! drhodt1(:,:,:) = (drhodt1(:,:,:) + rho1(:,:,:)) / gdt(itr)
+        ! drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:) / gdt(itr) ! drhodt1 stores -rho^k
       ENDIF
     ENDIF
   ELSE
@@ -1693,9 +1822,14 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   LOGICAL :: file_exists
 
   REAL(mytype) :: rho0, rho0local
+  REAL(mytype) :: rho1max, rho1maxlocal, rho1min, rho1minlocal
 
   REAL(mytype), DIMENSION(xszV(1), xszV(2), xszV(3)) :: uvisu
   character(len=20) :: filename
+
+  INTEGER :: nxyzp3, ijk
+
+  LOGICAL :: compute_rho0
 
   !! Correction = 1/rho0 nabla^2 p - div( 1/rho nabla p )
   resnorm = 0._mytype
@@ -1707,7 +1841,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   pressnormlocal = SUM((pp3corr(:,:,:) - tg3(:,:,:))**2)
   CALL MPI_ALLREDUCE(pressnormlocal, pressnorm, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
   pressnorm = SQRT(pressnorm)
-  IF (pressnorm.LE.tol) THEN
+  IF ((poissiter.NE.0).AND.(pressnorm.LE.tol)) THEN
     converged = .TRUE.  
   ENDIF
   tg3(:,:,:) = pp3corr(:,:,:)
@@ -1759,7 +1893,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   resnormlocal = SUM(pp3corr(:,:,:)**2)
   CALL MPI_ALLREDUCE(resnormlocal, resnorm, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
   resnorm = SQRT(resnorm)
-  IF (resnorm.LE.(MAX(tol * divup3norm, 1.0e-14_mytype))) THEN
+  IF (resnorm.LE.(MAX(tol * divup3norm, tol))) THEN
     converged = .TRUE.
   ENDIF
 
@@ -1804,8 +1938,14 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
     !!===================================================================================================
     ! 2) Scale the residual by density
+
+    IF (poissiter.EQ.0) THEN
+      compute_rho0 = .TRUE.
+    ELSE
+      compute_rho0 = .FALSE.
+    ENDIF
     
-    IF (poissiter.EQ.1) THEN
+    IF (compute_rho0.EQV..TRUE.) THEN
       !! Compute (and store) rho0
       
       IF (npoissscheme.EQ.0) THEN
@@ -1824,6 +1964,19 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
         CALL interz6(tb3, tc3, di3, sz, cifzp6, ciszp6, ciwzp6, (ph1%zen(1) - ph1%zst(1) + 1), &
              (ph1%zen(2) - ph1%zst(2) + 1), zsize(3), nzmsize, 1)
         rho0p3(:,:,:) = 1._mytype / tb3(:,:,:)
+
+        ! ! Perform some conditioning
+        ! rho1maxlocal = MAXVAL(rho1(:,:,:))
+        ! rho1minlocal = MINVAL(rho1(:,:,:))
+
+        ! CALL MPI_ALLREDUCE(rho1maxlocal, rho1max, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
+        ! CALL MPI_ALLREDUCE(rho1minlocal, rho1min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+        ! nxyzp3 = nzmsize * (ph1%zen(2) - ph1%zst(2)) * (ph1%zen(1) - ph1%zst(1))
+        ! DO ijk = 1, nxyzp3
+        !   rho0p3(ijk,1,1) = MAX(rho0p3(ijk,1,1), rho1min)
+        !   rho0p3(ijk,1,1) = MIN(rho0p3(ijk,1,1), rho1max)
+        ! ENDDO
       ENDIF
     ENDIF
 
@@ -2092,7 +2245,7 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
     endif
   endif
 
-  if (xstart(3)==1) then
+  if (dims(2)==1) then
     k = 1
     do j=1,xsize(2)
       do i=1,xsize(1)
@@ -2100,8 +2253,7 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
         dpdyz1(i,j)=tb1(i,j,k)/gdt(itr)
       enddo
     enddo
-  endif
-  if (xend(3)==nz) then
+    
     k = xsize(3)
     do j=1,xsize(2)
       do i=1,xsize(1)
@@ -2109,6 +2261,25 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
         dpdyzn(i,j)=tb1(i,j,k)/gdt(itr)
       enddo
     enddo
+  else
+    if (xstart(3)==1) then
+      k = 1
+      do j=1,xsize(2)
+        do i=1,xsize(1)
+          dpdxz1(i,j)=ta1(i,j,k)/gdt(itr)
+          dpdyz1(i,j)=tb1(i,j,k)/gdt(itr)
+        enddo
+      enddo
+    endif
+    if (xend(3)==nz) then
+      k = xsize(3)
+      do j=1,xsize(2)
+        do i=1,xsize(1)
+          dpdxzn(i,j)=ta1(i,j,k)/gdt(itr)
+          dpdyzn(i,j)=tb1(i,j,k)/gdt(itr)
+        enddo
+      enddo
+    endif
   endif
 
   return
@@ -2219,29 +2390,37 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
 
   INTEGER :: ijk, nxyz
 
+  LOGICAL :: zerograv
+
   nxyz = xsize(1) * xsize(2) * xsize(3)
+  zerograv = .TRUE.
 
   IF ((frx.GT.0._mytype).OR.(frx.LT.0._mytype)) THEN
     invfrx = 1._mytype / frx
+    zerograv = .FALSE.
   ELSE
     invfrx = 0._mytype
   ENDIF
   IF ((fry.GT.0._mytype).OR.(fry.LT.0._mytype)) THEN
     invfry = 1._mytype / fry
+    zerograv = .FALSE.
   ELSE
     invfry = 0._mytype
   ENDIF
   IF ((frz.GT.0._mytype).OR.(frz.LT.0._mytype)) THEN
     invfrz = 1._mytype / frz
+    zerograv = .FALSE.
   ELSE
     invfrz = 0._mytype
   ENDIF
 
-  DO ijk = 1, nxyz
-    ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrx
-    tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfry
-    tc1(ijk, 1, 1) = tc1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrz
-  ENDDO
+  IF (zerograv.EQV..FALSE.) THEN
+    DO ijk = 1, nxyz
+      ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrx
+      tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfry
+      tc1(ijk, 1, 1) = tc1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrz
+    ENDDO
+  ENDIF
   
 ENDSUBROUTINE apply_grav
 
@@ -2268,6 +2447,9 @@ subroutine pre_correc(ux,uy,uz,rho)
   real(mytype) :: Aout
 
   integer :: istart, iend, jstart, jend, kstart, kend
+
+  real(mytype) :: uthreshold
+  real(mytype) :: outflux_addedlocal, outflux_added, outflux_ratio
 
   if (itime==1) then
     dpdyx1=0._mytype
@@ -2335,6 +2517,8 @@ subroutine pre_correc(ux,uy,uz,rho)
   ! we are in X pencils:
   if (nclx==2) then
 
+    uthreshold = 0.001_mytype * u1
+
     !! Compute inflow
     if (ilmn.eq.0) then
       ut1 = 0._mytype
@@ -2385,89 +2569,101 @@ subroutine pre_correc(ux,uy,uz,rho)
       print *, 'FLOW RATE I/O [m^3 / s]', ut11, utt
     endif
 
+    outflux_addedlocal = 0._mytype
     do k=1, xsize(3)
       do j=1, xsize(2)
         bxxn(j, k) = bxxn(j, k) - (utt - ut11) / Aout
+        
+        ! Check for/prevent backflow
+        if (bxxn(j, k) < uthreshold) then
+          outflux_addedlocal = outflux_addedlocal + (uthreshold - bxxn(j, k)) * (dy * dz)
+          bxxn(j, k) = uthreshold
+        endif
       enddo
     enddo
+
+    ! Balance fluxes accounting for backflow
+    call MPI_ALLREDUCE(outflux_addedlocal, outflux_added, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
+    outflux_ratio = outflux / (outflux + outflux_added)
+    bxxn(:,:) = outflux_ratio * bxxn(:,:)
   endif
 
   !********NCLX==2*************************************
   !****************************************************
   
   if (nclx.eq.2) then
-    if (ncly.eq.2) then
-      if (xstart(2).eq.1) then
-        j = 1
-        do k = 1, xsize(3)
-          i = 1
-          byx1(i, k) = bxx1(j, k) - dpdxy1(i, k) / rho(i, j, k)
-          byy1(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
-          byz1(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzy1(i, k)) / rho(i, j, k)
+    ! if (ncly.eq.2) then
+    !   if (xstart(2).eq.1) then
+    !     j = 1
+    !     do k = 1, xsize(3)
+    !       i = 1
+    !       byx1(i, k) = bxx1(j, k) - dpdxy1(i, k) / rho(i, j, k)
+    !       byy1(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
+    !       byz1(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzy1(i, k)) / rho(i, j, k)
 
-          i = xsize(1)
-          byx1(i, k) = bxxn(j, k) - dpdxy1(i, k) / rho(i, j, k)
-          byy1(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
-          byz1(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzy1(i, k)) / rho(i, j, k)
-        enddo
-      endif
+    !       i = xsize(1)
+    !       byx1(i, k) = bxxn(j, k) - dpdxy1(i, k) / rho(i, j, k)
+    !       byy1(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
+    !       byz1(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzy1(i, k)) / rho(i, j, k)
+    !     enddo
+    !   endif
       
-      if (xend(2).eq.ny) then
-        j = xsize(2)
-        do k = 1, xsize(3)
-          i = 1
-          byxn(i, k) = bxx1(j, k) - dpdxyn(i, k) / rho(i, j, k)
-          byyn(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
-          byzn(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzyn(i, k)) / rho(i, j, k)
+    !   if (xend(2).eq.ny) then
+    !     j = xsize(2)
+    !     do k = 1, xsize(3)
+    !       i = 1
+    !       byxn(i, k) = bxx1(j, k) - dpdxyn(i, k) / rho(i, j, k)
+    !       byyn(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
+    !       byzn(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzyn(i, k)) / rho(i, j, k)
 
-          i = xsize(1)
-          byxn(i, k) = bxxn(j, k) - dpdxyn(i, k) / rho(i, j, k)
-          byyn(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
-          byzn(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzyn(i, k)) / rho(i, j, k)
-        enddo
-      endif
-    endif
+    !       i = xsize(1)
+    !       byxn(i, k) = bxxn(j, k) - dpdxyn(i, k) / rho(i, j, k)
+    !       byyn(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
+    !       byzn(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzyn(i, k)) / rho(i, j, k)
+    !     enddo
+    !   endif
+    ! endif
 
-    if (nclz.eq.2) then
-      if (xstart(3).eq.1) then
-        k = 1
-        do j = 1, xsize(2)
-          i = 1
-          bzx1(i, j) = bxx1(j, k) - dpdxz1(i, j) / rho(i, j, k)
-          bzy1(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyz1(i, j)) / rho(i, j, k)
-          bzz1(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
+    ! if (nclz.eq.2) then
+    !   if (xstart(3).eq.1) then
+    !     k = 1
+    !     do j = 1, xsize(2)
+    !       i = 1
+    !       bzx1(i, j) = bxx1(j, k) - dpdxz1(i, j) / rho(i, j, k)
+    !       bzy1(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyz1(i, j)) / rho(i, j, k)
+    !       bzz1(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
 
-          i = xsize(1)
-          bzx1(i, j) = bxxn(j, k) - dpdxz1(i, j) / rho(i, j, k)
-          bzy1(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyz1(i, j)) / rho(i, j, k)
-          bzz1(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
-        enddo
-      endif
+    !       i = xsize(1)
+    !       bzx1(i, j) = bxxn(j, k) - dpdxz1(i, j) / rho(i, j, k)
+    !       bzy1(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyz1(i, j)) / rho(i, j, k)
+    !       bzz1(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
+    !     enddo
+    !   endif
 
-      if (xend(3).eq.nz) then
-        k = xsize(3)
-        do j = 1, xsize(2)
-          i = 1
-          bzxn(i, j) = bxx1(j, k) - dpdxzn(i, j) / rho(i, j, k)
-          bzyn(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyzn(i, j)) / rho(i, j, k)
-          bzzn(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
+    !   if (xend(3).eq.nz) then
+    !     k = xsize(3)
+    !     do j = 1, xsize(2)
+    !       i = 1
+    !       bzxn(i, j) = bxx1(j, k) - dpdxzn(i, j) / rho(i, j, k)
+    !       bzyn(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyzn(i, j)) / rho(i, j, k)
+    !       bzzn(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
 
-          i = xsize(1)
-          bzxn(i, j) = bxxn(j, k) - dpdxzn(i, j) / rho(i, j, k)
-          bzyn(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyzn(i, j)) / rho(i, j, k)
-          bzzn(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
-        enddo
-      endif
-    endif
+    !       i = xsize(1)
+    !       bzxn(i, j) = bxxn(j, k) - dpdxzn(i, j) / rho(i, j, k)
+    !       bzyn(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyzn(i, j)) / rho(i, j, k)
+    !       bzzn(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
+    !     enddo
+    !   endif
+    ! endif
     
     do k=1, xsize(3)
       do j=1, xsize(2)
-        ux(1 , j, k)=rho(1 , j, k)*bxx1(j, k)
-        uy(1 , j, k)=rho(1 , j, k)*bxy1(j, k)+dpdyx1(j, k)
-        uz(1 , j, k)=rho(1 , j, k)*bxz1(j, k)+dpdzx1(j, k)
-        ux(nx, j, k)=rho(nx, j, k)*bxxn(j, k)
-        uy(nx, j, k)=rho(nx, j, k)*bxyn(j, k)+dpdyxn(j, k)
-        uz(nx, j, k)=rho(nx, j, k)*bxzn(j, k)+dpdzxn(j, k)
+        ux(1 , j, k)=rho(1 , j, k) * bxx1(j, k)
+        uy(1 , j, k)=rho(1 , j, k) * bxy1(j, k)+dpdyx1(j, k)
+        uz(1 , j, k)=rho(1 , j, k) * bxz1(j, k)+dpdzx1(j, k)
+        ux(nx, j, k)=rho(nx, j, k) * bxxn(j, k)
+        uy(nx, j, k)=rho(nx, j, k) * bxyn(j, k)+dpdyxn(j, k)
+        uz(nx, j, k)=rho(nx, j, k) * bxzn(j, k)+dpdzxn(j, k)
       enddo
     enddo
   endif

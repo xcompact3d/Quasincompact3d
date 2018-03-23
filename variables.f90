@@ -38,7 +38,7 @@ USE param
 
 ! define all major arrays here
 
-real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3, pp3corr
+real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3, pp3corr, pp3star
 real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
 real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
 real(mytype), save, allocatable, dimension(:,:,:) :: phi1, phi2, phi3
@@ -54,6 +54,8 @@ real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rh
 real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
 real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3, &
      temperatures1, temperaturess1
+real(mytype), save, allocatable, dimension(:,:,:) :: massfrac1, massfrac2, massfrac3, massfracs1, &
+     massfracss1
 real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
 real(mytype), save, allocatable, dimension(:,:,:) :: kappa1, kappa2, kappa3
@@ -132,10 +134,13 @@ contains
     call alloc_x(di1);call alloc_x(ep1)
     call alloc_x(rho1, opt_global=.true.)
     call alloc_x(temperature1, opt_global=.true.)
+    call alloc_x(massfrac1, opt_global=.true.)
     call alloc_x(rhos1)
     call alloc_x(temperatures1)
+    call alloc_x(massfracs1)
     call alloc_x(rhoss1)
     call alloc_x(temperaturess1)
+    call alloc_x(massfracss1)
     call alloc_x(rhos01)
     call alloc_x(drhodt1)
     call alloc_x(mu1, opt_global=.true.)
@@ -194,6 +199,7 @@ contains
     call alloc_y(clx2);call alloc_y(cly2);call alloc_y(clz2)
     call alloc_y(rho2)
     call alloc_y(temperature2)
+    call alloc_y(massfrac2)
     call alloc_y(mu2)
     call alloc_y(kappa2)
     call alloc_y(gamma2)
@@ -207,6 +213,7 @@ contains
     call alloc_z(clx3);call alloc_z(cly3);call alloc_z(clz3)
     call alloc_z(rho3)
     call alloc_z(temperature3)
+    call alloc_z(massfrac3)
     call alloc_z(divu3)
     call alloc_z(mu3)
     call alloc_z(kappa3)
@@ -219,6 +226,7 @@ contains
  !   allocate (po3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     call alloc_z(pp3,ph,.true.)
     call alloc_z(pp3corr,ph,.true.)
+    call alloc_z(pp3star,ph,.true.)
     call alloc_z(rho0p3,ph,.true.)
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)

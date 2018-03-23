@@ -97,10 +97,11 @@ PROGRAM incompact3d
   if (ilit.eq.0) then
     t = 0._mytype
     itime = 0
-    call init(ux1,uy1,uz1,rho1,ep1,phi1,&
-         gx1,gy1,gz1,rhos1,phis1,&
-         hx1,hy1,hz1,rhoss1,phiss1,&
+    call init(ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
+         gx1,gy1,gz1,rhos1,temperatures1,massfracs1,phis1,&
+         hx1,hy1,hz1,rhoss1,temperaturess1,massfracss1,phiss1,&
          pressure0)
+    pp3star(:,:,:) = 0._mytype
   else
     call restart(ux1,uy1,uz1,rho1,temperature1,ep1,pp3,phi1,&
          gx1,gy1,gz1,rhos1,px1,py1,pz1,phis1,&
@@ -111,13 +112,17 @@ PROGRAM incompact3d
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
   !          X->Y->Z
-  call calc_divu(ta1,tb1,rho1,temperature1,kappa1,di1,&
-       ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
-       divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
+  call calc_divu(ta1,tb1,tc1,rho1,temperature1,massfrac1,kappa1,di1,&
+       ta2,tb2,tc2,rho2,temperature2,massfrac2,kappa2,di2,&
+       divu3,ta3,tb3,rho3,temperature3,massfrac3,kappa3,di3,&
        pressure0)
 
   call test_speed_min_max(ux1,uy1,uz1)
-  call test_density_min_max(rho1)
+  if (isolvetemp.eq.0) then
+    call test_density_min_max(rho1)
+  else
+    call test_temperature_min_max(temperature1)
+  endif
   if (iscalar.eq.1) then
     call test_scalar_min_max(phi1)
   endif
@@ -141,7 +146,8 @@ PROGRAM incompact3d
   call decomp_info_init(nxm, nym, nz, ph3) 
 
   itime=0
-  call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+  call VISU_INSTA(ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1,&
+       ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
        ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
        ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
   ! call VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,&
@@ -171,17 +177,26 @@ PROGRAM incompact3d
       !-----------------------------------------------------------------------------------
 
       if (nclx.eq.2) then
-        call inflow (ux1,uy1,uz1,rho1,phi1) !X PENCILS
+        call inflow (ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1) !X PENCILS
         if ((ilmn.ne.0).and.(itime.eq.ifirst).and.(itr.eq.1)) then
-          call compute_outflux_lmn(rho1, di1, di2, di3)
+          call compute_outflux_lmn(temperature1,ta1,di1,&
+               temperature2,ta2,di2,&
+               temperature3,ta3,di3)
         endif
-        call outflow(ux1,uy1,uz1,rho1,phi1) !X PENCILS 
+        call outflow(ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1) !X PENCILS 
       endif
       if (ncly.eq.2) then
         call set_density_entrainment_y(rho1, uy1)
       endif
       if (nclz.eq.2) then
         call set_density_entrainment_z(rho1, uz1)
+      endif
+
+      !! Ensure rho/temp is up to date
+      if (isolvetemp.eq.0) then
+        call calctemp_eos(temperature1, rho1, massfrac1, pressure0, xsize)
+      else
+        call calcrho_eos(rho1, temperature1, massfrac1, pressure0, xsize)
       endif
 
       !-----------------------------------------------------------------------------------
@@ -197,7 +212,14 @@ PROGRAM incompact3d
       call convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ux2,uy2,uz2,rho2,mu2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ux3,uy3,uz3,rho3,mu3,divu3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3)
-      call apply_grav(ta1, tb1, tc1, rho1)
+      ! call apply_grav(ta1, tb1, tc1, rho1)
+
+      ! Transport massfrac
+      if (imulticomponent.ne.0) then
+        call convdiff_massfrac(ux1,uy1,uz1,rho1,massfrac1,massfracs1,massfracss1,tg1,th1,ti1,di1,&
+             uy2,uz2,rho2,massfrac2,ta2,tb2,tc2,di2,&
+             uz3,rho3,massfrac3,ta3,tb3,tc3,di3)
+      endif
 
       if (iscalar.eq.1) then
         !---------------------------------------------------------------------------------
@@ -221,9 +243,10 @@ PROGRAM incompact3d
                uz3,rho3,divu3,di3,ta3,tb3,ep1)
         else
           ! Update temperature
-          call convdiff_temperature(ux1,uy1,uz1,temperature1,di1,tg1,th1,&
-               uy2,uz2,temperature2,di2,ta2,tb2,&
-               uz3,temperature3,di3,ta3,tb3)
+          call convdiff_temperature(ux1,uy1,uz1,rho1,temperature1,di1,tg1,th1,&
+               uy2,uz2,rho2,temperature2,di2,ta2,tb2,&
+               uz3,rho3,temperature3,di3,ta3,tb3)
+          call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1)
           call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
         endif
       endif
@@ -238,32 +261,31 @@ PROGRAM incompact3d
       if (ilmn.ne.0) then
         !! Update density
         if (isolvetemp.eq.0) then
-          call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1,ux1,uy1,uz1,phi1)
-          !-------------------------------------------------------------------------------
-          ! XXX phi1 now contains the new scalar value.
-          ! XXX If using variable-coefficient Poisson equation ux1,uy1,uz1 now contain
-          !     velocity.
-          !-------------------------------------------------------------------------------
+          call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
 
           ! Update temperature using EOS
-          call calctemp_eos(temperature1, rho1, pressure0, xsize)
+          call calctemp_eos(temperature1, rho1, massfrac1, pressure0, xsize)
+          call test_temperature_min_max(temperature1)
         else
           ! Update density using EOS
-          call calcrho_eos(rho1, temperature1, pressure0, xsize)
+          call calcrho_eos(rho1, temperature1, massfrac1, pressure0, xsize)
+          call test_density_min_max(rho1)
         endif
 
         if (ivarcoeff.eq.0) then
           !! Predict drhodt at new timestep
           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+        endif
+      endif
+
+      ! Predict new pressure field
+      if ((ilmn.ne.0).and.(ivarcoeff.ne.0)) then
+        if ((itime - 1).ne.0) then
+          pp3star(:,:,:) = 2._mytype * pp3(:,:,:) - pp3star(:,:,:)
+          pp3corr(:,:,:) = pp3(:,:,:) ! Store current pressure field
         else
-          !! Convert back to primitive variables
-          if (isolvetemp.ne.0) then
-            ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
-            uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
-            uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
-          endif
-          if (iscalar.ne.0) then
-          endif
+          !! Temporarily store current pressure field
+          pp3corr(:,:,:) = 0._mytype
         endif
       endif
 
@@ -272,8 +294,10 @@ PROGRAM incompact3d
 !!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
 
       if (max(nclx, ncly, nclz).eq.2) then
-        !! We have Dirichlet boundaries, compute the boundary mass flux constraint
-        call compute_outflux_lmn(rho1, di1, di2, di3)
+        !! We have Dirichlet boundaries, compute the boundary velocity flux constraint
+        call compute_outflux_lmn(temperature1,ta1,di1,&
+             temperature2,ta2,di2,&
+             temperature3,ta3,di3)
       endif
       call pre_correc(ux1,uy1,uz1,rho1)
 
@@ -287,9 +311,9 @@ PROGRAM incompact3d
       !      upto date.
       !
       !    X->Y->Z
-      call calc_divu(tg1,th1,rho1,temperature1,kappa1,di1,&
-           ta2,tb2,tc2,rho2,temperature2,kappa2,di2,&
-           divu3,ta3,tb3,rho3,temperature3,kappa3,di3,&
+      call calc_divu(tg1,th1,ti1,rho1,temperature1,massfrac1,kappa1,di1,&
+           ta2,tb2,tc2,rho2,temperature2,massfrac2,kappa2,di2,&
+           divu3,ta3,tb3,rho3,temperature3,massfrac3,kappa3,di3,&
            pressure0)
 
 !!$      if (ivirt.eq.1) then !solid body old school
@@ -299,6 +323,19 @@ PROGRAM incompact3d
 !!$         call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
 !!$      endif
 
+      if (ilmn.ne.0) then
+        !! Conserved->primitive variables
+        if (ivarcoeff.ne.0) then
+          ux1(:,:,:) = ux1(:,:,:) / rho1(:,:,:)
+          uy1(:,:,:) = uy1(:,:,:) / rho1(:,:,:)
+          uz1(:,:,:) = uz1(:,:,:) / rho1(:,:,:)
+        endif
+
+        if (iscalar.ne.0) then
+          phi1(:,:,:) = phi1(:,:,:) / rho1(:,:,:)
+        endif
+      endif
+      
       !X-->Y-->Z
       call divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
            td2,te2,tf2,di2,ta2,tb2,tc2,&
@@ -318,22 +355,40 @@ PROGRAM incompact3d
             if ((nrank.eq.0).and.(poissiter.eq.0)) then
               print *, "Solving variable-coefficient pressure-Poisson equation"
             endif
-            if (poissiter.ne.0) then
-              !! Compute correction term
-              call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
-                   te2, tf2, ta2, tb2, tc2, td2, di2, &
-                   td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
-                   nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
-                   divup3norm, poissiter, converged)
-            else
-              !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
-              call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
-                   di1, rhos1, rhoss1, rhos01, drhodt1, &
-                   td2, te2, tf2, di2, ta2, tb2, tc2, &
-                   ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
-                   nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
-                   divup3norm)
+            ! if (poissiter.ne.0) then
+            !   !! Compute correction term
+            !   call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+            !        te2, tf2, ta2, tb2, tc2, td2, di2, &
+            !        td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+            !        nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
+            !        divup3norm, poissiter, converged)
+            ! else
+            !   !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+            !   call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
+            !        di1, rhos1, rhoss1, rhos01, drhodt1, &
+            !        td2, te2, tf2, di2, ta2, tb2, tc2, &
+            !        ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
+            !        nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+            !        divup3norm)
+            !   pp3corr(:,:,:) = pp3(:,:,:)
+            ! endif
+
+            if (poissiter.eq.0) then
+              if((itime - 1).eq.0) then
+                px1(:,:,:) = 0._mytype
+                py1(:,:,:) = 0._mytype
+                pz1(:,:,:) = 0._mytype
+              else
+                call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+                     ta3,tc3,di3,pp3star,nxmsize,nymsize,nzmsize,ph2,ph3)
+              endif
+              pp3star(:,:,:) = pp3corr(:,:,:)
             endif
+            call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+                 te2, tf2, ta2, tb2, tc2, td2, di2, &
+                 td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+                 nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
+                 divup3norm, poissiter, converged)
           else
             !! LMN: constant coefficient Poisson
             pp3corr(:,:,:) = pp3(:,:,:)
@@ -363,9 +418,10 @@ PROGRAM incompact3d
         endif
 
         poissiter = poissiter + 1
-      enddo
+      enddo ! End Poisson loop
       t2poiss = MPI_WTIME()
       tpoisstotal = tpoisstotal + (t2poiss - t1poiss)
+      pp3(:,:,:) = pp3corr(:,:,:) ! Set pressure field
 
       if (nrank.eq.0) then
         print *, "Solved Poisson equation in ", poissiter, " iteration(s), took ", t2poiss - t1poiss, "s"
@@ -406,7 +462,8 @@ PROGRAM incompact3d
     endif
 
     if (mod(itime,imodulo).eq.0) then
-      call VISU_INSTA(ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+      call VISU_INSTA(ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1,&
+           ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
            ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
            ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
       call VISU_PRE (pp3,ta1,tb1,di1,&
