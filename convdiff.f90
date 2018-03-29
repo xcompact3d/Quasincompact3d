@@ -1709,19 +1709,19 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
   REAL(mytype) :: l_fringe, xph_fringe
   INTEGER :: i, j, k, iph_fringe
 
-  l_fringe = 1._mytype
+  l_fringe = 0.1_mytype * xlx
   xph_fringe = xlx - l_fringe
-  DO i = 1, zsize(1)
-    x = (i + zstart(1) - 2) * dx
-    IF (x.GT.xph_fringe) THEN
-      EXIT
-    ELSE
-      iph_fringe = i
-    ENDIF
-  ENDDO
-  iph_fringe = zsize(1)
 
   IF (ncly.EQ.2) THEN
+    DO i = 1, zsize(1)
+      x = (i + zstart(1) - 2) * dx
+      IF (x.GT.xph_fringe) THEN
+        EXIT
+      ELSE
+        iph_fringe = i
+      ENDIF
+    ENDDO
+
     yc = yly / 2._mytype
     zc = zlz / 2._mytype
     IF (zstart(2).EQ.1) THEN
