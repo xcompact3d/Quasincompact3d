@@ -213,11 +213,12 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
            * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
       tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) &
            * (uz3(:,:,:) * ti3(:,:,:) + rho3(:,:,:) * divu3(:,:,:))
-      
-      ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
-      tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
-      tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
     endif
+
+    !! Need to multiply by 1/2
+    ta3(:,:,:) = 0.5_mytype * ta3(:,:,:)
+    tb3(:,:,:) = 0.5_mytype * tb3(:,:,:)
+    tc3(:,:,:) = 0.5_mytype * tc3(:,:,:)
   endif
   !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
