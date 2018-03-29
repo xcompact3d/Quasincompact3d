@@ -2166,13 +2166,15 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1, rho1
   ! INTEGER, INTENT(IN) :: bc1, bcn
   
-  REAL(mytype) :: ucf, f_fringe
+  REAL(mytype) :: ucf, f_fringe, utarget
   REAL(mytype) :: gauss, g_umax, g_rext, g_rext2
   REAL(mytype) :: l_fringe, xph_fringe
   REAL(mytype) :: x, y, z, yc, zc, r2, y1, y2, y3, r1, r3
   INTEGER :: i, j, k, iph_fringe, ctr, ierr
 
-  l_fringe = 1._mytype
+  l_fringe = 0.1_mytype * xlx
+
+  !! Gaussian forcing
   ucf = 0.1_mytype * u1 * (PI * 0.5_mytype**2) / (yly * zlz)
   g_rext = 1.5_mytype / 2.14_mytype
   g_rext2 = g_rext**2
@@ -2198,6 +2200,10 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
 
         r2 = y**2 + z**2
         gauss = bxxn_scale * (g_umax * EXP(-r2 / g_rext2) + ucf)
+        utarget = gauss
+
+        utarget = outflux / (yly * zlz)
+        
         DO i = iph_fringe, xsize(1)
           x = DBLE(i + xstart(1) - 2) * dx
           f_fringe = COS(((x - xph_fringe) / l_fringe) * PI / 2._mytype)
@@ -2206,7 +2212,7 @@ SUBROUTINE fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1) !, bc1, bcn)
           ! f_fringe = COS(((x - xph_fringe) / l_fringe) * (PI / 2._mytype)) &
           !      * (1._mytype - SIN(((x - xph_fringe) / l_fringe) * (PI / 2._mytype)))
 
-          ta1(i, j, k) = f_fringe * ta1(i, j, k) + rho1(i, j, k) * (gauss - ux1(i, j, k)) &
+          ta1(i, j, k) = f_fringe * ta1(i, j, k) + rho1(i, j, k) * (utarget - ux1(i, j, k)) &
                * (1._mytype - f_fringe)
           tb1(i, j, k) = f_fringe * tb1(i, j, k) + rho1(i, j, k) * (0._mytype - uy1(i, j, k)) &
                * (1._mytype - f_fringe)
