@@ -852,26 +852,28 @@ SUBROUTINE set_velocity_entrainment_y(clx1, cly1, clz1)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: clx1, cly1, clz1
-  INTEGER :: i, k
+  INTEGER :: i, j, k
 
   IF (xstart(2).EQ.1) THEN
-    DO k = 1, xsize(3)
-      DO i = 1, xsize(1)
-        byx1(i, k) = clx1(i, 1, k)
-        byy1(i, k) = cly1(i, 1, k)
-        byz1(i, k) = clz1(i, 1, k)
-      ENDDO
-    ENDDO
+     j = 1
+     DO k = 1, xsize(3)
+        DO i = 1, xsize(1)
+           byx1(i, k) = clx1(i, j, k)
+           byy1(i, k) = cly1(i, j, k)
+           byz1(i, k) = clz1(i, j, k)
+        ENDDO
+     ENDDO
   ENDIF
   
   IF (xend(2).EQ.ny) THEN
-    DO k = 1, xsize(3)
-      DO i = 1, xsize(1)
-        byxn(i, k) = clx1(i, xsize(2), k)
-        byyn(i, k) = cly1(i, xsize(2), k)
-        byzn(i, k) = clz1(i, xsize(2), k)
-      ENDDO
-    ENDDO
+     j = xsize(2)
+     DO k = 1, xsize(3)
+        DO i = 1, xsize(1)
+           byxn(i, k) = clx1(i, j, k)
+           byyn(i, k) = cly1(i, j, k)
+           byzn(i, k) = clz1(i, j, k)
+        ENDDO
+     ENDDO
   ENDIF
   
 ENDSUBROUTINE set_velocity_entrainment_y
@@ -934,26 +936,28 @@ SUBROUTINE set_velocity_entrainment_z(clx1, cly1, clz1)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: clx1, cly1, clz1
-  INTEGER :: i, j
+  INTEGER :: i, j, k
 
   IF (xstart(3).EQ.1) THEN
-    DO j = 1, xsize(2)
-      DO i = 1, xsize(1)
-        bzx1(i, j) = clx1(i, j, 1)
-        bzy1(i, j) = cly1(i, j, 1)
-        bzz1(i, j) = clz1(i, j, 1)
-      ENDDO
-    ENDDO
+     k = 1
+     DO j = 1, xsize(2)
+        DO i = 1, xsize(1)
+           bzx1(i, j) = clx1(i, j, k)
+           bzy1(i, j) = cly1(i, j, k)
+           bzz1(i, j) = clz1(i, j, k)
+        ENDDO
+     ENDDO
   ENDIF
   
   IF (xend(3).eq.nz) THEN
-    DO j = 1, xsize(2)
-      DO i = 1, xsize(1)
-        bzxn(i, j) = clx1(i, j, xsize(3))
-        bzyn(i, j) = cly1(i, j, xsize(3))
-        bzzn(i, j) = clz1(i, j, xsize(3))
-      ENDDO
-    ENDDO
+     k = xsize(3)
+     DO j = 1, xsize(2)
+        DO i = 1, xsize(1)
+           bzxn(i, j) = clx1(i, j, k)
+           bzyn(i, j) = cly1(i, j, k)
+           bzzn(i, j) = clz1(i, j, k)
+        ENDDO
+     ENDDO
   ENDIF
   
 ENDSUBROUTINE set_velocity_entrainment_z
