@@ -2183,6 +2183,51 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   
 ENDSUBROUTINE approx_divergence_corr
 
+SUBROUTINE calc_divup3norm(divup3norm, divu3, ta1, tb1, di1, ta2, tb2, tc2, di2, ta3, tb3, di3, &
+  nxmsize, nymsize, nzmsize, ph1, ph3, ph4)
+
+  USE MPI
+  USE decomp_2d
+  USE variables
+  USE param
+
+  IMPLICIT NONE
+
+  INTEGER :: ierr
+  TYPE(DECOMP_INFO) :: ph1, ph3, ph4
+  INTEGER, INTENT(IN) :: nxmsize, nymsize, nzmsize
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, di1
+  REAL(mytype), DIMENSION(nxmsize, xsize(2), xsize(3)) :: tb1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2, di2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), ysize(2), ysize(3)) :: tb2
+  REAL(mytype), DIMENSION(ph1%yst(1):ph1%yen(1), nymsize , ysize(3)) :: tc2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: divu3, di3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: ta3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: tb3
+  REAL(mytype) :: divup3normlocal
+  REAL(mytype), INTENT(OUT) :: divup3norm
+
+  ! Z->Y->X
+  CALL transpose_z_to_y(divu3, ta2)
+  CALL transpose_y_to_x(ta2, ta1)
+  CALL inter6(tb1,ta1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
+
+  ! X->Y
+  CALL transpose_x_to_y(tb1, tb2, ph4)
+  CALL intery6(tc2,tb2,di2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+
+  ! Y->Z
+  CALL transpose_y_to_z(tc2,ta3,ph3)
+  CALL interz6(tb3,ta3,di3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+       (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+
+  divup3normlocal = SUM(tb3(:,:,:)**2)
+  CALL MPI_ALLREDUCE(divup3normlocal, divup3norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+  divup3norm = SQRT(divup3norm)
+  
+ENDSUBROUTINE calc_divup3norm
+
 !********************************************************************
 !
 !
