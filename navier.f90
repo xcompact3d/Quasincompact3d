@@ -1307,10 +1307,26 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
 !!! CM    call test_min_max('ux1  ','In intt        ',ux1,size(ux1))
 !!! CM    call test_min_max('uy1  ','In intt        ',uy1,size(uy1))
   else if (itype.eq.7) then
-    if (nrank.eq.0) then
-      PRINT *, "itype=", itype, " not implemented!"
-      STOP
-    endif
+     do k = 1, xsize(3)
+        do j = 1, xsize(2)
+           y = float((j + xstart(2) - 2)) * dy - 0.5_mytype * yly
+           do i = 1, xsize(1)
+              x = float((i + xstart(1) - 1)) * dx - 0.5_mytype * xlx
+              
+              ux1(i, j, k) = 0._mytype
+              uy1(i, j, k) = 0._mytype
+              uz1(i, j, k) = 0._mytype
+              
+              temperature1(i, j, k) = 1._mytype
+
+              rho1(i, j, k) = 0.5_mytype * ((dens2 / dens1 + 1._mytype) &
+                   - (1._mytype - dens2 / dens1) * ERF(x * SQRT(sc / xnu)))
+
+              massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
+                   - dens1) / (dens2 - dens1)
+           enddo
+        enddo
+     enddo
   else if (itype.eq.8) then
     if (nrank.eq.0) then
       PRINT *, "itype=", itype, " not implemented!"
