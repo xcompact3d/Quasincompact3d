@@ -185,11 +185,14 @@ PROGRAM incompact3d
         endif
         call outflow(ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1) !X PENCILS 
       endif
-      if (ncly.eq.2) then
-        call set_density_entrainment_y(rho1, uy1)
-      endif
-      if (nclz.eq.2) then
-        call set_density_entrainment_z(rho1, uz1)
+
+      if (ilmn.ne.0) then
+         if (ncly.eq.2) then
+            call set_density_entrainment_y(rho1, uy1)
+         endif
+         if (nclz.eq.2) then
+            call set_density_entrainment_z(rho1, uz1)
+         endif
       endif
 
       !! Ensure rho/temp is up to date
@@ -348,76 +351,84 @@ PROGRAM incompact3d
       poissiter = 0
       t1poiss = MPI_WTIME()
       do while(converged.eqv..FALSE.)
-        if (ilmn.ne.0) then
-          if (ivarcoeff.ne.0) then
-            !! LMN: variable coefficient Poisson
-
-            if ((nrank.eq.0).and.(poissiter.eq.0)) then
-              print *, "Solving variable-coefficient pressure-Poisson equation"
+         if (ilmn.ne.0) then
+            if (ivarcoeff.ne.0) then
+               !! LMN: variable coefficient Poisson
+               
+               if ((nrank.eq.0).and.(poissiter.eq.0)) then
+                  print *, "Solving variable-coefficient pressure-Poisson equation"
+               endif
+               ! if (poissiter.ne.0) then
+               !   !! Compute correction term
+               !   call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+               !        te2, tf2, ta2, tb2, tc2, td2, di2, &
+               !        td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+               !        nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
+               !        divup3norm, poissiter, converged)
+               ! else
+               !   !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
+               !   call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
+               !        di1, rhos1, rhoss1, rhos01, drhodt1, &
+               !        td2, te2, tf2, di2, ta2, tb2, tc2, &
+               !        ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
+               !        nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
+               !        divup3norm)
+               !   pp3corr(:,:,:) = pp3(:,:,:)
+               ! endif
+               
+               if (poissiter.eq.0) then
+                  call calc_divup3norm(divup3norm, divu3, ta1, tb1, di1, ta2, tb2, tc2, di2, &
+                       ta3, tb3, di3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4)
+                  if((itime - 1).eq.0) then
+                     px1(:,:,:) = 0._mytype
+                     py1(:,:,:) = 0._mytype
+                     pz1(:,:,:) = 0._mytype
+                  else
+                     call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+                          ta3,tc3,di3,pp3star,nxmsize,nymsize,nzmsize,ph2,ph3)
+                  endif
+                  pp3star(:,:,:) = pp3corr(:,:,:) ! Store current pressure field
+                  
+                  divup3norm = SUM(divu3)
+                  divup3norm = SQRT(divup3norm)
+               endif
+               call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
+                    te2, tf2, ta2, tb2, tc2, td2, di2, &
+                    td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
+                    nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
+                    divup3norm, poissiter, converged)
+            else
+               !! LMN: constant coefficient Poisson
+               pp3corr(:,:,:) = pp3(:,:,:)
             endif
-            ! if (poissiter.ne.0) then
-            !   !! Compute correction term
-            !   call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
-            !        te2, tf2, ta2, tb2, tc2, td2, di2, &
-            !        td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
-            !        nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
-            !        divup3norm, poissiter, converged)
-            ! else
-            !   !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
-            !   call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
-            !        di1, rhos1, rhoss1, rhos01, drhodt1, &
-            !        td2, te2, tf2, di2, ta2, tb2, tc2, &
-            !        ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
-            !        nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
-            !        divup3norm)
-            !   pp3corr(:,:,:) = pp3(:,:,:)
-            ! endif
-
-            if (poissiter.eq.0) then
-              if((itime - 1).eq.0) then
-                px1(:,:,:) = 0._mytype
-                py1(:,:,:) = 0._mytype
-                pz1(:,:,:) = 0._mytype
-              else
-                call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-                     ta3,tc3,di3,pp3star,nxmsize,nymsize,nzmsize,ph2,ph3)
-              endif
-              pp3star(:,:,:) = pp3corr(:,:,:)
-            endif
-            call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
-                 te2, tf2, ta2, tb2, tc2, td2, di2, &
-                 td3, pp3corr, ta3, tb3, tc3, di3, rho0p3, pp3, tg3, &
-                 nxmsize, nymsize, nzmsize, ph1, ph2, ph3, ph4, &
-                 divup3norm, poissiter, converged)
-          else
-            !! LMN: constant coefficient Poisson
+         else
+            !! Incompressible
             pp3corr(:,:,:) = pp3(:,:,:)
-          endif
-        endif
-        
+         endif
+         
 !!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
 !!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
 !!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
-
-        if (converged.eqv..FALSE.) then
-          !POISSON Z-->Z
-          call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
-          
-          !Z-->Y-->X
-          ! XXX Need to call this now as if using var-coeff
-          !     Poisson equation we will need new values of
-          !     gradp on next iteration.
-          call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
-               ta3,tc3,di3,pp3corr,nxmsize,nymsize,nzmsize,ph2,ph3)
-        endif
-        
+         
+         if (converged.eqv..FALSE.) then
+            !POISSON Z-->Z
+            call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
+            
+            !Z-->Y-->X
+            ! XXX Need to call this now as if using var-coeff
+            !     Poisson equation we will need new values of
+            !     gradp on next iteration.
+            call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
+                 ta3,tc3,di3,pp3corr,nxmsize,nymsize,nzmsize,ph2,ph3)
+         endif
+         
 !!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
-
-        if ((ilmn.eq.0).or.(ivarcoeff.eq.0)) then
-          converged = .TRUE.
-        endif
-
-        poissiter = poissiter + 1
+         
+         if ((ilmn.eq.0).or.(ivarcoeff.eq.0)) then
+            converged = .TRUE.
+         endif
+         
+         poissiter = poissiter + 1
       enddo ! End Poisson loop
       t2poiss = MPI_WTIME()
       tpoisstotal = tpoisstotal + (t2poiss - t1poiss)

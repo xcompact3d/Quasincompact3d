@@ -563,7 +563,7 @@ subroutine inflow (ux, uy, uz, rho, temperature, massfrac, phi)
           ! if ((mf * bxx1(j, k)).gt.0._mytype) then
           !   rho(1, j, k) = mf / bxx1(j, k)
           ! endif
-        endif
+        endif ! End within jet
       enddo
     enddo
 
@@ -1043,7 +1043,7 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
   !ITYPE=4 --> Mixing layer with splitter plate
   !ITYPE=5 --> Jet flow
   !ITYPE=6 --> Taylor Green vortices
-  !ITYPE=7 --> Cavity flow
+  !ITYPE=7 --> Cavity flow / lock-exchange
   !ITYPE=8 --> Flat plate Boundary layer
   !ITYPE=9 --> Tank 
 
@@ -1950,7 +1950,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
       
       IF (npoissscheme.EQ.0) THEN
         ! Simple minimum
-        rho0local = MINVAL(rho1)
+        rho0local = MINVAL(rho1(:,:,:))
         CALL MPI_ALLREDUCE(rho0local, rho0, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
         rho0p3(:,:,:) = rho0
       ELSE

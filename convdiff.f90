@@ -1690,7 +1690,7 @@ ENDSUBROUTINE momentum_source_mms
 !!  SUBROUTINE: entrainment_bcy
 !! DESCRIPTION: Implements entrainment boundary conditions on y
 !!              boundary.
-!!       NOTE : In z stencil, based on work of Ioannou Vasilis.
+!!       NOTE : In Z stencil, based on work of Ioannou Vasilis.
 !!--------------------------------------------------------------------
 SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
 
