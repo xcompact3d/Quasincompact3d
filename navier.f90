@@ -2496,13 +2496,30 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, rho1
   REAL(mytype) :: invfrx, invfry, invfrz
+  REAL(mytype) :: bcx, bcy, bcz
 
-  INTEGER :: ijk, nxyz
+  INTEGER :: i, j, k, ijk, nxyz
 
   LOGICAL :: zerograv
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
   zerograv = .TRUE.
+
+  IF (nclx.EQ.0) THEN
+     bcx = 0._mytype
+  ELSE
+     bcx = 1._mytype
+  ENDIF
+  IF (ncly.EQ.0) THEN
+     bcy = 0._mytype
+  ELSE
+     bcy = 1._mytype
+  ENDIF
+  IF (nclz.EQ.0) THEN
+     bcz = 0._mytype
+  ELSE
+     bcz = 1._mytype
+  ENDIF
 
   IF ((frx.GT.0._mytype).OR.(frx.LT.0._mytype)) THEN
     invfrx = 1._mytype / frx
@@ -2524,11 +2541,65 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
   ENDIF
 
   IF (zerograv.EQV..FALSE.) THEN
-    DO ijk = 1, nxyz
-      ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrx
-      tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfry
-      tc1(ijk, 1, 1) = tc1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrz
-    ENDDO
+     DO ijk = 1, nxyz
+        ta1(ijk, 1, 1) = ta1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrx
+        tb1(ijk, 1, 1) = tb1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfry
+        tc1(ijk, 1, 1) = tc1(ijk, 1, 1) + (rho1(ijk, 1, 1) - 1._mytype) * invfrz
+     ENDDO
+
+     !! Apply BCs
+     !  For periodic boundaries the heavier fluid should be able to 'fall' through boundary.
+     
+     IF (xstart(1).EQ.1) THEN
+        i = 1
+        DO k = 1, xsize(3)
+           DO j = 1, xsize(2)
+              ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) * invfrx
+           ENDDO
+        ENDDO
+     ENDIF
+     IF (xend(1).EQ.nx) THEN
+        i = xsize(1)
+        DO k = 1, xsize(3)
+           DO j = 1, xsize(2)
+              ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) * invfrx
+           ENDDO
+        ENDDO
+     ENDIF
+     
+     IF (xstart(2).EQ.1) THEN
+        j = 1
+        DO k = 1, xsize(3)
+           DO i = 1, xsize(1)
+              ta1(i, j, k) = ta1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+           ENDDO
+        ENDDO
+     ENDIF
+     IF (xend(2).EQ.ny) THEN
+        j = xsize(2)
+        DO k = 1, xsize(3)
+           DO i = 1, xsize(1)
+              ta1(i, j, k) = ta1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+           ENDDO
+        ENDDO
+     ENDIF
+     
+     IF (xstart(3).EQ.1) THEN
+        k = 1
+        DO k = 1, xsize(2)
+           DO i = 1, xsize(1)
+              ta1(i, j, k) = ta1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+           ENDDO
+        ENDDO
+     ENDIF
+     IF (xend(3).EQ.nz) THEN
+        k = xsize(3)
+        DO j = 1, xsize(2)
+           DO i = 1, xsize(1)
+              ta1(i, j, k) = ta1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+           ENDDO
+        ENDDO
+     ENDIF
   ENDIF
   
 ENDSUBROUTINE apply_grav
