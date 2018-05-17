@@ -1705,7 +1705,7 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
 
   REAL(mytype) :: uu1, uv1, uw1
   REAL(mytype) :: y, z, yc, zc, ya, x
-  REAL(mytype) :: x1, x2, y1, y2, r1, r2
+  REAL(mytype) :: x1, x2, y1, y2, r1, r2, r1r2ratio
   REAL(mytype) :: l_fringe, xph_fringe
   INTEGER :: i, j, k, iph_fringe
 
@@ -1736,47 +1736,33 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
         y1 = y2 * x1 / x2
         r1 = SQRT(x1**2 + y1**2)
         r2 = SQRT(x2**2 + y2**2)
+        r1r2ratio = r1 / r2
         IF (r1.GT.r2) THEN
-          PRINT *, "Bug1 in entrainment_bcy"
-          STOP
+           PRINT *, "Bug1 in entrainment_bcy"
+           STOP
         ELSE
           IF (k.EQ.1) THEN ! First z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j + 1, k + 1)
-              cly3(i, j, k) = uy3(i, j + 1, k + 1) * r1 / r2
-              clz3(i, j, k) = uz3(i, j + 1, k + 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j + 1, k + 1)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = 0._mytype !uz3(i, j + 1, k + 1)
+              cly3(i, j, k) = uy3(i, j + 1, k + 1) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j + 1, k + 1) * r1r2ratio
             ENDDO
           ELSEIF (k.EQ.((nz - 1) / 2 + 1)) THEN ! Mid z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j + 1, k)
-              cly3(i, j, k) = uy3(i, j + 1, k) * r1 / r2
-              clz3(i, j, k) = uz3(i, j + 1, k) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j + 1, k)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = uz3(i, j + 1, k)
+              cly3(i, j, k) = uy3(i, j + 1, k) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j + 1, k) * r1r2ratio
             ENDDO
           ELSEIF (k.EQ.nz) THEN ! Final z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j + 1, k - 1)
-              cly3(i, j, k) = uy3(i, j + 1, k - 1) * r1 / r2
-              clz3(i, j, k) = uz3(i, j + 1, k - 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j + 1, k - 1)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = 0._mytype !uz3(i, j + 1, k - 1)
+              cly3(i, j, k) = uy3(i, j + 1, k - 1) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j + 1, k - 1) * r1r2ratio
             ENDDO
           ELSE ! General z-point
             IF (z.GT.0._mytype) THEN
               ya = y2 - dz
-              DO i = 1, iph_fringe
+              DO i = 1, zsize(1)
                 uu1 = ux3(i, j + 1, k - 1) &
                      + (ux3(i, j + 1, k) - ux3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
                 uv1 = uy3(i, j + 1, k - 1) &
@@ -1785,17 +1771,12 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
                      + (uz3(i, j + 1, k) - uz3(i, j + 1, k - 1)) * (y1 - ya) / (y2 - ya)
                 
                 clx3(i, j, k) = uu1
-                cly3(i, j, k) = uv1 * r1 / r2
-                clz3(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, zsize(1)
-                clx3(i, j, k) = ux3(i, j + 1, k - 1)
-                cly3(i, j, k) = 0._mytype
-                clz3(i, j, k) = uz3(i, j + 1, k - 1)
+                cly3(i, j, k) = uv1 * r1r2ratio
+                clz3(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSEIF (z.LT.0._mytype) THEN
               ya = y2 + dz
-              DO i = 1, iph_fringe
+              DO i = 1, zsize(1)
                 uu1 = ux3(i, j + 1, k + 1) &
                      + (ux3(i, j + 1, k + 1) - ux3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
                 uv1 = uy3(i, j + 1, k + 1) &
@@ -1804,18 +1785,20 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
                      + (uz3(i, j + 1, k + 1) - uz3(i, j + 1, k)) * (y1 - ya) / (ya - y2)
 
                 clx3(i, j, k) = uu1
-                cly3(i, j, k) = uv1 * r1 / r2
-                clz3(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, zsize(1)
-                clx3(i, j, k) = ux3(i, j + 1, k + 1)
-                cly3(i, j, k) = 0._mytype
-                clz3(i, j, k) = uz3(i, j + 1, k + 1)
+                cly3(i, j, k) = uv1 * r1r2ratio
+                clz3(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSE ! z = 0
+               PRINT *, "Error, z=0 should not happen!"
+               STOP
             ENDIF
-          ENDIF ! End checking where in z we are
-        ENDIF
+         ENDIF ! End checking where in z we are
+
+         ! Set fringe
+         DO i = iph_fringe + 1, zsize(1)
+            cly3(i, j, k) = 0._mytype
+         ENDDO
+       ENDIF
       ENDDO !! End loop over k
     ENDIF !! End if (ztstart(2).eq.1), i.e. first y boundary
 
@@ -1831,47 +1814,33 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
         y1 = y2 * x1 / x2
         r1 = SQRT(x1**2 + y1**2)
         r2 = SQRT(x2**2 + y2**2)
+        r1r2ratio = r1 / r2
         IF (r1.GT.r2) THEN
           PRINT *, "Bug2 in entrainment_bcy"
           STOP
         ELSE
           IF (k.EQ.1) THEN ! First z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j - 1, k + 1)
-              cly3(i, j, k) = uy3(i, j - 1, k + 1) * r1 / r2
-              clz3(i, j, k) = uz3(i, j - 1, k + 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j - 1, k + 1)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = 0._mytype !uz3(i, j - 1, k + 1)
+              cly3(i, j, k) = uy3(i, j - 1, k + 1) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j - 1, k + 1) * r1r2ratio
             ENDDO
           ELSEIF (k.EQ.(nz - 1) / 2 + 1) THEN ! Middle z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j - 1, k)
-              cly3(i, j, k) = uy3(i, j - 1, k) * r1 / r2
-              clz3(i, j, k) = uz3(i, j - 1, k) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j - 1, k)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = uz3(i, j - 1, k)
+              cly3(i, j, k) = uy3(i, j - 1, k) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j - 1, k) * r1r2ratio
             ENDDO
           ELSEIF (k.EQ.nz) THEN ! Last z-point
-            DO i = 1, iph_fringe
+            DO i = 1, zsize(1)
               clx3(i, j, k) = ux3(i, j - 1, k - 1)
-              cly3(i, j, k) = uy3(i, j - 1, k - 1) * r1 / r2
-              clz3(i, j, k) = uz3(i, j - 1, k - 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, zsize(1)
-              clx3(i, j, k) = ux3(i, j - 1, k - 1)
-              cly3(i, j, k) = 0._mytype
-              clz3(i, j, k) = 0._mytype !uz3(i, j - 1, k - 1)
+              cly3(i, j, k) = uy3(i, j - 1, k - 1) * r1r2ratio
+              clz3(i, j, k) = uz3(i, j - 1, k - 1) * r1r2ratio
             ENDDO
           ELSE ! General z-point
             IF (z.GT.0._mytype) THEN
               ya = y2 - dz
-              DO i = 1, iph_fringe
+              DO i = 1, zsize(1)
                 uu1 = ux3(i, j - 1, k - 1) &
                      + (ux3(i, j - 1, k) - ux3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
                 uv1 = uy3(i, j - 1, k - 1) &
@@ -1880,17 +1849,12 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
                      + (uz3(i, j - 1, k) - uz3(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
 
                 clx3(i, j, k) = uu1
-                cly3(i, j, k) = uv1 * r1 / r2
-                clz3(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, zsize(1)
-                clx3(i, j, k) = ux3(i, j - 1, k - 1)
-                cly3(i, j, k) = 0._mytype
-                clz3(i, j, k) = uz3(i, j - 1, k - 1)
+                cly3(i, j, k) = uv1 * r1r2ratio
+                clz3(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSEIF (z.LT.0._mytype) THEN
               ya = y2 + dz
-              DO i = 1, iph_fringe
+              DO i = 1, zsize(1)
                 uu1 = ux3(i, j - 1, k + 1) &
                      + (ux3(i, j - 1, k + 1) - ux3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
                 uv1 = uy3(i, j - 1, k + 1) &
@@ -1899,20 +1863,22 @@ SUBROUTINE entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
                      + (uz3(i, j - 1, k + 1) - uz3(i, j - 1, k)) * (y1 - ya) / (ya - y2)
 
                 clx3(i, j, k) = uu1
-                cly3(i, j, k) = uv1 * r1 / r2
-                clz3(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, zsize(1)
-                clx3(i, j, k) = ux3(i, j - 1, k + 1)
-                cly3(i, j, k) = 0._mytype
-                clz3(i, j, k) = uz3(i, j - 1, k + 1)
+                cly3(i, j, k) = uv1 * r1r2ratio
+                clz3(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSE ! z = 0
+               PRINT *, "Error, z=0 should not happen!"
+               STOP
             ENDIF
-          ENDIF !! End checking where we are in k
+         ENDIF !! End checking where we are in k
+
+         ! Set fringe
+         DO i = iph_fringe + 1, zsize(1)
+            cly3(i, j, k) = 0._mytype
+         ENDDO
         ENDIF !! End error check
       ENDDO !! End loop over k
-    ENDIF !! End if (zend(2).eq.ny), i.e. last y boundary
+   ENDIF !! End if (zend(2).eq.ny), i.e. last y boundary
   ENDIF !! End check that y is Dirichlet BC
 ENDSUBROUTINE entrainment_bcy
 
@@ -1935,80 +1901,64 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
 
   REAL(mytype) :: uu1, uv1, uw1
   REAL(mytype) :: y, z, yc, zc, ya, x
-  REAL(mytype) :: x1, x2, y1, y2, r1, r2
+  REAL(mytype) :: x1, x2, y1, y2, r1, r2, r1r2ratio
   REAL(mytype) :: l_fringe, xph_fringe
   INTEGER :: i, j, k, iph_fringe
 
-  l_fringe = 1._mytype
+  l_fringe = 0.1_mytype * xlx
   xph_fringe = xlx - l_fringe
-  DO i = 1, ysize(1)
-    x = (i + ystart(1) - 2) * dx
-    IF (x.GT.xph_fringe) THEN
-      EXIT
-    ELSE
-      iph_fringe = i
-    ENDIF
-  ENDDO
-  iph_fringe = ysize(1)
 
   IF (nclz.EQ.2) THEN
+     DO i = 1, ysize(1)
+        x = (i + ystart(1) - 2) * dx
+        IF (x.GT.xph_fringe) THEN
+           EXIT
+        ELSE
+           iph_fringe = i
+        ENDIF
+     ENDDO
+
     yc = yly / 2._mytype
     zc = zlz / 2._mytype
-
     IF (ystart(3).EQ.1) THEN
       k = 1
       z = -zc
       DO j = 1, ysize(2)
         !y = (j - 1) * dy - yc
-        y = (j +ystart(2) - 2) * dy - yc
+        y = (j + ystart(2) - 2) * dy - yc
         x2 = z
         y2 = y
         x1 = z + dz
         y1 = y2 * x1 / x2
         r1 = SQRT(x1**2 + y1**2)
         r2 = SQRT(x2**2 + y2**2)
-
+        r1r2ratio = r1 / r2
         IF (r1.GT.r2) THEN
           PRINT *, "Bug1 error in entrainment_bcz"
           STOP
         ELSE
           IF (j.EQ.1) THEN ! First y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j + 1, k + 1)
-              cly2(i, j, k) = uy2(i, j + 1, k + 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j + 1, k + 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j + 1, k + 1)
-              cly2(i, j, k) = 0._mytype !uy2(i, j + 1, k + 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j + 1, k + 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j + 1, k + 1) * r1r2ratio
             ENDDO
           ELSE IF(j.EQ.((ny - 1) / 2 + 1)) THEN ! Middle y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j, k + 1)
-              cly2(i, j, k) = uy2(i, j, k + 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j, k + 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j, k + 1)
-              cly2(i, j, k) = uy2(i, j, k + 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j, k + 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j, k + 1) * r1r2ratio
             ENDDO
           ELSE IF(j.EQ.ny) THEN ! Last y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j - 1, k + 1)
-              cly2(i, j, k) = uy2(i, j - 1, k + 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j - 1, k + 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j - 1, k + 1)
-              cly2(i, j, k) = 0._mytype !uy2(i, j - 1, k + 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j - 1, k + 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j - 1, k + 1) * r1r2ratio
             ENDDO
           ELSE ! General y point
             IF(y.GT.0._mytype) THEN
               ya = y2 - dy
-              DO i = 1, iph_fringe
+              DO i = 1, ysize(1)
                 uu1 = ux2(i, j - 1, k + 1) &
                      + (ux2(i, j, k + 1) - ux2(i, j - 1, k + 1)) * (y1 - ya) / (y2 - ya)
                 uv1 = uy2(i, j - 1, k + 1) &
@@ -2017,17 +1967,12 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
                      + (uz2(i, j, k + 1) - uz2(i, j - 1, k + 1)) * (y1 - ya) / (y2 - ya)
 
                 clx2(i, j, k) = uu1
-                cly2(i, j, k) = uv1 * r1 / r2 
-                clz2(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, ysize(1)
-                clx2(i, j, k) = ux2(i, j - 1, k + 1)
-                cly2(i, j, k) = uy2(i, j - 1, k + 1)
-                clz2(i, j, k) = 0._mytype
+                cly2(i, j, k) = uv1 * r1r2ratio 
+                clz2(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSE IF (y.LT.0._mytype) THEN
               ya = y2 + dy
-              DO i = 1, iph_fringe
+              DO i = 1, ysize(1)
                 uu1 = ux2(i, j + 1, k + 1) &
                      + (ux2(i, j + 1, k + 1) - ux2(i, j, k + 1)) * (y1 - ya) / (ya - y2)
                 uv1 = uy2(i, j + 1, k + 1) &
@@ -2036,17 +1981,20 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
                      + (uz2(i, j + 1, k + 1) - uz2(i, j, k + 1)) * (y1 - ya) / (ya - y2)
 
                 clx2(i, j, k) = uu1
-                cly2(i, j, k) = uv1 * r1 / r2
-                clz2(i, j, k) = uw1 * r1 / r2
+                cly2(i, j, k) = uv1 * r1r2ratio
+                clz2(i, j, k) = uw1 * r1r2ratio
               ENDDO
-              DO i = iph_fringe + 1, ysize(1)
-                clx2(i, j, k) = ux2(i, j + 1, k + 1)
-                cly2(i, j, k) = uy2(i, j + 1, k + 1)
-                clz2(i, j, k) = 0._mytype
-              ENDDO
+            ELSE
+               PRINT *, "Error, y=0 should not happen!"
+               STOP
             ENDIF
-          ENDIF !! End checking where in y we are
-        END IF !! End error-check
+         ENDIF !! End checking where in y we are
+
+         ! Set fringe
+         DO i = iph_fringe + 1, ysize(1)
+            clz2(i, j, k) = 0._mytype
+         ENDDO
+       END IF !! End error-check
       ENDDO !! End loop over j
     ENDIF !! End if (ystart(3).eq.1) i.e. first z boundary (k = 1)
 
@@ -2061,47 +2009,33 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
         y1 = y2 * x1 / x2
         r1 = SQRT(x1**2 + y1**2)
         r2 = SQRT(x2**2 + y2**2)
+        r1r2ratio = r1 / r2
         IF (r1.GT.r2) THEN
           PRINT *, "Bug2 in entrainment_bcz"
           STOP
         ELSE
           IF (j.EQ.1) THEN ! First y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j + 1, k - 1)
-              cly2(i, j, k) = uy2(i, j + 1, k - 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j + 1, k - 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j + 1, k - 1)
-              cly2(i, j, k) = 0._mytype !uy2(i, j + 1, k - 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j + 1, k - 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j + 1, k - 1) * r1r2ratio
             ENDDO
           ELSEIF (j.EQ.((ny - 1) / 2 + 1)) THEN ! Mid y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j, k - 1)
-              cly2(i, j, k) = uy2(i, j, k - 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j, k - 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j, k - 1)
-              cly2(i, j, k) = uy2(i, j, k - 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j, k - 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j, k - 1) * r1r2ratio
             ENDDO
           ELSEIF (j.EQ.ny) THEN ! Last y point
-            DO i = 1, iph_fringe
+            DO i = 1, ysize(1)
               clx2(i, j, k) = ux2(i, j - 1, k - 1)
-              cly2(i, j, k) = uy2(i, j - 1, k - 1) * r1 / r2
-              clz2(i, j, k) = uz2(i, j - 1, k - 1) * r1 / r2
-            ENDDO
-            DO i = iph_fringe + 1, ysize(1)
-              clx2(i, j, k) = ux2(i, j - 1, k - 1)
-              cly2(i, j, k) = 0._mytype !uy2(i, j - 1, k - 1)
-              clz2(i, j, k) = 0._mytype
+              cly2(i, j, k) = uy2(i, j - 1, k - 1) * r1r2ratio
+              clz2(i, j, k) = uz2(i, j - 1, k - 1) * r1r2ratio
             ENDDO
           ELSE ! General y point
             IF (y.GT.0._mytype) THEN
               ya = y2 - dy
-              DO i = 1, iph_fringe
+              DO i = 1, ysize(1)
                 uu1 = ux2(i, j - 1, k - 1) &
                      + (ux2(i, j, k - 1) - ux2(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
                 uv1 = uy2(i, j - 1, k - 1) &
@@ -2110,17 +2044,12 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
                      + (uz2(i, j, k - 1) - uz2(i, j - 1, k - 1)) * (y1 - ya) / (y2 - ya)
 
                 clx2(i, j, k) = uu1
-                cly2(i, j, k) = uv1 * r1 / r2
-                clz2(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, ysize(1)
-                clx2(i, j, k) = ux2(i, j - 1, k - 1)
-                cly2(i, j, k) = uy2(i, j - 1, k - 1)
-                clz2(i, j, k) = 0._mytype
+                cly2(i, j, k) = uv1 * r1r2ratio
+                clz2(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSE IF (y.LT.0._mytype) THEN
               ya = y2 + dy
-              DO i = 1, iph_fringe
+              DO i = 1, ysize(1)
                 uu1 = ux2(i, j + 1, k - 1) &
                      + (ux2(i, j + 1, k - 1) - ux2(i, j, k - 1)) * (y1 - ya) / (ya - y2)
                 uv1 = uy2(i, j + 1, k - 1) &
@@ -2129,21 +2058,22 @@ SUBROUTINE entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
                      + (uz2(i, j + 1, k - 1) - uz2(i, j, k - 1)) * (y1 - ya) / (ya - y2)
 
                 clx2(i, j, k) = uu1
-                cly2(i, j, k) = uv1 * r1 / r2
-                clz2(i, j, k) = uw1 * r1 / r2
-              ENDDO
-              DO i = iph_fringe + 1, ysize(1)
-                clx2(i, j, k) = ux2(i, j + 1, k - 1)
-                cly2(i, j, k) = uy2(i, j + 1, k - 1)
-                clz2(i, j, k) = 0._mytype
+                cly2(i, j, k) = uv1 * r1r2ratio
+                clz2(i, j, k) = uw1 * r1r2ratio
               ENDDO
             ELSE
+               PRINT *, "Error, y=0 should not happen!"
+               STOP
             ENDIF
-          ENDIF !! End checking where in y we are
+         ENDIF !! End checking where in y we are
+
+         ! Set fringe
+         DO i = iph_fringe + 1, ysize(1)
+            clz2(i, j, k) = 0._mytype
+         ENDDO
         ENDIF !! End error-check
       ENDDO !! End loop over j
-    ENDIF !! End if (yend(3).eq.nz) i.e. the end of z (k = nz)
-    
+   ENDIF !! End if (yend(3).eq.nz) i.e. the end of z (k = nz)
   ENDIF !! End check that z is Dirichlet BC
   
 ENDSUBROUTINE entrainment_bcz
