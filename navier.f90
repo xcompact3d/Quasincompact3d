@@ -2632,89 +2632,35 @@ subroutine pre_correc(ux,uy,uz,rho)
 
     ! Balance fluxes accounting for backflow
     call MPI_ALLREDUCE(outflux_addedlocal, outflux_added, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
-    outflux_ratio = outflux / (outflux + outflux_added)
-    bxxn(:,:) = outflux_ratio * bxxn(:,:)
+    if (ut11.ne.0._mytype) then
+       outflux_ratio = ut11 / (ut11 + outflux_added)
+       bxxn(:,:) = outflux_ratio * bxxn(:,:)
+    endif
   endif
 
   !********NCLX==2*************************************
   !****************************************************
   
   if (nclx.eq.2) then
-    ! if (ncly.eq.2) then
-    !   if (xstart(2).eq.1) then
-    !     j = 1
-    !     do k = 1, xsize(3)
-    !       i = 1
-    !       byx1(i, k) = bxx1(j, k) - dpdxy1(i, k) / rho(i, j, k)
-    !       byy1(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
-    !       byz1(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzy1(i, k)) / rho(i, j, k)
-
-    !       i = xsize(1)
-    !       byx1(i, k) = bxxn(j, k) - dpdxy1(i, k) / rho(i, j, k)
-    !       byy1(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
-    !       byz1(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzy1(i, k)) / rho(i, j, k)
-    !     enddo
-    !   endif
-      
-    !   if (xend(2).eq.ny) then
-    !     j = xsize(2)
-    !     do k = 1, xsize(3)
-    !       i = 1
-    !       byxn(i, k) = bxx1(j, k) - dpdxyn(i, k) / rho(i, j, k)
-    !       byyn(i, k) = bxy1(j, k) + dpdyx1(j, k) / rho(i, j, k)
-    !       byzn(i, k) = bxz1(j, k) + (dpdzx1(j, k) - dpdzyn(i, k)) / rho(i, j, k)
-
-    !       i = xsize(1)
-    !       byxn(i, k) = bxxn(j, k) - dpdxyn(i, k) / rho(i, j, k)
-    !       byyn(i, k) = bxyn(j, k) + dpdyxn(j, k) / rho(i, j, k)
-    !       byzn(i, k) = bxzn(j, k) + (dpdzxn(j, k) - dpdzyn(i, k)) / rho(i, j, k)
-    !     enddo
-    !   endif
-    ! endif
-
-    ! if (nclz.eq.2) then
-    !   if (xstart(3).eq.1) then
-    !     k = 1
-    !     do j = 1, xsize(2)
-    !       i = 1
-    !       bzx1(i, j) = bxx1(j, k) - dpdxz1(i, j) / rho(i, j, k)
-    !       bzy1(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyz1(i, j)) / rho(i, j, k)
-    !       bzz1(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
-
-    !       i = xsize(1)
-    !       bzx1(i, j) = bxxn(j, k) - dpdxz1(i, j) / rho(i, j, k)
-    !       bzy1(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyz1(i, j)) / rho(i, j, k)
-    !       bzz1(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
-    !     enddo
-    !   endif
-
-    !   if (xend(3).eq.nz) then
-    !     k = xsize(3)
-    !     do j = 1, xsize(2)
-    !       i = 1
-    !       bzxn(i, j) = bxx1(j, k) - dpdxzn(i, j) / rho(i, j, k)
-    !       bzyn(i, j) = bxy1(j, k) + (dpdyx1(j, k) - dpdyzn(i, j)) / rho(i, j, k)
-    !       bzzn(i, j) = bxz1(j, k) + dpdzx1(j, k) / rho(i, j, k)
-
-    !       i = xsize(1)
-    !       bzxn(i, j) = bxxn(j, k) - dpdxzn(i, j) / rho(i, j, k)
-    !       bzyn(i, j) = bxyn(j, k) + (dpdyxn(j, k) - dpdyzn(i, j)) / rho(i, j, k)
-    !       bzzn(i, j) = bxzn(j, k) + dpdzxn(j, k) / rho(i, j, k)
-    !     enddo
-    !   endif
-    ! endif
-    
-    do k=1, xsize(3)
-      do j=1, xsize(2)
-        ux(1 , j, k)=rho(1 , j, k) * bxx1(j, k)
-        uy(1 , j, k)=rho(1 , j, k) * bxy1(j, k)+dpdyx1(j, k)
-        uz(1 , j, k)=rho(1 , j, k) * bxz1(j, k)+dpdzx1(j, k)
-        ux(nx, j, k)=rho(nx, j, k) * bxxn(j, k)
-        uy(nx, j, k)=rho(nx, j, k) * bxyn(j, k)+dpdyxn(j, k)
-        uz(nx, j, k)=rho(nx, j, k) * bxzn(j, k)+dpdzxn(j, k)
-      enddo
-    enddo
+     do k=1, xsize(3)
+        do j=1, xsize(2)
+           ux(1 , j, k)=rho(1 , j, k) * bxx1(j, k)
+           uy(1 , j, k)=rho(1 , j, k) * bxy1(j, k)+dpdyx1(j, k)
+           uz(1 , j, k)=rho(1 , j, k) * bxz1(j, k)+dpdzx1(j, k)
+           ux(nx, j, k)=rho(nx, j, k) * bxxn(j, k)
+           uy(nx, j, k)=rho(nx, j, k) * bxyn(j, k)+dpdyxn(j, k)
+           uz(nx, j, k)=rho(nx, j, k) * bxzn(j, k)+dpdzxn(j, k)
+        enddo
+     enddo
   endif
+
+  IF (nclx.EQ.2) THEN
+     istart = 2
+     iend = xsize(1) - 1
+  ELSE
+     istart = 1
+     iend = xsize(1)
+  ENDIF
   
   !****************************************************
   !********NCLY==2*************************************
@@ -2772,7 +2718,7 @@ subroutine pre_correc(ux,uy,uz,rho)
       if (dims(1).eq.1) then
         j = 1
         do k = 1, xsize(3)
-          do i = 1, xsize(1)
+          do i = istart, iend
             ux(i, j, k) = rho(i, j, k) * byx1(i, k) + dpdxy1(i, k)
             uy(i, j, k) = rho(i, j, k) * byy1(i, k)
             uz(i, j, k) = rho(i, j, k) * byz1(i, k) + dpdzy1(i, k)
@@ -2781,7 +2727,7 @@ subroutine pre_correc(ux,uy,uz,rho)
 
         j = xsize(2)
         do k = 1, xsize(3)
-          do i = 1, xsize(1)
+          do i = istart, iend
             ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdxyn(i, k)
             uy(i, j, k) = rho(i, j, k) * byyn(i, k)
             uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdzyn(i, k)
@@ -2791,7 +2737,7 @@ subroutine pre_correc(ux,uy,uz,rho)
         if (xstart(2).eq.1) then
           j = 1
           do k = 1, xsize(3)
-            do i = 1, xsize(1)
+            do i = istart, iend
               ux(i, j, k) = rho(i, j, k) * byx1(i, k) + dpdxy1(i, k)
               uy(i, j, k) = rho(i, j, k) * byy1(i, k)
               uz(i, j, k) = rho(i, j, k) * byz1(i, k) + dpdzy1(i, k)
@@ -2802,7 +2748,7 @@ subroutine pre_correc(ux,uy,uz,rho)
         if ((ny - (nym / dims(1))).eq.xstart(2)) then
           j = xsize(2)
           do k = 1, xsize(3)
-            do i = 1, xsize(1)
+            do i = istart, iend
               ux(i, j, k) = rho(i, j, k) * byxn(i, k) + dpdxyn(i, k)
               uy(i, j, k) = rho(i, j, k) * byyn(i, k)
               uz(i, j, k) = rho(i, j, k) * byzn(i, k) + dpdzyn(i, k)
@@ -2822,19 +2768,11 @@ subroutine pre_correc(ux,uy,uz,rho)
       ! determine the processor grid in use
       CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
            dims, dummy_periods, dummy_coords, code)
-
-      IF (nclx.EQ.2) THEN
-        istart = 2
-        iend = xsize(1) - 1
-      ELSE
-        istart = 1
-        iend = xsize(1)
-      ENDIF
       
       IF (dims(2).EQ.1) THEN
         k = 1
         DO j = 1, xsize(2)
-          DO i = 1, xsize(1)
+          DO i = istart, iend
             ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdxz1(i, j)
             uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdyz1(i, j)
             uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
@@ -2843,33 +2781,33 @@ subroutine pre_correc(ux,uy,uz,rho)
         
         k = xsize(3)
         DO j = 1, xsize(2)
-          DO i = 1, xsize(1)
+          DO i = istart, iend
             ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdxzn(i, j)
             uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdyzn(i, j)
             uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
           ENDDO
         ENDDO
       ELSE
-        k = 1
         IF (xstart(3).EQ.1) THEN
-          DO j = 1, xsize(2)
-            DO i = 1, xsize(1)
-              ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdxz1(i, j)
-              uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdyz1(i, j)
-              uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
-            ENDDO
-          ENDDO
+           k = 1
+           DO j = 1, xsize(2)
+              DO i = istart, iend
+                 ux(i, j, k) = rho(i, j, k) * bzx1(i, j) + dpdxz1(i, j)
+                 uy(i, j, k) = rho(i, j, k) * bzy1(i, j) + dpdyz1(i, j)
+                 uz(i, j, k) = rho(i, j, k) * bzz1(i, j)
+              ENDDO
+           ENDDO
         ENDIF
 
-        k = xsize(3)
         IF ((nz - (nzm / dims(2))).EQ.xstart(3)) THEN
-          DO j = 1, xsize(2)
-            DO i = 1, xsize(1)
-              ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdxzn(i, j)
-              uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdyzn(i, j)
-              uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
-            ENDDO
-          ENDDO
+           k = xsize(3)
+           DO j = 1, xsize(2)
+              DO i = istart, iend
+                 ux(i, j, k) = rho(i, j, k) * bzxn(i, j) + dpdxzn(i, j)
+                 uy(i, j, k) = rho(i, j, k) * bzyn(i, j) + dpdyzn(i, j)
+                 uz(i, j, k) = rho(i, j, k) * bzzn(i, j)
+              ENDDO
+           ENDDO
         ENDIF
       ENDIF
     ENDIF
