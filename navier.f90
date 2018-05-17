@@ -1436,8 +1436,8 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     enddo
 
     !! Set initial massfrac field:
-    ! massfrac = 1 -> rho = dens1
-    !          = 0 -> rho = dens2
+    ! massfrac = 0 -> rho = dens1
+    !          = 1 -> rho = dens2
     massfrac1(:,:,:) = 0._mytype
     ! massfrac1(:,:,:) = 1._mytype
 
