@@ -890,13 +890,29 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   INTEGER :: i, j, k
 
+  REAL(mytype) :: x
   REAL(mytype) :: cy
+
+  REAL(mytype) :: l_fringe, xph_fringe
+  INTEGER :: iph_fringe
+
+  l_fringe = 0.1_mytype * xlx
+  xph_fringe = xlx - l_fringe
+  !! Find fringe
+  DO i = 1, xsize(1)
+     x = (i + xstart(1) - 2) * dx
+     IF (x.GT.xph_fringe) THEN
+        EXIT
+     ELSE
+        iph_fringe = i
+     ENDIF
+  ENDDO
 
   IF (ilmn.NE.0) THEN
     j = 1
     IF (xstart(2).EQ.1) THEN
       DO k = 1, xsize(3)
-        DO i = 1, xsize(1)
+        DO i = 1, iph_fringe
           IF (uy1(i, j, k).GT.0._mytype) THEN
             !! INFLOW
             rho1(i, j, k) = dens2
@@ -905,13 +921,16 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
             cy = uy1(i, j, k) * gdt(itr) / dy
             rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
           ENDIF
-        ENDDO
+       ENDDO
+       DO i = iph_fringe + 1, xsize(1)
+          rho1(i, j, k) = rho1(i, j + 1, k)
+       ENDDO
       ENDDO
     ENDIF
     IF (xend(2).EQ.ny) THEN
       j = xsize(2)
       DO k = 1, xsize(3)
-        DO i = 1, xsize(1)
+        DO i = 1, iph_fringe
           IF (uy1(i, j, k).LT.0._mytype) THEN
             !! INFLOW
             rho1(i, j, k) = dens2
@@ -920,7 +939,10 @@ SUBROUTINE set_density_entrainment_y(rho1, uy1)
             cy = uy1(i, j, k) * gdt(itr) / dy
             rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j - 1, k))
           ENDIF
-        ENDDO
+       ENDDO
+       DO i = iph_fringe + 1, xsize(1)
+          rho1(i, j, k) = rho1(i, j - 1, k)
+       ENDDO
       ENDDO
     ENDIF
   ENDIF
@@ -974,37 +996,59 @@ SUBROUTINE set_density_entrainment_z(rho1, uz1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
   INTEGER :: i, j, k
 
+  REAL(mytype) :: x
   REAL(mytype) :: cz
+
+  REAL(mytype) :: l_fringe, xph_fringe
+  INTEGER :: iph_fringe
+
+  l_fringe = 0.1_mytype * xlx
+  xph_fringe = xlx - l_fringe
+  !! Find fringe
+  DO i = 1, xsize(1)
+     x = (i + xstart(1) - 2) * dx
+     IF (x.GT.xph_fringe) THEN
+        EXIT
+     ELSE
+        iph_fringe = i
+     ENDIF
+  ENDDO
 
   IF (ilmn.NE.0) THEN
     IF (xstart(3).EQ.1) THEN
       k = 1
       DO j = 1, xsize(2)
-        DO i = 1, xsize(1)
-          IF (uz1(i, j, k).GT.0._mytype) THEN
-            !! INFLOW
-            rho1(i, j, k) = dens2
-          ELSE
-            !! OUTFLOW
-            cz = uz1(i, j, k) * gdt(itr) / dz
-            rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k + 1) - rho1(i, j, k))
-          ENDIF
-        ENDDO
+         DO i = 1, iph_fringe
+            IF (uz1(i, j, k).GT.0._mytype) THEN
+               !! INFLOW
+               rho1(i, j, k) = dens2
+            ELSE
+               !! OUTFLOW
+               cz = uz1(i, j, k) * gdt(itr) / dz
+               rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k + 1) - rho1(i, j, k))
+            ENDIF
+         ENDDO
+         DO i = iph_fringe + 1, xsize(1)
+            rho1(i, j, k) = rho1(i, j, k + 1)
+         ENDDO
       ENDDO
     ENDIF
     IF (xend(3).EQ.nz) THEN
       k = xsize(3)
       DO j = 1, xsize(2)
-        DO i = 1, xsize(1)
-          IF (uz1(i, j, k).LT.0._mytype) THEN
-            !! INFLOW
-            rho1(i, j, k) = dens2
-          ELSE
-            !! OUTFLOW
-            cz = uz1(i, j, k) * gdt(itr) / dz
-            rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k) - rho1(i, j, k - 1))
-          ENDIF
-        ENDDO
+         DO i = 1, iph_fringe
+            IF (uz1(i, j, k).LT.0._mytype) THEN
+               !! INFLOW
+               rho1(i, j, k) = dens2
+            ELSE
+               !! OUTFLOW
+               cz = uz1(i, j, k) * gdt(itr) / dz
+               rho1(i, j, k) = rho1(i, j, k) - cz * (rho1(i, j, k) - rho1(i, j, k - 1))
+            ENDIF
+         ENDDO
+         DO i = iph_fringe + 1, xsize(1)
+            rho1(i, j, k) = rho1(i, j, k - 1)
+         ENDDO
       ENDDO
     ENDIF
   ENDIF
