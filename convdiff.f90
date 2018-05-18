@@ -69,25 +69,14 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: mu2
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: mu3
 
-  real(mytype) :: ta1min, ta1min1, ta1max, ta1max1
-  real(mytype) :: tb1min, tb1min1, tb1max, tb1max1
-  real(mytype) :: tc1min, tc1min1, tc1max, tc1max1
-
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k
-  integer :: code
   real(mytype) :: x,y,z
-
-  real(mytype) :: invfr
 
   real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
 
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
   nvect3=zsize(1)*zsize(2)*zsize(3)
-
-!!! CM call test_min_max('ux1  ','In convdiff    ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In convdiff    ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In convdiff    ',uz1,size(uz1))
 
   if (iskew==0) then !UROTU!
     !WORK X-PENCILS
@@ -222,10 +211,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   endif
   !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
 
-!!! CM call test_min_max('td3  ','In convdiff    ',td3,size(td3))
-!!! CM call test_min_max('te3  ','In convdiff    ',te3,size(te3))
-!!! CM call test_min_max('tf3  ','In convdiff    ',tf3,size(tf3))
-
   tg3(:,:,:) = ta3(:,:,:)
   th3(:,:,:) = tb3(:,:,:)
   ti3(:,:,:) = tc3(:,:,:)
@@ -266,10 +251,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) * (tf3(:,:,:) - 2._mytype * ONETHIRD * divu3(:,:,:))
   endif
 
-!!! CM call test_min_max('ta3  ','In convdiff    ',ta3,size(ta3))
-!!! CM call test_min_max('tb3  ','In convdiff    ',tb3,size(tb3))
-!!! CM call test_min_max('tc3  ','In convdiff    ',tc3,size(tc3))
-
   clx3(:,:,:) = 0._mytype
   cly3(:,:,:) = 0._mytype
   clz3(:,:,:) = 0._mytype
@@ -297,10 +278,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     CALL transpose_z_to_y(clz3, clz2)
   ENDIF
 
-!!! CM call test_min_max('tg2  ','In convdiff    ',tg2,size(tg2))
-!!! CM call test_min_max('th2  ','In convdiff    ',th2,size(th2))
-!!! CM call test_min_max('ti2  ','In convdiff    ',ti2,size(ti2))
-
   !DIFFUSIVE TERMS IN Y
   !-->for ux
   if (istret.ne.0) then 
@@ -314,13 +291,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
       enddo
     enddo
   else
-!!! CM    call test_min_max('ux2  ','In convdiff    ',ux2,size(ux2))
-!!! CM    call test_min_max('di2  ','In convdiff    ',di2,size(di2))
-!!! CM    write(*,*) ysize(1),ysize(2),ysize(3)
     call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
   endif
-
-!!! CM call test_min_max('td2  ','In convdiff    ',td2,size(td2))
 
   !-->for uy
   if (istret.ne.0) then 
@@ -351,17 +323,9 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1) 
   endif
 
-!!! CM call test_min_max('td2  ','In convdiff    ',td2,size(td2))
-!!! CM call test_min_max('te2  ','In convdiff    ',te2,size(te2))
-!!! CM call test_min_max('tf2  ','In convdiff    ',tf2,size(tf2))
-
   ta2(:,:,:) = ta2(:,:,:) + mu2(:,:,:) * td2(:,:,:)
   tb2(:,:,:) = tb2(:,:,:) + mu2(:,:,:) * te2(:,:,:)
   tc2(:,:,:) = tc2(:,:,:) + mu2(:,:,:) * tf2(:,:,:)
-
-!!! CM call test_min_max('ta2  ','In convdiff    ',ta2,size(ta2))
-!!! CM call test_min_max('tb2  ','In convdiff    ',tb2,size(tb2))
-!!! CM call test_min_max('tc2  ','In convdiff    ',tc2,size(tc2))
 
   if (ilmn.ne.0) then
     !! Compute bulk shear contribution
@@ -432,10 +396,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     call derx(td1, divu1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
     ta1(:,:,:) = ta1(:,:,:) - 2._mytype * ONETHIRD * mu1(:,:,:) * td1(:,:,:)
   endif
-
-  !if (nrank==1) print *,'ATTENTION ATTENTION canal tournant',itime
-  !tg1(:,:,:)=tg1(:,:,:)-2./18.*uy1(:,:,:)
-  !th1(:,:,:)=th1(:,:,:)-2./18.*ux1(:,:,:)
 
   !INTERMEDIATE SUM: DIFF TERMS + CONV TERMS
   ta1(:,:,:) = xnu * ta1(:,:,:) - tg1(:,:,:)
@@ -582,39 +542,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
 
   ! !! MMS Source term
   ! call momentum_source_mms(ta1,tb1,tc1)
-
-  ! ta1max=-1.e30_mytype
-  ! ta1min=+1.e30_mytype
-  ! tb1max=-1.e30_mytype
-  ! tb1min=+1.e30_mytype
-  ! tc1max=-1.e30_mytype
-  ! tc1min=+1.e30_mytype
-
-  ! do k=xstart(3),xend(3)
-  !    do j=xstart(2),xend(2)
-  !       do i=xstart(1),xend(1)
-  !          if (ta1(i,j,k).gt.ta1max) ta1max=ta1(i,j,k)
-  !          if (ta1(i,j,k).lt.ta1min) ta1min=ta1(i,j,k)
-  !          if (tb1(i,j,k).gt.tb1max) tb1max=tb1(i,j,k)
-  !          if (tb1(i,j,k).lt.tb1min) tb1min=tb1(i,j,k)
-  !          if (tc1(i,j,k).gt.tc1max) tc1max=tc1(i,j,k)
-  !          if (tc1(i,j,k).lt.tc1min) tc1min=tc1(i,j,k)
-  !       enddo
-  !    enddo
-  ! enddo
-
-  ! call MPI_REDUCE(ta1max,ta1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-  ! call MPI_REDUCE(ta1min,ta1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
-  ! call MPI_REDUCE(tb1max,tb1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-  ! call MPI_REDUCE(tb1min,tb1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
-  ! call MPI_REDUCE(tc1max,tc1max1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
-  ! call MPI_REDUCE(tc1min,tc1min1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
-
-!!! CM if (nrank==0) then
-!!! CM    write(*,*) 'In convdiff ta1',ta1max1,ta1min1
-!!! CM    write(*,*) 'In convdiff tb1',tb1max1,tb1min1
-!!! CM    write(*,*) 'In convdiff tc1',tc1max1,tc1min1
-!!! CM endif
 
 end subroutine convdiff
 

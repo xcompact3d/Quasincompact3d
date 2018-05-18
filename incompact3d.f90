@@ -66,8 +66,6 @@ PROGRAM incompact3d
 
   call schemes()
 
-!!! CM call test_min_max('di2  ','In main        ',di2,size(di2))
-
   if (nclx.eq.0) then
     bcx=0
   else
@@ -87,8 +85,6 @@ PROGRAM incompact3d
   call decomp_2d_poisson_init(bcx,bcy,bcz)
 
   call decomp_info_init(nxm,nym,nzm,phG)
-
-!!! CM call test_min_max('di2  ','In main 1      ',di2,size(di2))
 
   !if you want to collect 100 snapshots randomly on 50000 time steps
   !call collect_data() !it will generate 100 random time steps
@@ -133,8 +129,6 @@ PROGRAM incompact3d
   uvmean=0._mytype;uwmean=0._mytype;vwmean=0._mytype
   phimean=0._mytype;phiphimean=0._mytype
 
-!!! CM call test_min_max('di2  ','In main 2      ',di2,size(di2))
-
   t1 = MPI_WTIME()
 
   !div: nx ny nz --> nxm ny nz --> nxm nym nz --> nxm nym nzm
@@ -157,8 +151,6 @@ PROGRAM incompact3d
   !      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
   !      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
-!!! CM call test_min_max('di2  ','In main 3      ',di2,size(di2))
-
   tpoisstotal = 0._mytype
   do itime=ifirst,ilast
 
@@ -168,8 +160,6 @@ PROGRAM incompact3d
 1001  format('Time step =',i7,', Time unit =',F9.3)
     endif
 
-
-!!! CM call test_min_max('di2  ','In main 4      ',di2,size(di2))
     do itr=1,iadvance_time
       
       !-----------------------------------------------------------------------------------
@@ -292,10 +282,6 @@ PROGRAM incompact3d
         endif
       endif
 
-!!! CM call test_min_max('ux1  ','In main intt   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main intt   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main intt   ',uz1,size(uz1))
-
       if (max(nclx, ncly, nclz).eq.2) then
         !! We have Dirichlet boundaries, compute the boundary velocity flux constraint
         call compute_outflux_lmn(temperature1,ta1,di1,&
@@ -303,10 +289,6 @@ PROGRAM incompact3d
              temperature3,ta3,di3)
       endif
       call pre_correc(ux1,uy1,uz1,rho1)
-
-!!! CM call test_min_max('ux1  ','In main pre_   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main pre_   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main pre_   ',uz1,size(uz1))
 
       ! LMN: Calculate new divergence of velocity using new density/temperature field.
       !      This updates the temperature field using the density field.
@@ -406,10 +388,6 @@ PROGRAM incompact3d
             pp3corr(:,:,:) = pp3(:,:,:)
          endif
          
-!!! CM call test_min_max('ux1  ','In main dive   ',ux1,size(ux1))
-!!! CM call test_min_max('uy1  ','In main dive   ',uy1,size(uy1))
-!!! CM call test_min_max('uz1  ','In main dive   ',uz1,size(uz1))
-         
          if (converged.eqv..FALSE.) then
             !POISSON Z-->Z
             call decomp_2d_poisson_stg(pp3corr,bcx,bcy,bcz)
@@ -421,8 +399,6 @@ PROGRAM incompact3d
             call gradp(px1,py1,pz1,di1,td2,tf2,ta2,tb2,tc2,di2,&
                  ta3,tc3,di3,pp3corr,nxmsize,nymsize,nzmsize,ph2,ph3)
          endif
-         
-!!! CM call test_min_max('pp3  ','In main deco   ',pp3,size(pp3))
          
          if ((ilmn.eq.0).or.(ivarcoeff.eq.0)) then
             converged = .TRUE.

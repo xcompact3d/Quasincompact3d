@@ -1599,10 +1599,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
     tc1(:,:,:)=uz1(:,:,:)
   endif
 
-!!! CM call test_min_max('ta1  ','In divergence  ',ta1,size(ta1))
-!!! CM call test_min_max('tb1  ','In divergence  ',tb1,size(tb1))
-!!! CM call test_min_max('tc1  ','In divergence  ',tc1,size(tc1))
-
   !WORK X-PENCILS
   call decx6(td1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
   if ((ilmn.ne.0) &               ! We are solving LMN equations AND
@@ -1619,11 +1615,6 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
   
   call inter6(te1,tb1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
   call inter6(tf1,tc1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
-
-!!! CM call test_min_max('di1  ','In divergence  ',di1,size(di1))
-!!! CM call test_min_max('td1  ','In divergence  ',td1,size(td1))
-!!! CM call test_min_max('te1  ','In divergence  ',te1,size(te1))
-!!! CM call test_min_max('tf1  ','In divergence  ',tf1,size(tf1))
 
   call transpose_x_to_y(td1,td2,ph4)!->NXM NY NZ
   call transpose_x_to_y(te1,te2,ph4)
