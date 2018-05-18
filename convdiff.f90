@@ -74,6 +74,19 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
 
   real(mytype), parameter :: ONETHIRD = 1._mytype / 3._mytype
 
+  logical :: entrain_y, entrain_z
+
+  entrain_y = .FALSE.
+  entrain_z = .FALSE.
+  if (itype.eq.5) then
+     if (ncly.eq.2) then
+        entrain_y = .TRUE.
+     endif
+     if (nclz.eq.2) then
+        entrain_z = .TRUE.
+     endif
+  endif
+
   nvect1=xsize(1)*xsize(2)*xsize(3)
   nvect2=ysize(1)*ysize(2)*ysize(3)
   nvect3=zsize(1)*zsize(2)*zsize(3)
@@ -254,7 +267,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   clx3(:,:,:) = 0._mytype
   cly3(:,:,:) = 0._mytype
   clz3(:,:,:) = 0._mytype
-  IF (ncly.EQ.2) THEN
+  IF (entrain_y.EQV..TRUE.) THEN
     !! Apply y-normal BCs (in Z pencil)
     CALL entrainment_bcy(ux3, uy3, uz3, clx3, cly3, clz3)
   ENDIF
@@ -272,7 +285,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   
   !WORK Y-PENCILS
 
-  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+  IF ((entrain_y.EQV..TRUE.).OR.(entrain_z.EQV..TRUE.)) THEN
     CALL transpose_z_to_y(clx3, clx2)
     CALL transpose_z_to_y(cly3, cly2)
     CALL transpose_z_to_y(clz3, clz2)
@@ -334,7 +347,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tb2(:,:,:) = tb2(:,:,:) - 2._mytype * ONETHIRD * mu2(:,:,:) * te2(:,:,:)
   endif
 
-  IF (nclz.EQ.2) THEN
+  IF (entrain_z.EQV..TRUE.) THEN
     !! Apply Z-normal BCs
     CALL entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
   ENDIF
@@ -374,7 +387,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
 
   !WORK X-PENCILS
 
-  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+  IF ((entrain_y.EQV..TRUE.).OR.(entrain_z.EQV..TRUE.)) THEN
     CALL transpose_y_to_x(clx2, clx1)
     CALL transpose_y_to_x(cly2, cly1)
     CALL transpose_y_to_x(clz2, clz1)
@@ -532,11 +545,11 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   CALL fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1)
 
   !! Setting entrainment boundary conditions
-  IF (nclz.eq.2) THEN
+  IF (entrain_z.EQV..TRUE.) THEN
     CALL set_velocity_entrainment_z(clx1, cly1, clz1)
   ENDIF !! End Z BC
 
-  IF (ncly.EQ.2) THEN
+  IF (entrain_y.EQV..TRUE.) THEN
     CALL set_velocity_entrainment_y(clx1, cly1, clz1)
   ENDIF !! End Y BC
 
