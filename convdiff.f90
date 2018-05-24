@@ -277,9 +277,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_z_to_y(tc3,tc2)
 
   call transpose_z_to_y(divu3, divu2)
-  if (iprops.ne.0) then
-    call transpose_z_to_y(mu3, mu2)
-  else
+  if (iprops.eq.0) then
     mu2(:,:,:) = 1._mytype
   endif
   
@@ -379,9 +377,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   call transpose_y_to_x(tc2,tc1) !diff
 
   call transpose_y_to_x(divu2, divu1)
-  if (iprops.ne.0) then
-    call transpose_y_to_x(mu2, mu1)
-  else
+  if (iprops.eq.0) then
     mu1(:,:,:) = 1._mytype
   endif
 
@@ -1286,9 +1282,9 @@ ENDSUBROUTINE calcrho_eos
 !!--------------------------------------------------------------------
 !!  SUBROUTINE: calcvisc
 !! DESCRIPTION: Calculate the fluid viscosity as a function of
-!!              temperature.
+!!              temperature/density.
 !!--------------------------------------------------------------------
-SUBROUTINE calcvisc(mu3, temperature3)
+SUBROUTINE calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
 
   USE param
   USE variables
@@ -1296,17 +1292,24 @@ SUBROUTINE calcvisc(mu3, temperature3)
   
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: temperature3
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: massfrac1, temperature1, rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: mu1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: mu2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: mu3
 
   if (iprops.ne.0) then
-    !! Enable variable properties
+     !! Enable variable properties
 
-    ! Just set mu=1 for now
-    mu3(:,:,:) = 1._mytype
+     !! Corresponds to constant /kinematic/ viscosity
+     mu1(:,:,:) = rho1(:,:,:)
+
+     !! Transpose up to z-pencils where it is needed
+     !! Also updates mu2 in the process
+     call transpose_x_to_y(mu1, mu2)
+     call transpose_y_to_z(mu2, mu3)
   else
-    !! Use fixed properties
-    mu3(:,:,:) = 1._mytype
+     !! Use fixed properties
+     mu3(:,:,:) = 1._mytype
   endif
   
 ENDSUBROUTINE calcvisc

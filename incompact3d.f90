@@ -198,7 +198,7 @@ PROGRAM incompact3d
       ! Update fluid properties
       ! XXX Temperature is up-to-date in X, Y and Z.
       !-----------------------------------------------------------------------------------
-      call calcvisc(mu3, temperature3) ! Viscosity first used in Z-stencils
+      call calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
       if (iscalar.eq.0) then
         call calcgamma(gamma1, temperature1)
       endif
