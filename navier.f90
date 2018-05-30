@@ -2482,6 +2482,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
   USE decomp_2d
   USE variables
   USE param
+  USE MPI
 
   IMPLICIT NONE
 
@@ -2492,6 +2493,10 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
   INTEGER :: i, j, k, ijk, nxyz
 
   LOGICAL :: zerograv
+
+  INTEGER :: code
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
   zerograv = .TRUE.
@@ -2541,55 +2546,93 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
      !! Apply BCs
      !  For periodic boundaries the heavier fluid should be able to 'fall' through boundary.
      
-     IF (xstart(1).EQ.1) THEN
-        i = 1
-        DO k = 1, xsize(3)
-           DO j = 1, xsize(2)
-              ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) * invfrx
-           ENDDO
+     i = 1
+     DO k = 1, xsize(3)
+        DO j = 1, xsize(2)
+           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
+                * invfrx
         ENDDO
-     ENDIF
-     IF (xend(1).EQ.nx) THEN
-        i = xsize(1)
-        DO k = 1, xsize(3)
-           DO j = 1, xsize(2)
-              ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) * invfrx
-           ENDDO
+     ENDDO
+     i = xsize(1)
+     DO k = 1, xsize(3)
+        DO j = 1, xsize(2)
+           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
+                * invfrx
         ENDDO
-     ENDIF
+     ENDDO
      
-     IF (xstart(2).EQ.1) THEN
+     CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, code)
+
+     IF (dims(1).EQ.1) THEN
         j = 1
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              ta1(i, j, k) = ta1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
+                   * invfry
            ENDDO
         ENDDO
-     ENDIF
-     IF (xend(2).EQ.ny) THEN
         j = xsize(2)
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              ta1(i, j, k) = ta1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
+                   * invfry
            ENDDO
         ENDDO
+     ELSE
+        IF (xstart(2).EQ.1) THEN
+           j = 1
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 tb1(i, j, k) = tb1(i, j, k) &
+                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+              ENDDO
+           ENDDO
+        ENDIF
+        IF (ny - (ny / dims(1)).EQ.xstart(2)) THEN
+           j = xsize(2)
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 tb1(i, j, k) = tb1(i, j, k) &
+                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+              ENDDO
+           ENDDO
+        ENDIF
      ENDIF
-     
-     IF (xstart(3).EQ.1) THEN
+
+     IF (dims(2).EQ.1) THEN
         k = 1
         DO k = 1, xsize(2)
            DO i = 1, xsize(1)
-              ta1(i, j, k) = ta1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
+                   * invfrz
            ENDDO
         ENDDO
-     ENDIF
-     IF (xend(3).EQ.nz) THEN
         k = xsize(3)
         DO j = 1, xsize(2)
            DO i = 1, xsize(1)
-              ta1(i, j, k) = ta1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
+                   * invfrz
            ENDDO
         ENDDO
+     ELSE
+        IF (xstart(3).EQ.1) THEN
+           k = 1
+           DO k = 1, xsize(2)
+              DO i = 1, xsize(1)
+                 tc1(i, j, k) = tc1(i, j, k) &
+                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+              ENDDO
+           ENDDO
+        ENDIF
+        IF (nz - (nz / dims(2)).EQ.xstart(3)) THEN
+           k = xsize(3)
+           DO j = 1, xsize(2)
+              DO i = 1, xsize(1)
+                 tc1(i, j, k) = tc1(i, j, k) &
+                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+              ENDDO
+           ENDDO
+        ENDIF
      ENDIF
   ENDIF
   
