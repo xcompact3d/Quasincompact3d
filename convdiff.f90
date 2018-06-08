@@ -531,21 +531,21 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
        tb1(:,:,:) = tb1(:,:,:) + xnu * td1(:,:,:) * th1(:,:,:)
        tc1(:,:,:) = tc1(:,:,:) + xnu * td1(:,:,:) * ti1(:,:,:)
     endif
-  endif
-
-  CALL fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1)
-
-  !! Setting entrainment boundary conditions
-  IF (entrain_z.EQV..TRUE.) THEN
+ endif
+ 
+ ! CALL fringe_bcx(ta1, tb1, tc1, ux1, uy1, uz1, rho1)
+ 
+ !! Setting entrainment boundary conditions
+ IF (entrain_z.EQV..TRUE.) THEN
     CALL set_velocity_entrainment_z(clx1, cly1, clz1)
-  ENDIF !! End Z BC
-
-  IF (entrain_y.EQV..TRUE.) THEN
+ ENDIF !! End Z BC
+ 
+ IF (entrain_y.EQV..TRUE.) THEN
     CALL set_velocity_entrainment_y(clx1, cly1, clz1)
-  ENDIF !! End Y BC
-
-  ! !! MMS Source term
-  ! call momentum_source_mms(ta1,tb1,tc1)
+ ENDIF !! End Y BC
+ 
+ ! !! MMS Source term
+ ! call momentum_source_mms(ta1,tb1,tc1)
 
 end subroutine convdiff
 

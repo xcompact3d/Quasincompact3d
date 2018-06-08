@@ -227,23 +227,23 @@ PROGRAM incompact3d
       endif
 
       if (ilmn.ne.0) then
-        if (isolvetemp.eq.0) then
-          ! Update density
-          !    X->Y->Z->Y->X
-          ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
-          !     transpose operations by operating on Z->Y->X.
-          ! XXX tg1 contains the density forcing term.
-          call conv_density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
-               uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
-               uz3,rho3,divu3,di3,ta3,tb3,ep1)
-        else
-          ! Update temperature
-          call convdiff_temperature(ux1,uy1,uz1,rho1,temperature1,di1,tg1,th1,&
-               uy2,uz2,rho2,temperature2,di2,ta2,tb2,&
-               uz3,rho3,temperature3,di3,ta3,tb3)
-          call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1)
-          call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
-        endif
+         if (isolvetemp.eq.0) then
+            ! Update density
+            !    X->Y->Z->Y->X
+            ! XXX uz3,rho3 and uy2,rho2 and rho1 should already be up to date, could go from 8 to 2
+            !     transpose operations by operating on Z->Y->X.
+            ! XXX tg1 contains the density forcing term.
+            call conv_density(ux1,uy1,uz1,rho1,di1,tg1,th1,ti1,td1,&
+                 uy2,uz2,rho2,di2,ta2,tb2,tc2,td2,&
+                 uz3,rho3,divu3,di3,ta3,tb3,ep1)
+         else
+            ! Update temperature
+            call convdiff_temperature(ux1,uy1,uz1,rho1,temperature1,di1,tg1,th1,&
+                 uy2,uz2,rho2,temperature2,di2,ta2,tb2,&
+                 uz3,rho3,temperature3,di3,ta3,tb3)
+            call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1)
+            call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
+         endif
       endif
 
       !X PENCILS
