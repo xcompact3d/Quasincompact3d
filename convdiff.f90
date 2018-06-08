@@ -349,11 +349,6 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     !! Apply Z-normal BCs
     CALL entrainment_bcz(ux2, uy2, uz2, clx2, cly2, clz2)
   ENDIF
-
-  !WORK X-PENCILS
-  call transpose_y_to_x(ta2,ta1)
-  call transpose_y_to_x(tb2,tb1)
-  call transpose_y_to_x(tc2,tc1) !diff
   
   !! XXX First move advection terms to make room to work
   call transpose_y_to_x(tg2,tg1)
@@ -372,6 +367,7 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tc2(:,:,:) = tc2(:,:,:) + th2(:,:,:) * tf2(:,:,:)
   endif
 
+  !WORK X-PENCILS
   call transpose_y_to_x(ta2,ta1)
   call transpose_y_to_x(tb2,tb1)
   call transpose_y_to_x(tc2,tc1) !diff
