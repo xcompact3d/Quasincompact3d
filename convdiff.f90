@@ -261,7 +261,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     
     ta3(:,:,:) = ta3(:,:,:) + ti3(:,:,:) * td3(:,:,:)
     tb3(:,:,:) = tb3(:,:,:) + ti3(:,:,:) * te3(:,:,:)
-    tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) * (tf3(:,:,:) - 2._mytype * ONETHIRD * divu3(:,:,:))
+    tc3(:,:,:) = tc3(:,:,:) + ti3(:,:,:) * tf3(:,:,:) &
+         - ti3(:,:,:) * 2._mytype * ONETHIRD * divu3(:,:,:)
   endif
 
   clx3(:,:,:) = 0._mytype
@@ -363,7 +364,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     call dery (th2,mu2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
     
     ta2(:,:,:) = ta2(:,:,:) + th2(:,:,:) * td2(:,:,:)
-    tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) * (te2(:,:,:) - 2._mytype * ONETHIRD * divu2(:,:,:))
+    tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) * te2(:,:,:) &
+         - th2(:,:,:) * 2._mytype * ONETHIRD * divu2(:,:,:)
     tc2(:,:,:) = tc2(:,:,:) + th2(:,:,:) * tf2(:,:,:)
   endif
 
@@ -414,28 +416,29 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tg1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     
-    ta1(:,:,:) = ta1(:,:,:) + xnu * tg1(:,:,:) * (td1(:,:,:) - 2._mytype * ONETHIRD * divu1(:,:,:))
+    ta1(:,:,:) = ta1(:,:,:) + xnu * (tg1(:,:,:) * td1(:,:,:) &
+         - tg1(:,:,:) * 2._mytype * ONETHIRD * divu1(:,:,:))
     tb1(:,:,:) = tb1(:,:,:) + xnu * tg1(:,:,:) * te1(:,:,:)
     tc1(:,:,:) = tc1(:,:,:) + xnu * tg1(:,:,:) * tf1(:,:,:)
-  endif
+ endif
 
-  if (ilmn.ne.0) then
+ if (ilmn.ne.0) then
     !! Compute cross-shear
     ! NB ta1,tb1,tc1 cannot be touched!
     ! NB u2,u3 have already been updated, no need to transpose velocities!
-    
+  
     ! X - accumulate d(v,w)dx terms
     call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
     call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-
+  
     call transpose_x_to_y(te1, te2) ! te2 contains dvdx
     call transpose_x_to_y(tf1, tf2) ! tf2 contains dwdx
-
+  
     ! Y - accumulate dwdy terms
     call dery(ti2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-
-    call transpose_y_to_z(tf2, tf3) ! tf3 contains dwdx
-    call transpose_y_to_z(ti2, ti3) ! ti3 contains dwdy
+  
+    call transpose_y_to_z(tf2, tg3) ! tg3 contains dwdx
+    call transpose_y_to_z(ti2, th3) ! th3 contains dwdy
 
     ! Z - accumulate ddz terms
     call derz(ta3, ux3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
@@ -443,8 +446,8 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     call derz(tc3, uz3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
 
     ! Z - compute ddz(dwdx, dwdy, dwdz)
-    call derz(td3, tf3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-    call derz(te3, ti3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    call derz(td3, tg3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
+    call derz(te3, th3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
     call derz(tf3, tc3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
 
     td3(:,:,:) = mu3(:,:,:) * td3(:,:,:)
@@ -452,85 +455,81 @@ subroutine convdiff(ux1,uy1,uz1,rho1,mu1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     tf3(:,:,:) = mu3(:,:,:) * tf3(:,:,:)
     
     if (iprops.ne.0) then
-      !! Store dmudz in ti3
-      call derz(ti3, mu3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-      
-      ! Add dmudz * dwdz to z-component of cross-shear
-      tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
+       !! Store dmudz in ti3
+       call derz(ti3, mu3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+
+       ! Add dmudz * \nabla w to cross-shear
+       td3(:,:,:) = td3(:,:,:) + ti3(:,:,:) * tg3(:,:,:)
+       te3(:,:,:) = te3(:,:,:) + ti3(:,:,:) * th3(:,:,:)
+       tf3(:,:,:) = tf3(:,:,:) + ti3(:,:,:) * tc3(:,:,:)
     endif
-    
-    call transpose_z_to_y(td3, tg2) ! tg2 contains d2wdzdx
-    call transpose_z_to_y(te3, th2) ! th2 contains d2wdzdy
-    call transpose_z_to_y(tf3, ti2) ! ti2 contains d2wdzdz
+
+    call transpose_z_to_y(td3, tg2) ! tg2 contains mu * d2wdzdx + dmudz * dwdx
+    call transpose_z_to_y(te3, th2) ! th2 contains mu * d2wdzdy + dmudz * dwdy
+    call transpose_z_to_y(tf3, ti2) ! ti2 contains mu * d2wdzdz + dmudz * dwdz
 
     call transpose_z_to_y(ta3, ta2) ! ta2 contains dudz
     call transpose_z_to_y(tb3, tb2) ! tb2 contains dvdz
 
     ! Y - compute ddy(dvdx, dvdy, dvdz)
 
+    tj2(:,:,:) = te2(:,:,:) ! Store dvdx
+  
     call dery(td2, te2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
     call dery(tc2, uy2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
     call dery(te2, tc2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
     call dery(tf2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
 
-    td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains d2vdydx + d2wdzdx
-    te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains d2vdydy + d2wdzdy
-    tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains d2vdydz + d2wdzdz
-
+    td2(:,:,:) = mu2(:,:,:) * td2(:,:,:)
+    te2(:,:,:) = mu2(:,:,:) * te2(:,:,:)
+    tf2(:,:,:) = mu2(:,:,:) * tf2(:,:,:)
+  
+    td2(:,:,:) = td2(:,:,:) + tg2(:,:,:) ! td2 contains mu * (d2vdydx + d2wdzdx) + dmudz * dwdx
+    te2(:,:,:) = te2(:,:,:) + th2(:,:,:) ! te2 contains mu * (d2vdydy + d2wdzdy) + dmudz * dwdy
+    tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) ! tf2 contains mu * (d2vdydz + d2wdzdz) + dmudz * dwdz
+  
     if (iprops.ne.0) then
-      !! Store dmudy in th2
-      call dery(th2, mu2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-      
-      ! Add dmudy * (dvdy + dvdz) to y-component of cross-shear
-      te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * (tc2(:,:,:) + tb2(:,:,:))
-      
-      ! Re-compute dwdy and add dmudz * dwdy to z-component of cross-shear
-      call dery(tg2, uz2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-      call transpose_z_to_y(ti3, ti2)
-      tf2(:,:,:) = tf2(:,:,:) + ti2(:,:,:) * tg2(:,:,:)
+       !! Store dmudy in th2
+       call dery(th2, mu2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+     
+       ! Add dmudy * \nabla v to cross-shear
+       td2(:,:,:) = td2(:,:,:) + th2(:,:,:) * tj2(:,:,:)
+       te2(:,:,:) = te2(:,:,:) + th2(:,:,:) * tc2(:,:,:)
+       tf2(:,:,:) = tf2(:,:,:) + th2(:,:,:) * tb2(:,:,:)
     endif
-    
-    call transpose_y_to_x(td2, td1) ! td1 contains d2vdydx + d2wdzdx
-    call transpose_y_to_x(te2, te1) ! te1 contains d2vdydy + d2wdzdy
-    call transpose_y_to_x(tf2, tf1) ! tf1 contains d2vdydz + d2wdzdz
-
-    call dery(td2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-
-    call transpose_y_to_x(td2, th1) ! th1 contains dudy
+  
+    call transpose_y_to_x(td2, td1) ! td1 contains mu * (d2vdydx + d2wdzdx) + (dmudy * dvdx + dmudz * dwdx)
+    call transpose_y_to_x(te2, te1) ! te1 contains mu * (d2vdydy + d2wdzdy) + (dmudy * dvdy + dmudz * dwdy)
+    call transpose_y_to_x(tf2, tf1) ! tf1 contains mu * (d2vdydz + d2wdzdz) + (dmudy * dvdz + dmudz * dwdz)
+  
+    call dery(tc2, ux2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+    call transpose_y_to_x(tc2, th1) ! th1 contains dudy
     call transpose_y_to_x(ta2, ti1) ! ti1 contains dudz
-
+  
     ! X - compute ddx(dudx, dudy, dudz)
-
+  
     ! First make some room to work!
     ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:)
     tb1(:,:,:) = tb1(:,:,:) + xnu * te1(:,:,:)
     tc1(:,:,:) = tc1(:,:,:) + xnu * tf1(:,:,:)
-
+  
     call derx(tg1, ux1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-
+  
     call derx(td1, tg1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
     call derx(te1, th1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
     call derx(tf1, ti1, di1, sx, ffx, fsx, fwx, xsize(1), xsize(2), xsize(3), 0)
-
+  
     !! Finish off adding cross-stresses to shear stress
     ta1(:,:,:) = ta1(:,:,:) + xnu * mu1(:,:,:) * td1(:,:,:)
     tb1(:,:,:) = tb1(:,:,:) + xnu * mu1(:,:,:) * te1(:,:,:)
     tc1(:,:,:) = tc1(:,:,:) + xnu * mu1(:,:,:) * tf1(:,:,:)
-    
+  
     if (iprops.ne.0) then
-      !! Add dmudx * (dudx + dudy + dudz) to X-component of stress tensor
-      call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-      ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * (tg1(:,:,:) + th1(:,:,:) + ti1(:,:,:))
-      
-      !! Add dmudy * dvdx to Y-component of stress tensor
-      call derx(te1, uy1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-      call transpose_y_to_x(th2, th1)
-      tb1(:,:,:) = tb1(:,:,:) + xnu * th1(:,:,:) * te1(:,:,:)
-      
-      !! Add dmudz * dwdx to Z-component of stress tensor
-      call derx(tf1, uz1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-      call transpose_y_to_x(ti2, ti1)
-      tc1(:,:,:) = tc1(:,:,:) + xnu * ti1(:,:,:) * tf1(:,:,:)
+       !! Add dmudx * \nabla u to cross-shear
+       call derx(td1, mu1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+       ta1(:,:,:) = ta1(:,:,:) + xnu * td1(:,:,:) * tg1(:,:,:)
+       tb1(:,:,:) = tb1(:,:,:) + xnu * td1(:,:,:) * th1(:,:,:)
+       tc1(:,:,:) = tc1(:,:,:) + xnu * td1(:,:,:) * ti1(:,:,:)
     endif
   endif
 
