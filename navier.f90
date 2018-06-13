@@ -1722,55 +1722,55 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
   IF (nscheme.EQ.1) THEN
-    !! AB2
-    IF (itime.EQ.1.AND.ilit.EQ.0) THEN
-      drhodt1(:,:,:) = rho1(:,:,:) + drhodt1(:,:,:) ! drhodt1 stores -rho^k
-    ELSE
-      ! drhodt = (3 rho^{k+1} - 4 rho^k + rho^{k-1}) / (2 dt)
-      drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhoss1(:,:,:) + rhos01(:,:,:)
-      drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
-    ENDIF
+     !! AB2
+     IF (itime.EQ.1.AND.ilit.EQ.0) THEN
+        drhodt1(:,:,:) = rho1(:,:,:) + drhodt1(:,:,:) ! drhodt1 stores -rho^k
+     ELSE
+        ! drhodt = (3 rho^{k+1} - 4 rho^k + rho^{k-1}) / (2 dt)
+        drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhoss1(:,:,:) + rhos01(:,:,:)
+        drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
+     ENDIF
 
-    drhodt1(:,:,:) = drhodt1(:,:,:) / dt
+     drhodt1(:,:,:) = drhodt1(:,:,:) / dt
   ELSE IF (nscheme.EQ.2) THEN
-    !! RK3
+     !! RK3
 
-    IF (nrhoscheme.EQ.1) THEN
-      !! Straightforward approximation:
-      !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
-      !                                       = rhos1
-      drhodt1(:,:,:) = rhos1(:,:,:)
-    ELSE IF (nrhoscheme.EQ.2) THEN
-      !! Alternative approximation:
-      !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
-      drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:)) / gdt(itr) ! drhodt1 stores -rho^k
-    ELSE
-      !! Golanski
-      IF (itime.GT.1) THEN
-        drhodt1(:,:,:) = rhoss1(:,:,:)
-        DO ijk = 1, nxyz
-          DO subitr = 1, itr
-            !! TODO Check should it be gdt(itr) or gdt(subitr)?
-            !
-            ! Based on testing, it appears Golanski2005 made a typo,
-            ! their expression would use gdt(itr) not gdt(subitr)
-            drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
-                 + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
-          ENDDO ! End loop over subitr
-        ENDDO ! End loop over ijk
-      ELSE
-        ! Need to use first order approximation for first
-        ! full timestep
-
+     IF (nrhoscheme.EQ.1) THEN
+        !! Straightforward approximation:
+        !    ddt rho^{k+1} approx -div(rho u)^k = -rho^k div(u^k) - u^k cdot grad(rho^k)
+        !                                       = rhos1
         drhodt1(:,:,:) = rhos1(:,:,:)
-        ! drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:) / gdt(itr) ! drhodt1 stores -rho^k
-      ENDIF
-    ENDIF
+     ELSE IF (nrhoscheme.EQ.2) THEN
+        !! Alternative approximation:
+        !    ddt rho^{k+1} approx (rho^{k+1} - rho^k) / (c_k dt)
+        drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:)) / gdt(itr) ! drhodt1 stores -rho^k
+     ELSE
+        !! Golanski
+        IF (itime.GT.1) THEN
+           drhodt1(:,:,:) = rhoss1(:,:,:)
+           DO ijk = 1, nxyz
+              DO subitr = 1, itr
+                 !! TODO Check should it be gdt(itr) or gdt(subitr)?
+                 !
+                 ! Based on testing, it appears Golanski2005 made a typo,
+                 ! their expression would use gdt(itr) not gdt(subitr)
+                 drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
+                      + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
+              ENDDO ! End loop over subitr
+           ENDDO ! End loop over ijk
+        ELSE
+           ! Need to use first order approximation for first
+           ! full timestep
+
+           drhodt1(:,:,:) = rhos1(:,:,:)
+           ! drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:) / gdt(itr) ! drhodt1 stores -rho^k
+        ENDIF
+     ENDIF
   ELSE
-    IF (nrank.EQ.0) THEN
-      PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
-      STOP
-    ENDIF
+     IF (nrank.EQ.0) THEN
+        PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
+        STOP
+     ENDIF
   ENDIF
 
 ENDSUBROUTINE extrapol_rhotrans
