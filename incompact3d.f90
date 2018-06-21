@@ -177,14 +177,15 @@ PROGRAM incompact3d
       endif
 
       if (ilmn.ne.0) then
-         if (itype.eq.5) then
-            if (ncly.eq.2) then
-               call set_density_entrainment_y(rho1, uy1)
-            endif
-            if (nclz.eq.2) then
-               call set_density_entrainment_z(rho1, uz1)
-            endif
-         endif
+         call set_density_bcs(rho1, ux1, uy1, uz1)
+         !! if (itype.eq.5) then
+         !!    if (ncly.eq.2) then
+         !!       call set_density_entrainment_y(rho1, uy1)
+         !!    endif
+         !!    if (nclz.eq.2) then
+         !!       call set_density_entrainment_z(rho1, uz1)
+         !!    endif
+         !! endif
       endif
 
       !! Ensure rho/temp is up to date
