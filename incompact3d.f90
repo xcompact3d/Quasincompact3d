@@ -151,6 +151,13 @@ PROGRAM incompact3d
   !      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
   !      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
+  ! CALL track_front(ux1, rho1)
+  ! CALL track_front_height(rho1, rho2, rho3)
+  ! CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+  !           di1, &
+  !           rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
+  !           rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+
   tpoisstotal = 0._mytype
   do itime=ifirst,ilast
 
@@ -269,8 +276,13 @@ PROGRAM incompact3d
         endif
 
         if (ivarcoeff.eq.0) then
-          !! Predict drhodt at new timestep
-          call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+           !! Predict drhodt at new timestep
+           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+           
+           ! !! Apply Birman correction
+           ! call birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, &
+           !      ta2, tb2, di2, &
+           !      rho3, ta3, di3)
         endif
       endif
 
@@ -470,6 +482,15 @@ PROGRAM incompact3d
     ! ! MMS: compare errors
     ! CALL eval_error_rho(rho1)
     ! CALL eval_error_vel(ux1,uy1,uz1)
+
+    ! IF (MOD(itime, 10).EQ.0) THEN
+    !    CALL track_front(ux1, rho1)
+    !    CALL track_front_height(rho1, rho2, rho3)
+    !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+    !         di1, &
+    !         rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
+    !         rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+    ! ENDIF
 
   enddo
 
