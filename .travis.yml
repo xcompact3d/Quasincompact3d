@@ -10,3 +10,8 @@ install: true
 script:
   - make clean
   - make
+
+branches:
+  only:
+    - master
+    - LMN-dev
