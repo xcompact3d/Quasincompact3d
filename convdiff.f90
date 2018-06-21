@@ -762,20 +762,24 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: di3, ta3, tb3
 
+  REAL(mytype) :: invpe
+
   INTEGER :: ijk, nvect1, nvect2, nvect3
 
   nvect1 = xsize(1) * xsize(2) * xsize(3)
   nvect2 = ysize(1) * ysize(2) * ysize(3)
   nvect3 = zsize(1) * zsize(2) * zsize(3)
 
+  invpe = xnu / sc
+
   !------------------------------------------------------------------------
   ! X PENCILS
-  ! ta1 = diffusion
-  ! tb1 = advection
+  ! tb1 = diffusion
+  ! ta1 = advection
 
   ! Advection term (non-conservative)
-  CALL derx (tb1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
+  CALL derx (ta1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+  ta1(:,:,:) = ux1(:,:,:) * ta1(:,:,:)
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -784,12 +788,12 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   !------------------------------------------------------------------------
   !Y PENCILS
-  ! ta2 = diffusion
-  ! tb2 = advection
+  ! tb2 = diffusion
+  ! ta2 = advection
 
   ! Advection term (non-conservative)
-  CALL dery (tb2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
+  CALL dery (ta2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+  ta2(:,:,:) = uy2(:,:,:) * ta2(:,:,:)
 
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
@@ -797,30 +801,36 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   !------------------------------------------------------------------------
   ! Z PENCILS
-  ! ta3 = diffusion
-  ! tb3 = advection
+  ! tb3 = diffusion
+  ! ta3 = advection
 
   ! Advection term (non-conservative)
   ! XXX Also adds contribution from divu3
-  CALL derz (tb3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  CALL derz (ta3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+  ta3(:,:,:) = uz3(:,:,:) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  
+  ! call derzz (tb3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  ! ta3(:,:,:) = ta3(:,:,:) - invpe * tb3(:,:,:)
 
   ! Get back to Y
-  CALL transpose_z_to_y(tb3, td2)
+  CALL transpose_z_to_y(ta3, td2)
 
   !------------------------------------------------------------------------
   !Y PENCILS ADD TERMS
-  td2(:,:,:) = td2(:,:,:) + tb2(:,:,:)
+  td2(:,:,:) = td2(:,:,:) + ta2(:,:,:)
+  
+  ! call deryy (tb2,rho2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+  ! td2(:,:,:) = td2(:,:,:) - invpe * tb2(:,:,:)
 
   ! Get back to X
   CALL transpose_y_to_x(td2, td1)
 
   !------------------------------------------------------------------------
-  ! X PENCILS ADD TERMS
-  tb1(:,:,:) = tb1(:,:,:) + td1(:,:,:) !FIRST DERIVATIVE (CONV)
-
-  ! XXX This is stupid, we should work with ta1 from outset!
-  ta1(:,:,:) = -tb1(:,:,:)
+  ! X PENCILS ADD TERMS and set negative (ddt rho = -div(rho u))
+  ta1(:,:,:) = -(ta1(:,:,:) + td1(:,:,:)) !FIRST DERIVATIVE (CONV)
+  
+  ! call derxx (tb1,rho1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  ! ta1(:,:,:) = ta1(:,:,:) + invpe * tb1(:,:,:)
 
   ! !! MMS Source term
   ! CALL density_source_mms(ta1)
