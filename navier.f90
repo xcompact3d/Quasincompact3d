@@ -1840,6 +1840,42 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
 
 ENDSUBROUTINE extrapol_rhotrans
 
+SUBROUTINE birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, ta2, tb2, di2, rho3, ta3, di3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1, ta1, tb1, di1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2, ta2, tb2, di2
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho3, ta3, di3
+
+  REAL(mytype) :: invpe
+
+  invpe = xnu / sc
+
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_y_to_z(rho2, rho3)
+
+  CALL derzz (ta3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+
+  CALL transpose_z_to_y(ta3, tb2)
+
+  CALL deryy (ta2,rho2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+
+  CALL transpose_y_to_x(ta2, tb1)
+  
+  CALL derxx (ta1,rho1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
+
+  drhodt1(:,:,:) = drhodt1(:,:,:) - invpe * ta1(:,:,:)
+  
+ENDSUBROUTINE birman_rhotrans_corr
+
 !********************************************************************
 !  SUBROUTINE: divergence_mom
 ! DESCRIPTION: In LMN with the constant-coefficient poisson equation
