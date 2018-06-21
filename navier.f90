@@ -1369,29 +1369,30 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
         enddo
       enddo
     enddo
-!!! CM    call test_min_max('ux1  ','In intt        ',ux1,size(ux1))
-!!! CM    call test_min_max('uy1  ','In intt        ',uy1,size(uy1))
   else if (itype.eq.7) then
-     do k = 1, xsize(3)
-        do j = 1, xsize(2)
-           y = float((j + xstart(2) - 2)) * dy - 0.5_mytype * yly
-           do i = 1, xsize(1)
-              x = float((i + xstart(1) - 1)) * dx - 0.5_mytype * xlx
-              
-              ux1(i, j, k) = 0._mytype
-              uy1(i, j, k) = 0._mytype
-              uz1(i, j, k) = 0._mytype
-              
-              temperature1(i, j, k) = 1._mytype
+     if (itime.eq.0) then
+        do k = 1, xsize(3)
+           do j = 1, xsize(2)
+              y = float((j + xstart(2) - 2)) * dy - 0.5_mytype * yly
+              do i = 1, xsize(1)
+                 x = float((i + xstart(1) - 2)) * dx - (14_mytype / 32._mytype) * xlx ! The weird 14/32 is from Birman
+                 
+                 ux1(i, j, k) = 0._mytype
+                 uy1(i, j, k) = 0._mytype
+                 uz1(i, j, k) = 0._mytype
+                 
+                 temperature1(i, j, k) = 1._mytype
 
-              rho1(i, j, k) = 0.5_mytype * ((dens2 / dens1 + 1._mytype) &
-                   - (1._mytype - dens2 / dens1) * ERF(x * SQRT(sc / xnu)))
-
-              massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
-                   - dens1) / (dens2 - dens1)
+                 !! Birman2005
+                 rho1(i, j, k) = 0.5_mytype * ((dens2 / dens1 + 1._mytype) &
+                      - (1._mytype - dens2 / dens1) * ERF(x * SQRT(sc / xnu)))
+                 
+                 massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
+                      - dens1) / (dens2 - dens1)
+              enddo
            enddo
         enddo
-     enddo
+     endif
   else if (itype.eq.8) then
     if (nrank.eq.0) then
       PRINT *, "itype=", itype, " not implemented!"
@@ -1450,8 +1451,11 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
   integer :: k,j,i,fh,ierror,ii
   integer :: code
   integer (kind=MPI_OFFSET_KIND) :: disp
-  real(mytype) :: b2, D
+  real(mytype) :: rhor, rhol
+  real(mytype) :: p_front
 
+  p_front = 1._mytype
+  
   ! LMN: set thermodynamic pressure
   pressure0 = 1._mytype
 
@@ -1476,30 +1480,33 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     enddo
 
     !modulation of the random noise
-    b2 = 0.25_mytype * 10._mytype
-    D = 1._mytype
+    rhol = dens2
+    rhor = dens1
     do k=1,xsize(3)
-      z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
-      do j=1,xsize(2)
-        if (istret.eq.0) then
-          y=(j+xstart(2)-2)*dy-yly/2._mytype
-        else
-          y=yp(j+xstart(2)-1)-yly/2._mytype
-        endif
-        r = SQRT(y**2 + z**2)
-        do i=1,xsize(1)
-          x = (i + xstart(1) - 2) * dx
-          um = exp(-0.2_mytype * x**2)
-          if (r.gt.0._mytype) then
-            um = um * 0.5 * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+       z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
+       do j=1,xsize(2)
+          if (istret.eq.0) then
+             y=(j+xstart(2)-2)*dy-yly/2._mytype
+          else
+             y=yp(j+xstart(2)-1)-yly/2._mytype
           endif
-          ux1(i,j,k)=um*ux1(i,j,k)
-          uy1(i,j,k)=um*uy1(i,j,k)
-          uz1(i,j,k)=um*uz1(i,j,k)
-        enddo
-      enddo
-    enddo
+          do i=1,xsize(1)
+             x = (i + xstart(1) - 2) * dx
+             x = x - p_front
 
+             um = -((20._mytype / noise**3) / Fry) &
+                  * ((rhol * p_front + rhor * (xlx - p_front)) * yly) &
+                  / (rhol * (erf(0._mytype) - erf(5._mytype * sqrt(2._mytype) * p_front)) &
+                  + (rhor * (erf(5._mytype * sqrt(2._mytype) * (xlx - p_front)) - erf(0._mytype))))
+             um = noise * exp(-25._mytype * x**2)
+             
+             ux1(i,j,k)=um*ux1(i,j,k)
+             uy1(i,j,k)=um*uy1(i,j,k)
+             uz1(i,j,k)=um*uz1(i,j,k)
+          enddo
+       enddo
+    enddo
+    
     !! Set initial massfrac field:
     ! massfrac = 0 -> rho = dens1
     !          = 1 -> rho = dens2
@@ -1514,8 +1521,12 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
           y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
           do i = 1, xsize(1)
             x = float(i + xstart(1) - 2) * dx
-            
-            rho1(i, j, k) = dens2
+
+            if (x.LT.p_front) then
+               rho1(i, j, k) = dens2
+            else
+               rho1(i, j, k) = dens1
+            endif
           enddo
         enddo
       enddo
@@ -2934,7 +2945,7 @@ subroutine pre_correc(ux,uy,uz,rho)
   !****************************************************
   !WE ARE IN X PENCIL!!!!!!
   if (ncly==2) then
-    if (itype.eq.2) then
+    if ((itype.eq.2).or.(itype.eq.7)) then
 
       ! determine the processor grid in use
       call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
