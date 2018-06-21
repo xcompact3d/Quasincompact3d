@@ -659,7 +659,12 @@ subroutine outflow (ux, uy, uz, rho, temperature, massfrac, phi)
   yc = 0.5_mytype * yly
   zc = 0.5_mytype * zlz
 
-  volflux = outflux ! The required outflux, computed by compute_outflux_lmn
+  if (ilmn.ne.0) then
+     volflux = outflux ! The required outflux, computed by compute_outflux_lmn
+  else
+     volflux = u2 * (yly * zlz)
+     volflux = volflux + (u1 - u2) * (PI * (0.5_mytype**2))
+  endif
   ! volflux_out = 0._mytype
   ! ucf = 0.1_mytype * u1 * (PI * 0.5_mytype**2) / (yly * zlz)
   ! DO k = 1, nz
