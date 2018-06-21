@@ -1336,7 +1336,7 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
         ! bxx1(j, k) = s * bxx1(j, k) + (1._mytype - s) * u2
         rho1(1, j, k) = s * rho1(1, j, k) + (1._mytype - s) * dens2
         temperature1(1, j, k) = s * temperature1(1, j, k) + (1._mytype - s) * 1._mytype
-        massfrac1(1, j, k) = s * massfrac1(1, j, k) + (1._mytype - s) * 0._mytype
+        ! massfrac1(1, j, k) = s * massfrac1(1, j, k) + (1._mytype - s) * 0._mytype
 
         ! if (itime.eq.0) then
         !   !! Comment out this loop to make a "tube"
@@ -1353,6 +1353,9 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
 
         bxy1(j, k) = 0._mytype
         bxz1(j, k) = 0._mytype
+
+        massfrac1(1, j, k) = (1._mytype - float(imulticomponent)) * 1._mytype &
+             + float(imulticomponent) * massfrac1(1, j, k)
       enddo
     enddo
   else if (itype.eq.6) then
