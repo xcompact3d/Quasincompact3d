@@ -38,23 +38,34 @@ USE param
 
 ! define all major arrays here
 
-real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3,po3,dv3,pp3
+real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3, pp3, pp3corr, pp3star
 real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
 real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
 real(mytype), save, allocatable, dimension(:,:,:) :: phi1, phi2, phi3
-real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz1, phis1,phiss1
+real(mytype), save, allocatable, dimension(:,:,:) :: gx1, gy1, gz1, hx1, hy1, hz1, phis1, phiss1
 real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
 real(mytype), save, allocatable, dimension(:,:,:) :: ep1
+real(mytype), save, allocatable, dimension(:,:,:) :: clx1, clx2, clx3
+real(mytype), save, allocatable, dimension(:,:,:) :: cly1, cly2, cly3
+real(mytype), save, allocatable, dimension(:,:,:) :: clz1, clz2, clz3
 
 ! Additional variables required for LMN
-real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01
+real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3, rhos1, rhoss1, rhos01, rho0p3
 real(mytype), save, allocatable, dimension(:,:,:) :: drhodt1
-real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3
+real(mytype), save, allocatable, dimension(:,:,:) :: temperature1, temperature2, temperature3, &
+     temperatures1, temperaturess1
+real(mytype), save, allocatable, dimension(:,:,:) :: massfrac1, massfrac2, massfrac3, massfracs1, &
+     massfracss1
 real(mytype), save, allocatable, dimension(:,:,:) :: divu3
 real(mytype), save, allocatable, dimension(:,:,:) :: mu1, mu2, mu3
+real(mytype), save, allocatable, dimension(:,:,:) :: kappa1, kappa2, kappa3
+real(mytype), save, allocatable, dimension(:,:,:) :: gamma1, gamma2, gamma3
 
 !arrays for statistic collection
-real(mytype), save, allocatable, dimension(:,:,:) :: umean,vmean,wmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
+real(mytype), save, allocatable, dimension(:,:,:) :: umean, vmean, wmean
+real(mytype), save, allocatable, dimension(:,:,:) :: uumean, uvmean, uwmean
+real(mytype), save, allocatable, dimension(:,:,:) :: vvmean, vwmean
+real(mytype), save, allocatable, dimension(:,:,:) :: wwmean, tmean
 real(mytype), save, allocatable, dimension(:,:,:) :: phimean, phiphimean
 
 !arrays for visualization
@@ -72,6 +83,7 @@ real(mytype), save, allocatable, dimension(:,:,:) :: ta3,tb3,tc3,td3,&
 integer, save :: nxmsize, nymsize, nzmsize 
 
 real(mytype), save :: pressure0 ! LMN: thermodynamic pressure
+real(mytype), save :: divup3norm
 
 contains
 
@@ -111,6 +123,9 @@ contains
     call alloc_x(px1, opt_global=.true.)
     call alloc_x(py1, opt_global=.true.)
     call alloc_x(phi1, opt_global=.true.)
+    call alloc_x(clx1, opt_global=.true.)
+    call alloc_x(cly1, opt_global=.true.)
+    call alloc_x(clz1, opt_global=.true.)
     call alloc_x(gx1);call alloc_x(gy1);call alloc_x(gz1);call alloc_x(phis1) 
     call alloc_x(hx1);call alloc_x(hy1);call alloc_x(hz1);call alloc_x(phiss1)
     call alloc_x(ta1);call alloc_x(tb1);call alloc_x(tc1)
@@ -119,11 +134,18 @@ contains
     call alloc_x(di1);call alloc_x(ep1)
     call alloc_x(rho1, opt_global=.true.)
     call alloc_x(temperature1, opt_global=.true.)
+    call alloc_x(massfrac1, opt_global=.true.)
     call alloc_x(rhos1)
+    call alloc_x(temperatures1)
+    call alloc_x(massfracs1)
     call alloc_x(rhoss1)
+    call alloc_x(temperaturess1)
+    call alloc_x(massfracss1)
     call alloc_x(rhos01)
     call alloc_x(drhodt1)
     call alloc_x(mu1, opt_global=.true.)
+    call alloc_x(kappa1, opt_global=.true.)
+    call alloc_x(gamma1, opt_global=.true.)
     allocate(sx(xsize(2),xsize(3)),vx(xsize(2),xsize(3)))
     !inflow/ouflow 2d arrays
     allocate(bxx1(xsize(2),xsize(3)),bxy1(xsize(2),xsize(3)))
@@ -174,9 +196,13 @@ contains
     call alloc_y(tg2);call alloc_y(th2);call alloc_y(ti2)
     call alloc_y(tj2)
     call alloc_y(di2);call alloc_y(phi2)
+    call alloc_y(clx2);call alloc_y(cly2);call alloc_y(clz2)
     call alloc_y(rho2)
     call alloc_y(temperature2)
+    call alloc_y(massfrac2)
     call alloc_y(mu2)
+    call alloc_y(kappa2)
+    call alloc_y(gamma2)
     allocate(sy(ysize(1),ysize(3)),vy(ysize(1),ysize(3)))
 !Z PENCILS
     call alloc_z(ux3);call alloc_z(uy3);call alloc_z(uz3)
@@ -184,10 +210,14 @@ contains
     call alloc_z(td3);call alloc_z(te3);call alloc_z(tf3)
     call alloc_z(tg3);call alloc_z(th3);call alloc_z(ti3)
     call alloc_z(di3);call alloc_z(phi3)
+    call alloc_z(clx3);call alloc_z(cly3);call alloc_z(clz3)
     call alloc_z(rho3)
     call alloc_z(temperature3)
+    call alloc_z(massfrac3)
     call alloc_z(divu3)
     call alloc_z(mu3)
+    call alloc_z(kappa3)
+    call alloc_z(gamma3)
     allocate(sz(zsize(1),zsize(2)),vz(zsize(1),zsize(2)))
 
  ! if all periodic
@@ -195,6 +225,9 @@ contains
  !   allocate (dv3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
  !   allocate (po3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     call alloc_z(pp3,ph,.true.)
+    call alloc_z(pp3corr,ph,.true.)
+    call alloc_z(pp3star,ph,.true.)
+    call alloc_z(rho0p3,ph,.true.)
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)
 

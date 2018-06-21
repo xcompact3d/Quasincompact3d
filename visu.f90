@@ -128,7 +128,8 @@ end subroutine VISU_INSTB
 
 !############################################################################
 !
-subroutine VISU_INSTA (ux1,uy1,uz1,rho1,phi1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
+subroutine VISU_INSTA (ux1,uy1,uz1,rho1,temperature1,massfrac1,phi1,&
+     ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 !
@@ -147,7 +148,8 @@ real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
 real(mytype),dimension(xszV(1),xszV(2),xszV(3)) :: uvisu
-real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho1,temperature1,massfrac1
+real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: proc
 
 integer :: code,icomplet
 integer :: ijk,nvect1,nvect2,nvect3,i,j,k
@@ -240,17 +242,47 @@ call decomp_2d_write_one(1, uvisu, filename, 2)
 !############################################################################
 
 !############################################################################
+! TEMPERATURE
+uvisu = 0._mytype
+call fine_to_coarseV(1, temperature1, uvisu)
+997 format("temperature", I3.3)
+write(filename, 997) itime / imodulo
+call decomp_2d_write_one(1, uvisu, filename, 2)
+!############################################################################
+
+!############################################################################
+! MASSFRACTION
+uvisu = 0._mytype
+call fine_to_coarseV(1, massfrac1, uvisu)
+998 format("massfrac", I3.3)
+write(filename, 998) itime / imodulo
+call decomp_2d_write_one(1, uvisu, filename, 2)
+!############################################################################
+
+!############################################################################
 !PASSIVE SCALAR
 if (iscalar==1) then
 uvisu=0.
 call fine_to_coarseV(1,phi1,uvisu)
-998 format('phi',I3.3)
-   write(filename, 998) itime/imodulo
+999 format('phi',I3.3)
+   write(filename, 999) itime/imodulo
    call decomp_2d_write_one(1,uvisu,filename,2)
 !   call decomp_2d_write_one(nx_global,ny_global,nz_global,&
 !        1,phi1,filename)
 endif
 !############################################################################
+
+! !############################################################################
+! ! Processor
+! proc(:,:,:) = nrank
+! uvisu=0.
+! call fine_to_coarseV(1,proc,uvisu)
+! 999 format('proc',I3.3)
+!    write(filename, 999) itime/imodulo
+!    call decomp_2d_write_one(1,uvisu,filename,2)
+! !   call decomp_2d_write_one(nx_global,ny_global,nz_global,&
+! !        1,phi1,filename)
+! !############################################################################
 
 !############################################################################
 !PRESSURE

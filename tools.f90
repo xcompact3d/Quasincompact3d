@@ -121,6 +121,47 @@ subroutine test_density_min_max(rho)
   return
 end subroutine test_density_min_max
 
+subroutine test_temperature_min_max(temperature)
+
+  USE decomp_2d
+  USE decomp_2d_poisson
+  USE variables
+  USE param
+  USE var
+  USE MPI
+
+  implicit none
+
+  integer :: i,j,k
+  real(mytype) :: temperaturemax,temperaturemin,cfl
+  real(mytype) :: temperaturemax1,temperaturemin1
+
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: temperature
+  integer :: code
+
+  ! temperaturemax=-1609._mytype
+  ! temperaturemin=1609._mytype
+  ! do k=1,xsize(3)
+  !   do j=1,xsize(2)
+  !     do i=1,xsize(1)
+  !       if (temperature(i,j,k).gt.temperaturemax) temperaturemax=temperature(i,j,k)
+  !       if (temperature(i,j,k).lt.temperaturemin) temperaturemin=temperature(i,j,k)
+  !     enddo
+  !   enddo
+  ! enddo
+  temperaturemax = MAXVAL(temperature)
+  temperaturemin = MINVAL(temperature)
+
+  call MPI_REDUCE(temperaturemax,temperaturemax1,1,real_type,MPI_MAX,0,MPI_COMM_WORLD,code)
+  call MPI_REDUCE(temperaturemin,temperaturemin1,1,real_type,MPI_MIN,0,MPI_COMM_WORLD,code)
+  if (nrank==0) then
+    print *,'TEMPERATURE max=',temperaturemax1
+    print *,'TEMPERATURE min=',temperaturemin1
+  endif
+
+  return
+end subroutine test_temperature_min_max
+
 !*******************************************************************
 !
 !
@@ -1125,18 +1166,18 @@ SUBROUTINE eval_error(sol_num, sol_exact, name)
   REAL(mytype), DIMENSION(xsize(1),xsize(2),xsize(3)), INTENT(IN) :: sol_num, sol_exact
   CHARACTER(LEN=*), INTENT(IN) :: name
 
-  REAL(mytype) :: err
+  REAL(mytype) :: err, errlocal
   INTEGER :: ijk
   INTEGER :: nvect1
   INTEGER :: ierr
 
   nvect1 = xsize(1) * xsize(2) * xsize(3)
-  err = 0._mytype
+  errlocal = 0._mytype
   DO ijk = 1,nvect1
-    err = err + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
+    errlocal = errlocal + (sol_num(ijk,1,1) - sol_exact(ijk,1,1))**2
   ENDDO
 
-  CALL MPI_ALLREDUCE(MPI_IN_PLACE, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+  CALL MPI_ALLREDUCE(errlocal, err, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
   err = err / float(nxm * nym * nzm)
   err = SQRT(err)
 
@@ -1317,3 +1358,560 @@ SUBROUTINE updateXYZ(var1, var2, var3, size1, size2, size3, idx1, idx2, idx3)
     
 ENDSUBROUTINE updateXYZ
 
+SUBROUTINE track_front(ux1, rho1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  USE MPI
+  
+  IMPLICIT NONE
+
+  INTEGER :: i, j, k, r
+  INTEGER :: code
+  LOGICAL :: file_exists
+
+  INTEGER status(MPI_STATUS_SIZE)
+  INTEGER :: ierr
+  
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, rho1
+  REAL(mytype) :: x, x_left, x_right, u_left, u_right, rho_left, rho_right, rho_mid
+  REAL(mytype) :: x_leftmin, u_leftmin, x_rightmax, u_rightmax
+
+  x_left = 10._mytype * xlx
+  x_right = -10._mytype * xlx
+
+  rho_left = 0._mytype
+  rho_right = 0._mytype
+  DO k = 1, xsize(3)
+     DO j = 1, xsize(2)
+        rho_left = rho_left + rho1(1, j, k)
+        rho_right = rho_right + rho1(xsize(1), j, k)
+     ENDDO
+  ENDDO
+  rho_left = rho_left / xsize(2) / xsize(3)
+  rho_right = rho_right / xsize(2) / xsize(3)
+  rho_mid = 0.5_mytype * (rho_left + rho_right)
+
+  !! Find the fronts
+  DO k = 1, xsize(3)
+     DO j = 1, xsize(2)
+        DO i = 1, xsize(1) - 1
+           x = ((i + 0.5_mytype) + xstart(1) - 2) * dx
+
+           IF (((rho1(i, j, k).GT.rho_mid).AND.(rho1(i + 1, j, k).LT.rho_mid)) &
+                .OR.((rho1(i, j, k).LT.rho_mid).AND.(rho1(i + 1, j, k).GT.rho_mid))) THEN
+              IF (x.GT.x_right) THEN
+                 !! Found the right front
+                 x_right = x
+                 u_right = 0.5_mytype * (ux1(i, j, k) + ux1(i + 1, j, k))
+              ELSEIF (x.LT.x_left) THEN
+                 !! Found the left front
+                 x_left = x
+                 u_left = 0.5_mytype * (ux1(i, j, k) + ux1(i + 1, j, k))
+              ENDIF
+           ENDIF
+        ENDDO
+     ENDDO
+  ENDDO
+
+  IF (nrank.EQ.0) THEN
+     x_leftmin = x_left
+     u_leftmin = u_left
+     x_rightmax = x_right
+     u_rightmax = u_right
+
+     DO r = 1, nproc - 1
+        CALL MPI_RECV(x_left, 1, real_type, r, 3000 + r, MPI_COMM_WORLD, status, ierr)
+        CALL MPI_RECV(u_left, 1, real_type, r, 3000 + nproc + r, MPI_COMM_WORLD, status, ierr)
+        CALL MPI_RECV(x_right, 1, real_type, r, 4000 + r, MPI_COMM_WORLD, status, ierr)
+        CALL MPI_RECV(u_right, 1, real_type, r, 4000 + nproc + r, MPI_COMM_WORLD, status, ierr)
+        IF (x_left.LT.x_leftmin) THEN
+           x_leftmin = x_left
+           u_leftmin = u_left
+        ENDIF
+        IF (x_right.GT.x_rightmax) THEN
+           x_rightmax = x_right
+           u_rightmax = u_right
+        ENDIF
+     ENDDO
+  ELSE
+     CALL MPI_SEND(x_left, 1, real_type, 0, 3000 + nrank, MPI_COMM_WORLD, ierr)
+     CALL MPI_SEND(u_left, 1, real_type, 0, 3000 + nproc + nrank, MPI_COMM_WORLD, ierr)
+     CALL MPI_SEND(x_right, 1, real_type, 0, 4000 + nrank, MPI_COMM_WORLD, ierr)
+     CALL MPI_SEND(u_right, 1, real_type, 0, 4000 + nproc + nrank, MPI_COMM_WORLD, ierr)
+  ENDIF
+
+  IF (nrank.EQ.0) THEN
+     INQUIRE(FILE="FRONTLOC.log", EXIST=file_exists)
+     IF (file_exists.EQV..TRUE.) THEN
+        OPEN(11, FILE="FRONTLOC.log", STATUS="old", ACTION="write", POSITION="append")
+     ELSE
+        OPEN(11, FILE="FRONTLOC.log", STATUS="new", ACTION="write")
+        WRITE(11, *) "TIME XL UL XR UR"
+     ENDIF
+     WRITE(11, *) t, x_leftmin, u_leftmin, x_rightmax, u_rightmax
+     CLOSE(11)
+  ENDIF
+  
+ENDSUBROUTINE track_front
+
+SUBROUTINE track_front_height(rho1, rho2, rho3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  USE MPI
+  
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
+
+  REAL(mytype) :: face_area
+
+  INTEGER :: i, j, k, r
+
+  INTEGER :: N, i0, rem, ctr
+  REAL(mytype), DIMENSION(nx) :: x, h
+  REAL(mytype) :: densr
+
+  INTEGER status(MPI_STATUS_SIZE)
+  INTEGER :: ierr
+
+  LOGICAL :: file_exists
+
+  !! We want to work in y, but first need to average in z
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_y_to_z(rho2, rho3)
+
+  DO k = 2, zsize(3)
+     DO j = 1, zsize(2)
+        DO i = 1, zsize(1)
+           rho3(i, j, 1) = rho3(i, j, 1) + rho3(i, j, k)
+        ENDDO
+     ENDDO
+  ENDDO
+  DO j = 1, zsize(2)
+     DO i = 1, zsize(1)
+        rho3(i, j, 1) = rho3(i, j, 1) / float(zsize(3))
+        rho3(i, j, :) = rho3(i, j, 1)
+     ENDDO
+  ENDDO
+
+  CALL transpose_z_to_y(rho3, rho2)
+
+  !! Now compute moving average of front height
+  densr = MIN(dens1, dens2) / MAX(dens1, dens2)
+  x(:) = -1
+  h(:) = 0._mytype
+  N = 16 ! Averaging interval
+  DO j = 1, ysize(2)
+     i0 = 1
+     ctr = 1
+
+     IF ((j.EQ.1).OR.(j.EQ.ysize(2))) THEN
+        face_area = 0.5_mytype * dy
+     ELSE
+        face_area = dy
+     ENDIF
+     
+     DO WHILE ((i0 + (N - 1)).LE.ysize(1))
+        IF (j.EQ.1) THEN
+           x(ctr) = 0._mytype
+           h(ctr) = -N * densr
+           DO i = i0, i0 + (N - 1)
+              x(ctr) = x(ctr) + (i + ystart(1) - 2) * dx
+           ENDDO
+           x(ctr) = x(ctr) / N
+        ENDIF
+        DO i = i0, i0 + (N - 1)
+           h(ctr) = h(ctr) + rho2(i, j, 1) * face_area
+        ENDDO
+        i0 = i0 + N
+        ctr = ctr + 1
+     ENDDO
+
+     IF (i0.LE.ysize(1)) THEN !! We have more work to do!
+        rem = ysize(1) - i0
+        IF (j.EQ.1) THEN
+           x(ctr) = 0._mytype
+           h(ctr) = -(rem + 1) * densr
+           DO i = i0, ysize(1)
+              x(ctr) = x(ctr) + (i + ystart(1) - 2) * dx
+           ENDDO
+           x(ctr) = x(ctr) / (rem + 1)
+        ENDIF
+        DO i = i0, ysize(1)
+           h(ctr) = h(ctr) + rho2(i, j, 1) * face_area
+        ENDDO
+        ctr = ctr + 1
+     ENDIF
+  ENDDO
+  ctr = ctr - 1 !! This is the number of points averaged over
+
+  DO i = 1, ctr - 1
+     h(i) = h(i) / N
+  ENDDO
+  rem = ysize(1) - N * (ctr - 1)
+  h(ctr) = h(ctr) / rem
+
+  h(:) = h(:) / (1._mytype - densr)
+
+  !! Cleanup
+  DO i = 1, ctr
+     h(i) = MIN(h(i), yly)
+     h(i) = MAX(h(i), 0._mytype)
+  ENDDO
+
+  IF (nrank.EQ.0) THEN
+     !! Open datafile
+     INQUIRE(FILE="FRONTHEIGHT.log", EXIST=file_exists)
+     IF (file_exists) THEN
+        OPEN(12, FILE="FRONTHEIGHT.log", STATUS="old", ACTION="write", POSITION="append")
+     ELSE
+        OPEN(12, FILE="FRONTHEIGHT.log", STATUS="new", ACTION="write")
+        WRITE(12, *) "TIME X H"
+     ENDIF
+     
+     !! First print out your own data
+     DO i = 1, ctr
+        WRITE(12, *) t, x(i), h(i)
+     ENDDO
+     
+     !! Listen for data from others and print it out too
+     DO r = 1, nproc - 1
+        CALL MPI_RECV(x, nx, real_type, r, 1000 + r, MPI_COMM_WORLD, status, ierr)
+        CALL MPI_RECV(h, nx, real_type, r, 1000 + nproc + r, MPI_COMM_WORLD, status, ierr)
+
+        DO i = 1, nx
+           IF (x(i).LT.0._mytype) THEN
+              EXIT
+           ENDIF
+           WRITE(12, *) t, x(i), h(i)
+        ENDDO
+     ENDDO
+     
+     CLOSE(12)
+  ELSE
+     !! Send data back to rank 0
+     CALL MPI_SEND(x, nx, real_type, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
+     CALL MPI_SEND(h, nx, real_type, 0, 1000 + nproc + nrank, MPI_COMM_WORLD, ierr)
+  ENDIF
+  
+ENDSUBROUTINE track_front_height
+
+SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+     di1, &
+     rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
+     rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  USE MPI
+
+  IMPLICIT NONE
+
+  LOGICAL, SAVE :: firstcall = .TRUE.
+  REAL(mytype), SAVE :: tlast
+  INTEGER :: i, j, k, N
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  INTEGER status(MPI_STATUS_SIZE)
+  INTEGER :: i0, ctr, r
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, td1, te1, tf1, tg1, th1, &
+       ti1, di1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2, ux2, uy2, uz2, ta2, tb2, tc2, &
+       td2, te2, tf2, di2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3
+
+  REAL(mytype) :: deltax, deltay, deltaz, vol
+  
+  REAL(mytype) :: densr
+  REAL(mytype) :: x, y, z
+  REAL(mytype) :: KE, EP, KE1, EP1 ! Kinetic and Potential Energy
+  REAL(mytype), SAVE :: ED ! Dissipated Energy
+  REAL(mytype) :: ED1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: dissipation1
+  REAL(mytype), DIMENSION(nx) :: dissipation_int, xpos
+
+  densr = MIN(dens1, dens2) / MAX(dens1, dens2)
+
+  KE = 0._mytype
+  EP = 0._mytype
+  
+  CALL transpose_x_to_y(ux1, ux2)
+  CALL transpose_x_to_y(uy1, uy2)
+  CALL transpose_x_to_y(uz1, uz2)
+  
+  CALL transpose_y_to_z(ux2, ux3)
+  CALL transpose_y_to_z(uy2, uy3)
+  CALL transpose_y_to_z(uz2, uz3)
+
+  CALL derz (ta3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+  CALL derz (tb3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+  CALL derz (tc3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+  
+  CALL transpose_z_to_y(ta3, td2) ! dudz
+  CALL transpose_z_to_y(tb3, te2) ! dvdz
+  CALL transpose_z_to_y(tc3, tf2) ! dwdz
+  
+  CALL dery (ta2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1) 
+  CALL dery (tb2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+  CALL dery (tc2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+  
+  CALL transpose_y_to_x(ta2, td1) ! dudy
+  CALL transpose_y_to_x(tb2, te1) ! dvdy
+  CALL transpose_y_to_x(tc2, tf1) ! dwdy
+  CALL transpose_y_to_x(td2, tg1) ! dudz
+  CALL transpose_y_to_x(te2, th1) ! dvdz
+  CALL transpose_y_to_x(tf2, ti1) ! dwdz
+  
+  CALL derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+  CALL derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+  CALL derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+  
+  CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, &
+       dims, dummy_periods, dummy_coords, ierr)
+  
+  dissipation1(:,:,:) = 0._mytype
+  DO k = 1, xsize(3)
+     z = (k + xstart(3) - 2) * dz
+
+     IF (dims(2).EQ.1) THEN
+        IF ((k.EQ.1).OR.(k.EQ.xsize(3))) THEN
+           deltaz = 0.5_mytype * dz
+        ELSE
+           deltaz = dz
+        ENDIF
+     ELSE
+        IF ((xstart(3).EQ.1).AND.(k.EQ.1)) THEN
+           deltaz = 0.5_mytype * dz
+        ELSEIF ((nz - (nzm/dims(2)).EQ.xstart(3)).AND.(k.EQ.xsize(3))) THEN
+           deltaz = 0.5_mytype * dz
+        ELSE
+           deltaz = dz
+        ENDIF
+     ENDIF
+
+     DO j = 1, xsize(2)
+        y = (j + xstart(2) - 2) * dy
+
+        IF (dims(1).EQ.1) THEN
+           IF ((j.EQ.1).OR.(j.EQ.xsize(2))) THEN
+              deltay = 0.5_mytype * dy
+           ELSE
+              deltay = dy
+           ENDIF
+        ELSE
+           IF ((xstart(2).EQ.1).AND.(j.EQ.1)) THEN
+              deltay = 0.5_mytype * dy
+           ELSEIF ((ny - (nym/dims(1)).EQ.xstart(2)).AND.(j.EQ.xsize(2))) THEN
+              deltay = 0.5_mytype * dy
+           ELSE
+              deltay = dy
+           ENDIF
+        ENDIF
+
+        DO i = 1, xsize(1)
+           dissipation1(i, j, k) = ta1(i, j, k) * ta1(i, j, k) + ta1(i, j, k) * ta1(i, j, k) &
+                + td1(i, j, k) * td1(i, j, k) + td1(i, j, k) * tb1(i, j, k) &
+                + tg1(i, j, k) * tg1(i, j, k) + tg1(i, j, k) * tc1(i, j, k) &
+                + tb1(i, j, k) * tb1(i, j, k) + tb1(i, j, k) * td1(i, j, k) &
+                + te1(i, j, k) * te1(i, j, k) + te1(i, j, k) * te1(i, j, k) &
+                + th1(i, j, k) * th1(i, j, k) + th1(i, j, k) * tf1(i, j, k) &
+                + tc1(i, j, k) * tc1(i, j, k) + tc1(i, j, k) * tg1(i, j, k) &
+                + tf1(i, j, k) * tf1(i, j, k) + tf1(i, j, k) * th1(i, j, k) &
+                + ti1(i, j, k) * ti1(i, j, k) + ti1(i, j, k) * ti1(i, j, k)
+           dissipation1(i, j, k) = dissipation1(i, j, k) &
+                + ta1(i, j, k) * ta1(i, j, k) + ta1(i, j, k) * ta1(i, j, k) &
+                + tb1(i, j, k) * td1(i, j, k) + tb1(i, j, k) * tb1(i, j, k) &
+                + tc1(i, j, k) * tg1(i, j, k) + tc1(i, j, k) * tc1(i, j, k) &
+                + td1(i, j, k) * tb1(i, j, k) + td1(i, j, k) * td1(i, j, k) &
+                + te1(i, j, k) * te1(i, j, k) + te1(i, j, k) * te1(i, j, k) &
+                + tf1(i, j, k) * th1(i, j, k) + tf1(i, j, k) * tf1(i, j, k) &
+                + tg1(i, j, k) * tc1(i, j, k) + tg1(i, j, k) * tg1(i, j, k) &
+                + th1(i, j, k) * tf1(i, j, k) + th1(i, j, k) * th1(i, j, k) &
+                + ti1(i, j, k) * ti1(i, j, k) + ti1(i, j, k) * ti1(i, j, k)
+           dissipation1(i, j, k) = -(2._mytype * xnu) &
+                * (rho1(i, j, k) * (0.5_mytype * dissipation1(i, j, k)))
+
+           IF ((i.EQ.1).OR.(i.EQ.xsize(1))) THEN
+              deltax = 0.5_mytype * dx
+           ELSE
+              deltax = dx
+           ENDIF
+
+           vol = deltax * deltay * deltaz
+
+           KE = KE + (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2) * vol
+           EP = EP + (rho1(i, j, k) * y**2) * vol
+
+           IF (firstcall) THEN
+              ED = 0._mytype
+           ELSE
+              ED = ED + dissipation1(i, j, k) * vol * (0.5_mytype * (t - tlast))
+           ENDIF
+        ENDDO
+     ENDDO
+  ENDDO
+
+  KE = 0.5_mytype * KE
+  EP = 0.5_mytype * EP / (1._mytype - densr) ! The 1/2 comes from int rho y dy = 1/2 rho y^2|^yly_0
+
+  CALL MPI_ALLREDUCE(KE, KE1, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  CALL MPI_ALLREDUCE(EP, EP1, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+  CALL MPI_ALLREDUCE(ED, ED1, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  !! Write out energy budgets
+  IF (nrank.EQ.0) THEN
+     IF (firstcall) THEN
+        OPEN(13, FILE="ENERGYBUDGET.log", STATUS="new", ACTION="write")
+        WRITE(13, *) "TIME KE EP ED"
+     ELSE
+        OPEN(13, FILE="ENERGYBUDGET.log", STATUS="old", ACTION="write", POSITION="append")
+     ENDIF
+     WRITE(13, *) t, KE1, EP1, ED1
+     CLOSE(13)
+  ENDIF
+
+  !! Integrate dissipation rate vertically (after depth averaging)
+  CALL transpose_x_to_y(dissipation1, ta1)
+  CALL transpose_y_to_z(ta2, ta3)
+
+  DO k = 2, zsize(3)
+     DO j = 1, zsize(2)
+        DO i = 1, zsize(1)
+           ta3(i, j, 1) = ta3(i, j, 1) + ta3(i, j, k)
+        ENDDO
+     ENDDO
+  ENDDO
+  DO j = 1, zsize(2)
+     DO i = 1, zsize(1)
+        ta3(i, j, 1) = ta3(i, j, 1) / float(zsize(3))
+        ta3(i, j, :) = ta3(i, j, 1)
+     ENDDO
+  ENDDO
+
+  CALL transpose_z_to_y(ta3, ta2)
+
+  xpos(:) = -1
+  dissipation_int(:) = 0._mytype
+  N = 16 ! Averaging interval
+  DO j = 1, ysize(2)
+     i0 = 1
+     ctr = 1
+
+     IF ((j.EQ.1).OR.(j.EQ.ysize(2))) THEN
+        deltay = 0.5_mytype * dy
+     ELSE
+        deltay = dy
+     ENDIF
+
+     DO WHILE ((i0 + (N - 1)).LE.ysize(1))
+        IF (j.EQ.1) THEN
+           xpos(ctr) = 0._mytype
+           DO i = i0, i0 + (N - 1)
+              xpos(ctr) = xpos(ctr) + (i + ystart(1) - 2) * dx
+           ENDDO
+           xpos(ctr) = xpos(ctr) / N
+        ENDIF
+        DO i = i0, i0 + (N - 1)
+           dissipation_int(ctr) = dissipation_int(ctr) + ta2(i, j, 1) * deltay
+        ENDDO
+        i0 = i0 + N
+        ctr = ctr + 1
+     ENDDO
+
+     IF (i0.LE.ysize(1)) THEN
+        IF (j.EQ.1) THEN
+           xpos(ctr) = 0._mytype
+           DO i = i0, ysize(1)
+              xpos(ctr) = xpos(ctr) + (i + ystart(1) - 2) * dx
+           ENDDO
+           xpos(ctr) = xpos(ctr) / (ysize(1) - i0 + 1)
+        ENDIF
+        DO i = i0, ysize(1)
+           dissipation_int(ctr) = dissipation_int(ctr) + ta2(i, j, 1) * deltay
+        ENDDO
+        ctr = ctr + 1
+     ENDIF
+  ENDDO
+  ctr = ctr - 1
+
+  DO i = 1, ctr - 1
+     dissipation_int(i) = dissipation_int(i) / N
+  ENDDO
+  dissipation_int(ctr) = dissipation_int(ctr) / (ysize(1) - N * (ctr - 1))
+
+  IF (nrank.EQ.0) THEN
+     IF (firstcall) THEN
+        OPEN(14, FILE="DISSIPATION.log", STATUS="new", ACTION="write")
+        WRITE(14, *) "TIME X EPSILON"
+     ELSE
+        OPEN(14, FILE="DISSIPATION.log", STATUS="old", ACTION="write", POSITION="append")
+     ENDIF
+
+     DO i = 1, ctr
+        WRITE(14, *) t, xpos(i), dissipation_int(i)
+     ENDDO
+
+     DO r = 1, nproc - 1
+        CALL MPI_RECV(xpos, nx, real_type, r, 2000 + r, MPI_COMM_WORLD, status, ierr)
+        CALL MPI_RECV(dissipation_int, nx, real_type, r, 2000 + nproc + r, MPI_COMM_WORLD, status, &
+             ierr)
+
+        DO i = 1, nx
+           IF (xpos(i).LT.0._mytype) THEN
+              EXIT
+           ENDIF
+           WRITE(14, *) t, xpos(i), dissipation_int(i)
+        ENDDO
+     ENDDO
+
+     CLOSE(14)
+  ELSE
+     CALL MPI_SEND(xpos, nx, real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
+     CALL MPI_SEND(dissipation_int, nx, real_type, 0, 2000 + nproc + nrank, MPI_COMM_WORLD, ierr)
+  ENDIF
+
+  firstcall = .FALSE.
+
+  !! Record time function called for later use in determining interval
+  tlast = t
+  
+ENDSUBROUTINE calc_energy_budgets
+
+SUBROUTINE force_variable_2d(ta1, ta2, ta3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: ta2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: ta3
+
+  INTEGER :: i, j, k
+
+  CALL transpose_x_to_y(ta1, ta2)
+  CALL transpose_y_to_z(ta2, ta3)
+  DO k = 2, zsize(3)
+     DO j = 1, zsize(2)
+        DO i = 1, zsize(1)
+           ta3(i, j, k) = ta3(i, j, 1)
+        ENDDO
+     ENDDO
+  ENDDO
+  CALL transpose_z_to_y(ta3, ta2)
+  CALL transpose_y_to_x(ta2, ta1)
+  
+ENDSUBROUTINE force_variable_2d

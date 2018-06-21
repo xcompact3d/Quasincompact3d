@@ -48,10 +48,10 @@ module variables
 !2-->every 2 mesh nodes
 !4-->every 4 mesh nodes
 !nvisu = size for visualization collection
-integer,parameter :: nx=128, ny=257, nz=8
+integer,parameter :: nx=129, ny=64, nz=64
 integer,parameter :: nstat=1, nvisu=1
 integer,parameter :: p_row=4, p_col=2
-integer,parameter :: nxm=nx, nym=ny-1, nzm=nz
+integer,parameter :: nxm=nx-1, nym=ny, nzm=nz
 !end module variables
 
 !module filter
@@ -96,6 +96,7 @@ real(mytype), save, allocatable, dimension(:,:) :: dpdxz1,dpdxzn,dpdyz1,dpdyzn
 real(mytype), save, allocatable, dimension(:,:) :: bxx1,bxy1,bxz1,bxxn,bxyn,bxzn,bxo,byo,bzo
 real(mytype), save, allocatable, dimension(:,:) :: byx1,byy1,byz1,byxn,byyn,byzn
 real(mytype), save, allocatable, dimension(:,:) :: bzx1,bzy1,bzz1,bzxn,bzyn,bzzn
+real(mytype), save :: bxxn_scale, outflux
 
 !module derpres
 real(mytype),dimension(nxm) :: cfx6,ccx6,cbx6,cfxp6,ciwxp6,csxp6,&
@@ -136,12 +137,14 @@ use decomp_2d, only : mytype
 
   integer :: nclx,ncly,nclz
   integer :: ifft, ivirt,istret,iforc_entree,iturb
-  integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles, nrhoscheme
+  integer :: itype, iskew, iin, nscheme, ifirst, ilast, iles
   integer :: isave,ilit,idebmod, imodulo, idemarre, icommence, irecord
+  integer :: ilmn, isolvetemp, nrhoscheme, npoissscheme, ivarcoeff, imulticomponent
   integer :: iscalar
+  integer :: iprops
   integer :: nxboite, istat,iread,iadvance_time 
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2
-  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2
+  real(mytype) :: dt,xnu,noise,noise1,pi,twopi,u1,u2,sc,pr,dens1,dens2,frx,fry,frz,tol
   real(mytype) :: t,xxk1,xxk2
   integer :: itr,itime
   character :: filesauve*80, filenoise*80, &

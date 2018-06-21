@@ -13,6 +13,7 @@ phi*
 *.dat
 *.eps
 TAGS
+tags
 *.xdmf
 paraview_incompact3d
 incompact3d-128x513x8
