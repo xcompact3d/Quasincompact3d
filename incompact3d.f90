@@ -385,9 +385,6 @@ PROGRAM incompact3d
                           ta3,tc3,di3,pp3star,nxmsize,nymsize,nzmsize,ph2,ph3)
                   endif
                   pp3star(:,:,:) = pp3corr(:,:,:) ! Store current pressure field
-                  
-                  divup3norm = SUM(divu3)
-                  divup3norm = SQRT(divup3norm)
                endif
                call divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di1, &
                     te2, tf2, ta2, tb2, tc2, td2, di2, &
