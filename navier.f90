@@ -506,7 +506,13 @@ subroutine inflow (ux, uy, uz, rho, temperature, massfrac, phi)
 
   St = 0.3
   freq = St * u1 / (1._mytype)
-  s = SIN(t * (PI / 2._mytype))
+
+  if (t.LT.1._mytype) then
+     s = SIN(t * (PI / 2._mytype))
+  else
+     s = 1._mytype
+  endif
+
   if (iin.eq.1) then  
     do k = 1, xsize(3)
       z = (k + xstart(3) - 2) * dz - zlz / 2._mytype
