@@ -815,39 +815,75 @@ SUBROUTINE compute_outflux_lmn(temperature1, gradtempx1, di1,&
 
   invpr = 1._mytype / pr
 
-  IF (nclx.EQ.2) THEN
-    CALL derx (gradtempx1,temperature1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    DO k = 1, xsize(3)
-      DO j = 1, xsize(2)
-        outflux_local = outflux_local + bxx1(j, k) * (dy * dz)
-        outflux_local = outflux_local + (xnu * invpr) * (gradtempx1(nx, j, k) - gradtempx1(1, j, k)) &
-             * (dy * dz)
-      ENDDO
-    ENDDO
-  ENDIF
+  IF (itype.NE.7) THEN
+     IF (nclx.EQ.2) THEN
+        CALL derx (gradtempx1,temperature1,di1,sx,ffxp,fsxp,fwxp,&
+             xsize(1),xsize(2),xsize(3),1)
+        DO k = 1, xsize(3)
+           DO j = 1, xsize(2)
+              outflux_local = outflux_local + bxx1(j, k) * (dy * dz)
+              outflux_local = outflux_local + (xnu * invpr) &
+                   * (gradtempx1(nx, j, k) - gradtempx1(1, j, k)) * (dy * dz)
+           ENDDO
+        ENDDO
+     ENDIF
 
-  CALL transpose_x_to_y(temperature1, temperature2)
-  IF (ncly.EQ.2) THEN
-    CALL dery (gradtempy2,temperature2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    DO k = 1, ysize(3)
-      DO i = 1, ysize(1)
-        outflux_local = outflux_local + (byy1(i, k) - byyn(i, k)) * (dx * dz)
-        outflux_local = outflux_local + (xnu * invpr) * (gradtempy2(i, ny, k) - gradtempy2(i, 1, k)) &
-             * (dx * dz)
-      ENDDO
-    ENDDO
-  ENDIF
+     IF (MAX(ncly, nclz).EQ.2) THEN
+        CALL transpose_x_to_y(temperature1, temperature2)
 
-  CALL transpose_y_to_z(temperature2, temperature3)
-  IF (nclz.EQ.2) THEN
-    CALL derz (gradtempz3,temperature3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    DO j = 1, zsize(2)
-      DO i = 1, zsize(1)
-        outflux_local = outflux_local + (bzz1(i, j) - bzzn(i, j)) * (dx * dy)
-        outflux_local = outflux_local + (xnu * invpr) * (gradtempz3(i, j, nz) - gradtempz3(i, j, 1)) &
-             * (dx * dy)
-      ENDDO
-    ENDDO
+        IF (ncly.EQ.2) THEN
+           IF (xstart(2).EQ.1) THEN
+              DO k = 1, xsize(3)
+                 DO i = 1, xsize(1)
+                    outflux_local = outflux_local + byy1(i, k) * (dx * dz)
+                 ENDDO
+              ENDDO
+           ENDIF
+           IF (xend(2).EQ.ny) THEN
+              DO k = 1, xsize(3)
+                 DO i = 1, xsize(1)
+                    outflux_local = outflux_local - byyn(i, k) * (dx * dz)
+                 ENDDO
+              ENDDO
+           ENDIF
+
+           CALL dery (gradtempy2,temperature2,di2,sy,ffyp,fsyp,fwyp,ppy,&
+                ysize(1),ysize(2),ysize(3),1)
+           DO k = 1, ysize(3)
+              DO i = 1, ysize(1)
+                 outflux_local = outflux_local + (xnu * invpr) &
+                      * (gradtempy2(i, ny, k) - gradtempy2(i, 1, k)) * (dx * dz)
+              ENDDO
+           ENDDO
+        ENDIF
+
+        IF (nclz.EQ.2) THEN
+           IF (xstart(3).EQ.1) THEN
+              DO j = 1, xsize(2)
+                 DO i = 1, xsize(1)
+                    outflux_local = outflux_local + bzz1(i, j) * (dx * dy)
+                 ENDDO
+              ENDDO
+           ENDIF
+           IF (xend(3).EQ.nz) THEN
+              DO j = 1, xsize(2)
+                 DO i = 1, xsize(1)
+                    outflux_local = outflux_local - bzz1(i, j) * (dx * dy)
+                 ENDDO
+              ENDDO
+           ENDIF
+
+           CALL transpose_y_to_z(temperature2, temperature3)
+           CALL derz (gradtempz3,temperature3,di3,sz,ffzp,fszp,fwzp,&
+                zsize(1),zsize(2),zsize(3),1)
+           DO j = 1, zsize(2)
+              DO i = 1, zsize(1)
+                 outflux_local = outflux_local + (xnu * invpr) &
+                      * (gradtempz3(i, j, nz) - gradtempz3(i, j, 1)) * (dx * dy)
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDIF
   ENDIF
   
   CALL MPI_ALLREDUCE(outflux_local, outflux, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
