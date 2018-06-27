@@ -2062,7 +2062,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   IF ((poissiter.NE.0).AND.(pressnorm.LE.tol)) THEN
     converged = .TRUE.  
   ENDIF
-  tg3(:,:,:) = pp3corr(:,:,:)
+  tg3(:,:,:) = pp3corr(:,:,:) ! Store current pressure field
   
   !!===================================================================================================
   ! 1) Compute residual r = -div(1/rho grad p) + (div u^* - div u)
@@ -2152,7 +2152,10 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 !   write(filename, 990) itime/imodulo, itr, poissiter
 !   call decomp_2d_write_one(1,uvisu,filename,2)
 
-  IF (converged.EQV..FALSE.) THEN
+  IF (converged.EQV..TRUE.) THEN
+     !! Need to reset pp3corr to the pressure field
+     pp3corr(:,:,:) = tg3(:,:,:)
+  ELSE !! Not yet converged
 
     !!===================================================================================================
     ! 2) Scale the residual by density
