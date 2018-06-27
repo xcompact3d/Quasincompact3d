@@ -2029,7 +2029,8 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: tc3, pz3, di3
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
-       pp3corr, pp3, rho0p3, tg3
+       pp3corr, rho0p3, tg3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize), INTENT(IN) :: pp3
 
   REAL(mytype) :: resnorm, resnormlocal, pressnorm, pressnormlocal, deltadivunormlocal, deltadivunorm
   REAL(mytype), INTENT(IN) :: divup3norm
