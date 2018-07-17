@@ -1231,7 +1231,7 @@ SUBROUTINE calctemp_eos(temperature1, rho1, massfrac1, pressure0, arrsize)
   W1 = dens1
   W2 = dens2
 
-  nxyz = xsize(1) * xsize(2) * xsize(3)
+  nxyz = arrsize(1) * arrsize(2) * arrsize(3)
   DO ijk = 1, nxyz
     Wbar = (1._mytype - massfrac1(ijk, 1, 1)) / W1 + massfrac1(ijk, 1, 1) / W2
     Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
@@ -1275,7 +1275,7 @@ SUBROUTINE calcrho_eos(rho1, temperature1, massfrac1, pressure0, arrsize)
   W1 = dens1
   W2 = dens2
 
-  nxyz = xsize(1) * xsize(2) * xsize(3)
+  nxyz = arrsize(1) * arrsize(2) * arrsize(3)
   DO ijk = 1, nxyz
     Wbar = (1._mytype - massfrac1(ijk, 1, 1)) / W1 + massfrac1(ijk, 1, 1) / W2
     Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
