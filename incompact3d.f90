@@ -294,7 +294,8 @@ PROGRAM incompact3d
         else
           !! Temporarily store current pressure field
           pp3corr(:,:,:) = 0._mytype
-        endif
+          pp3star(:,:,:) = 0._mytype
+       endif
       endif
 
       if (max(nclx, ncly, nclz).eq.2) then
