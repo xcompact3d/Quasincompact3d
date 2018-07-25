@@ -1343,34 +1343,25 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           y=yp(j)-yly/2._mytype
         endif
         r = SQRT(y**2 + z**2)
-        
+        r = r + 1.0e-32 ! Avoid division by zero
+
         ! Set the mean profile
-        if (r.gt.0._mytype) then ! Avoid division by zero
-          bxx1(j, k) = u2 - (u2 - u1) * 0.5_mytype * (1._mytype &
-               - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          bxx1(j, k) = MAX(bxx1(j, k), u2) ! Ensure a minimum velocity
+        bxx1(j, k) = u2 - (u2 - u1) * 0.5_mytype * (1._mytype &
+             - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        bxx1(j, k) = MAX(bxx1(j, k), u2) ! Ensure a minimum velocity
 
-          ! if (r.lt.0.5_mytype * D) then ! jet
-            massfrac1(1, j, k) = 0._mytype - (0._mytype - 1._mytype) &
-                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          ! else ! co-flow
-          !   massfrac1(1, j, k) = 0._mytype
-          ! endif
+        ! if (r.lt.0.5_mytype * D) then ! jet
+        massfrac1(1, j, k) = 0._mytype - (0._mytype - 1._mytype) &
+             * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        ! else ! co-flow
+        !   massfrac1(1, j, k) = 0._mytype
+        ! endif
 
-          if (isolvetemp.eq.0) then
-            rho1(1, j, k) = dens2 - (dens2 - dens1) &
-                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          else
-            temperature1(1, j, k) = 1._mytype
-          endif
-        else ! r = 0, set centreline values
-          bxx1(j, k) = u1
-          massfrac1(1, j, k) = 1._mytype
-          if (isolvetemp.eq.0) then
-            rho1(1, j, k) = dens1
-          else
-            temperature1(1, j, k) = 1._mytype
-          endif
+        if (isolvetemp.eq.0) then
+           rho1(1, j, k) = dens2 - (dens2 - dens1) &
+                * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        else
+           temperature1(1, j, k) = 1._mytype
         endif
 
         !! Smooth inflow in time, s = SIN(t * PI / 2) if t < 1, 1 otherwise
