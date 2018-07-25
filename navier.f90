@@ -1606,7 +1606,7 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     temperature1(:,:,:) = 1._mytype
   endif
   if (imulticomponent.eq.0) then
-    massfrac1(:,:,:) = 1._mytype
+    massfrac1(:,:,:) = 0._mytype
   endif
   !INIT FOR G AND U=MEAN FLOW + NOISE
   do k=1,xsize(3)
