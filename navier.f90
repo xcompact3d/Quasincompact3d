@@ -1494,6 +1494,7 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
   integer (kind=MPI_OFFSET_KIND) :: disp
   real(mytype) :: rhor, rhol
   real(mytype) :: p_front
+  real(mytype) :: kloc, kglob, ploc, pglob
 
   p_front = 1._mytype
   
@@ -1525,6 +1526,8 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     rhor = dens1
     do k=1,xsize(3)
        z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
+
+       p_front = 1._mytype
        do j=1,xsize(2)
           if (istret.eq.0) then
              y=(j+xstart(2)-2)*dy-yly/2._mytype
@@ -1535,10 +1538,10 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
              x = (i + xstart(1) - 2) * dx
              x = x - p_front
 
-             um = -((20._mytype / noise**3) / Fry) &
-                  * ((rhol * p_front + rhor * (xlx - p_front)) * yly) &
-                  / (rhol * (erf(0._mytype) - erf(5._mytype * sqrt(2._mytype) * p_front)) &
-                  + (rhor * (erf(5._mytype * sqrt(2._mytype) * (xlx - p_front)) - erf(0._mytype))))
+             ! um = -((20._mytype / noise**3) / Fry) &
+             !      * ((rhol * p_front + rhor * (xlx - p_front)) * yly) &
+             !      / (rhol * (erf(0._mytype) - erf(5._mytype * sqrt(2._mytype) * p_front)) &
+             !      + (rhor * (erf(5._mytype * sqrt(2._mytype) * (xlx - p_front)) - erf(0._mytype))))
              um = noise * exp(-25._mytype * x**2)
              
              ux1(i,j,k)=um*ux1(i,j,k)
@@ -1555,24 +1558,27 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     ! massfrac1(:,:,:) = 1._mytype
 
     if (isolvetemp.eq.0) then
-      ! LMN: set density
-      do k = 1, xsize(3)
-        z = float(k + xstart(3) - 2) * dz
-        do j = 1, xsize(2)
-          y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-          do i = 1, xsize(1)
-            x = float(i + xstart(1) - 2) * dx
-
-            if (x.LT.p_front) then
-               rho1(i, j, k) = dens2
-            else
-               rho1(i, j, k) = dens1
-            endif
+       ! LMN: set density
+       do k = 1, xsize(3)
+          z = float(k + xstart(3) - 2) * dz
+          
+          p_front = 1._mytype
+          ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * z / zlz)
+          do j = 1, xsize(2)
+             y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
+             do i = 1, xsize(1)
+                x = float(i + xstart(1) - 2) * dx
+                
+                if (x.LT.p_front) then
+                   rho1(i, j, k) = dens2
+                else
+                   rho1(i, j, k) = dens1
+                endif
+             enddo
           enddo
-        enddo
-      enddo
+       enddo
     else
-      temperature1(:,:,:) = 1._mytype
+       temperature1(:,:,:) = 1._mytype
     endif
     
     if (iscalar==1) then
@@ -1654,6 +1660,29 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     call MPI_FILE_CLOSE(fh,ierror)
     if (nrank==0) print *,'read epsilon file done from init'
     print *,ep1
+  endif
+
+  if (itype.eq.7) then
+     !! Set kinetic energy = 1% of gravitational potential energy
+     kloc = 0._mytype
+     ploc = 0._mytype
+     do k = 1, xsize(3)
+        do j = 1, xsize(2)
+           y = float(j + xstart(2) - 2) * dy
+           do i = 1, xsize(1)
+              kloc = kloc + 0.5_mytype * rho1(i, j, k) &
+                   * (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2)
+              ploc = ploc + 0.5_mytype * rho1(i, j, k) * y**2
+           enddo
+        enddo
+     enddo
+     ploc = ploc / abs(fry)
+     CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+     CALL MPI_ALLREDUCE(ploc, pglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+     kloc = SQRT(0.01_mytype * pglob / kglob)
+     ux1(i, j, k) = kloc * ux1(i, j, k)
+     uy1(i, j, k) = kloc * uy1(i, j, k)
+     uz1(i, j, k) = kloc * uz1(i, j, k)
   endif
 
   return
