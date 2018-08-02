@@ -1114,11 +1114,19 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
 
+  REAL(mytype) :: rhomax, rhomin
+  REAL(mytype) :: us, cy
+
   INTEGER :: i, j, k
 
   INTEGER :: ierr
   INTEGER, DIMENSION(2) :: dims, dummy_coords
   LOGICAL, DIMENSION(2) :: dummy_periods
+
+  rhomax = MAX(dens1, dens2)
+  rhomin = MIN(dens1, dens2)
+
+  us = 0._mytype ! Settling velocity
 
   IF (nclx.EQ.2) THEN
   ENDIF
@@ -1128,16 +1136,28 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
      call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
   ENDIF
 
+  IF (fry.NE.0._mytype) THEN
+     cy = ((us / fry) / dy) * gdt(itr)
+  ELSE
+     cy = 0._mytype
+  ENDIF
   IF (ncly.EQ.2) THEN
      IF (dims(1).EQ.1) THEN
         DO k = 1, xsize(3)
            j = 1
            DO i = 1, xsize(1)
-              rho1(i, j, k) = rho1(i, j + 1, k)
+              ! !! Zero gradient
+              ! rho1(i, j, k) = rho1(i, j + 1, k)
+
+              !! Sedimenting
+              rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j + 1, k))
+              rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+              rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
            ENDDO
            
            j = xsize(2)
            DO i = 1, xsize(1)
+              !! Zero gradient
               rho1(i, j, k) = rho1(i, j - 1, k)
            ENDDO
         ENDDO
@@ -1146,7 +1166,13 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
            j = 1
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 rho1(i, j, k) = rho1(i, j + 1, k)
+                 ! !! Zero gradient
+                 ! rho1(i, j, k) = rho1(i, j + 1, k)
+
+                 !! Sedimenting
+                 rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j + 1, k))
+                 rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+                 rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
               ENDDO
            ENDDO
         ENDIF
@@ -1155,6 +1181,7 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
            j = xsize(2)
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
+                 !! Zero gradient
                  rho1(i, j, k) = rho1(i, j - 1, k)
               ENDDO
            ENDDO

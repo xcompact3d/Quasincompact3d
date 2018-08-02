@@ -764,6 +764,8 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   REAL(mytype) :: invpe
 
+  REAL(mytype) :: us
+
   INTEGER :: ijk, nvect1, nvect2, nvect3
 
   nvect1 = xsize(1) * xsize(2) * xsize(3)
@@ -772,6 +774,9 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   invpe = xnu / sc
 
+  !! Settling velocity
+  us = 0._mytype
+
   !------------------------------------------------------------------------
   ! X PENCILS
   ! tb1 = diffusion
@@ -779,7 +784,11 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL derx (ta1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  ta1(:,:,:) = ux1(:,:,:) * ta1(:,:,:)
+  IF (frx.EQ.0._mytype) THEN
+     ta1(:,:,:) = ux1(:,:,:) * ta1(:,:,:)
+  ELSE
+     ta1(:,:,:) = (ux1(:,:,:) + us / frx) * ta1(:,:,:)
+  ENDIF
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -793,7 +802,11 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL dery (ta2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  ta2(:,:,:) = uy2(:,:,:) * ta2(:,:,:)
+  IF (fry.EQ.0._mytype) THEN
+     ta2(:,:,:) = uy2(:,:,:) * ta2(:,:,:)
+  ELSE
+     ta2(:,:,:) = (uy2(:,:,:) + us / fry) * ta2(:,:,:)
+  ENDIF
 
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
@@ -807,7 +820,11 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   ! Advection term (non-conservative)
   ! XXX Also adds contribution from divu3
   CALL derz (ta3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  ta3(:,:,:) = uz3(:,:,:) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  IF (frz.EQ.0._mytype) THEN
+     ta3(:,:,:) = uz3(:,:,:) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  ELSE
+     ta3(:,:,:) = (uz3(:,:,:) + us / frz) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  ENDIF
   
   ! call derzz (tb3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
   ! ta3(:,:,:) = ta3(:,:,:) - invpe * tb3(:,:,:)
