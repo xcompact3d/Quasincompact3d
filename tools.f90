@@ -1915,3 +1915,144 @@ SUBROUTINE force_variable_2d(ta1, ta2, ta3)
   CALL transpose_y_to_x(ta2, ta1)
   
 ENDSUBROUTINE force_variable_2d
+
+SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
+  REAL(mytype), DIMENSION(nx) :: D, Dtmp, xarr, xtmp
+
+  REAL(mytype) :: us, c, mdot, mdotglob
+  REAL(mytype) :: rhomax, rhomin, gamma
+  REAL(mytype) :: x, z
+
+  INTEGER :: i, j, k, r
+
+  INTEGER status(MPI_STATUS_SIZE)
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  LOGICAL :: file_exists
+
+  us = 0._mytype ! Sedimenting velocity
+
+  rhomax = MAX(dens1, dens2)
+  rhomin = MIN(dens1, dens2)
+  gamma = rhomax / rhomin
+
+  CALL transpose_x_to_y(rho1, rho2)
+  CALL transpose_y_to_z(rho2, rho3)
+  
+  CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
+
+  mdot = 0._mytype
+  D(:) = 0._mytype
+  xarr(:) = 0._mytype
+  
+  j = 1
+  IF (dims(1).EQ.1) THEN
+     DO k = 1, zsize(3)
+        z = float(k + zstart(3) - 2) * dz
+        DO i = 1, zsize(1)
+           x = float(i + zstart(1) - 2) * dx
+           xarr(i) = x
+           
+           c = ((rho3(i, j, k) / rhomin) - 1._mytype) / (gamma - 1._mytype)
+
+           D(i) = D(i) + c * us * dz
+        ENDDO
+     ENDDO
+  ELSE
+     IF (xstart(2).EQ.1) THEN
+        DO k = 1, zsize(3)
+           z = float(k + zstart(3) - 2) * dz
+           DO i = 1, zsize(1)
+              x = float(i + zstart(1) - 2) * dx
+              xarr(i) = x
+              
+              c = ((rho3(i, j, k) / rhomin) - 1._mytype) / (gamma - 1._mytype)
+              
+              D(i) = D(i) + c * us * dz
+           ENDDO
+        ENDDO
+     ENDIF
+  ENDIF
+
+  DO i = 1, zsize(1)
+     mdot = mdot + D(i) * dx
+  ENDDO
+
+  mdot = mdot / (xlx * zlz)
+  D(:) = D(:) / zlz
+
+  CALL MPI_ALLREDUCE(mdot, mdotglob, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  IF (nrank.EQ.0) THEN
+     IF ((dims(1).EQ.1).OR.(xstart(2).EQ.1)) THEN
+        i = zsize(1)
+     ELSE
+        i = 0
+     ENDIF
+
+     DO r = 1, nproc - 1
+        !! Does procr have info?
+        CALL MPI_RECV(j, 1, MPI_INTEGER, r, 1000 + r, MPI_COMM_WORLD, status, ierr)
+        
+        !! If so, get that info
+        IF (j.GT.0) THEN
+           CALL MPI_RECV(Dtmp, j, real_type, r, 2000 + r, MPI_COMM_WORLD, status, ierr)
+           CALL MPI_RECV(xtmp, j, real_type, r, 3000 + r, MPI_COMM_WORLD, status, ierr)
+           DO k = 1, j
+              D(i + k) = Dtmp(k)
+              xarr(i + k) = xtmp(k)
+           ENDDO
+           i = i + j
+        ENDIF
+     ENDDO
+     
+     !! Write data to file
+     INQUIRE(FILE="ms.log", EXIST=file_exists)
+     IF (file_exists.EQV..TRUE.) THEN
+        OPEN(20, FILE="ms.log", STATUS="old", ACTION="write", POSITION="append")
+     ELSE
+        OPEN(20, FILE="ms.log", STATUS="new", ACTION="write")
+        WRITE(20, *) "| ITIME | ms |"
+     ENDIF
+     WRITE(20, *) itime, mdotglob
+     CLOSE(20)
+     
+     INQUIRE(FILE="deposit.log", EXIST=file_exists)
+     IF (file_exists.EQV..TRUE.) THEN
+        OPEN(21, FILE="deposit.log", STATUS="old", ACTION="write", POSITION="append")
+     ELSE
+        OPEN(21, FILE="deposit.log", STATUS="new", ACTION="write")
+        WRITE(21, *) "| ITIME | x | deposit |"
+     ENDIF
+     DO i = 1, nx
+        WRITE(21, *) itime, xarr(i), D(i)
+     ENDDO
+     CLOSE(21)
+  ELSE
+     IF ((dims(1).EQ.1).OR.(xstart(2).EQ.1)) THEN
+        !! Tell proc0 we have info
+        CALL MPI_SEND(zsize(1), 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
+        
+        !! Send D array to proc0
+        CALL MPI_SEND(D, zsize(1), real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
+        CALL MPI_SEND(xarr, zsize(1), real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
+     ELSE
+        !! Tell proc0 we have no info
+        CALL MPI_SEND(0, 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
+     ENDIF
+  ENDIF
+  
+ENDSUBROUTINE calc_sedimentation
