@@ -1959,7 +1959,7 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
   xarr(:) = 0._mytype
   
   j = 1
-  IF (dims(1).EQ.1) THEN
+  IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
      DO k = 1, zsize(3)
         z = float(k + zstart(3) - 2) * dz
         DO i = 1, zsize(1)
@@ -1971,20 +1971,6 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
            D(i) = D(i) + c * us * dz
         ENDDO
      ENDDO
-  ELSE
-     IF (xstart(2).EQ.1) THEN
-        DO k = 1, zsize(3)
-           z = float(k + zstart(3) - 2) * dz
-           DO i = 1, zsize(1)
-              x = float(i + zstart(1) - 2) * dx
-              xarr(i) = x
-              
-              c = ((rho3(i, j, k) / rhomin) - 1._mytype) / (gamma - 1._mytype)
-              
-              D(i) = D(i) + c * us * dz
-           ENDDO
-        ENDDO
-     ENDIF
   ENDIF
 
   DO i = 1, zsize(1)
@@ -1997,7 +1983,7 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
   CALL MPI_ALLREDUCE(mdot, mdotglob, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
 
   IF (nrank.EQ.0) THEN
-     IF ((dims(1).EQ.1).OR.(xstart(2).EQ.1)) THEN
+     IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
         i = zsize(1)
      ELSE
         i = 0
@@ -2042,13 +2028,13 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
      ENDDO
      CLOSE(21)
   ELSE
-     IF ((dims(1).EQ.1).OR.(xstart(2).EQ.1)) THEN
+     IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
         !! Tell proc0 we have info
         CALL MPI_SEND(zsize(1), 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
         
         !! Send D array to proc0
         CALL MPI_SEND(D, zsize(1), real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
-        CALL MPI_SEND(xarr, zsize(1), real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
+        CALL MPI_SEND(xarr, zsize(1), real_type, 0, 3000 + nrank, MPI_COMM_WORLD, ierr)
      ELSE
         !! Tell proc0 we have no info
         CALL MPI_SEND(0, 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
