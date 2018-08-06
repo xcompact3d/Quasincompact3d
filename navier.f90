@@ -1219,6 +1219,9 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
   real(mytype) :: gauss, g_umax, ucf
   real(mytype) :: g_rext
   real(mytype) :: s
+  real(mytype) :: p_front
+  real(mytype) :: T1, T2, cp, M, rspech
+  real(mytype) :: rhomax, rhomin
 
   bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
   byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -1288,8 +1291,15 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
 
     ! #ifndef TWOD
     ! Set the flowfield
+    rhomax = MAX(dens1, dens2)
+    rhomin = MIN(dens1, dens2)
+    T1 = 1._mytype / dens1
+    T2 = 1._mytype / dens2
     u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + 1._mytype)
     u2 = -SQRT(dens1 / dens2) / (1._mytype + SQRT(dens1 / dens2))
+    rspech = 1.4_mytype
+    M = 0.2_mytype
+    cp = (1._mytype / (T2 * (rspech - 1._mytype))) * ((u1 - u2) / M)**2
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         if (istret.eq.0) then
@@ -1307,10 +1317,18 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           uz1(i, j, k) = 0._mytype
           rho1(i, j, k) = 0._mytype
 
+          ! Calculate the density field according to the temperature field given in Fortune2004
+          rho1(i, j, k) = (1._mytype / (2._mytype * cp)) &
+               * (ux1(i, j, k) * (u1 + u2) - ux1(i, j, k)**2 - u1 * u2) &
+               + ux1(i, j, k) * (T1 - T2) / (u1 - u2) &
+               + (T2 * u1 - T1 * u2) / (u1 - u2)
+          rho1(i, j, k) = 1._mytype / rho1(i, j, k)
+          rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
+          rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+
           ! Calculate disturbance field (as given in Fortune2004)
           ! NB x and y are swapped relative to Fortune2004
-          ! `noise' is used to set the intensity of the disturbance
-          disturb_decay = noise * (u1 - u2) * EXP(-0.05_mytype * (y**2))
+          disturb_decay = 0.025 * (u1 - u2) * EXP(-0.05_mytype * (y**2))
           u_disturb = disturb_decay * (SIN(8._mytype * PI * x / xlx) &
                + SIN(4._mytype * PI * x / xlx) / 8._mytype &
                + SIN(2._mytype * PI * x / xlx) / 16._mytype)
@@ -1322,14 +1340,6 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           ux1(i, j, k) = ux1(i, j, k) + u_disturb
           uy1(i, j, k) = uy1(i, j, k) + v_disturb 
           uz1(i, j, k) = uz1(i, j, k) + 0._mytype
-
-          if (y.gt.0._mytype) then
-            rho1(i, j, k) = rho1(i, j, k) + dens1
-          else if (y.lt.0._mytype) then
-            rho1(i, j, k) = rho1(i, j, k) + dens2
-          else
-            rho1(i, j, k) = rho1(i, j, k) + 0.5_mytype * (dens1 + dens2)
-          endif
         enddo
       enddo
     enddo
