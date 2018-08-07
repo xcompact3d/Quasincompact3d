@@ -1136,8 +1136,10 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
      call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
   ENDIF
 
-  IF (fry.NE.0._mytype) THEN
-     cy = ((us / fry) / dy) * gdt(itr)
+  IF (fry.GT.0._mytype) THEN
+     cy = (us / dy) * gdt(itr)
+  ELSEIF (fry.LT.0._mytype) THEN
+     cy = -(us / dy) * gdt(itr)
   ELSE
      cy = 0._mytype
   ENDIF
