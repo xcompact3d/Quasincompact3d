@@ -1733,10 +1733,12 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
      ploc = ploc / abs(fry)
      CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
      CALL MPI_ALLREDUCE(ploc, pglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
-     kloc = SQRT(0.01_mytype * pglob / kglob)
-     ux1(i, j, k) = kloc * ux1(i, j, k)
-     uy1(i, j, k) = kloc * uy1(i, j, k)
-     uz1(i, j, k) = kloc * uz1(i, j, k)
+     IF (kglob.GT.0._mytype) THEN
+        kloc = SQRT(0.01_mytype * pglob / kglob)
+        ux1(i, j, k) = kloc * ux1(i, j, k)
+        uy1(i, j, k) = kloc * uy1(i, j, k)
+        uz1(i, j, k) = kloc * uz1(i, j, k)
+     ENDIF
   endif
 
   return
