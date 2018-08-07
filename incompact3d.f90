@@ -104,6 +104,7 @@ PROGRAM incompact3d
          hx1,hy1,hz1,rhoss1,phiss1,&
          pressure0,phG,0)
   endif
+  call calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
 
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
@@ -153,7 +154,7 @@ PROGRAM incompact3d
 
   ! CALL track_front(ux1, rho1)
   ! CALL track_front_height(rho1, rho2, rho3)
-  ! CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+  ! CALL calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
   !           di1, &
   !           rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
   !           rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
@@ -484,8 +485,8 @@ PROGRAM incompact3d
     ! IF (MOD(itime, 10).EQ.0) THEN
     !    CALL track_front(ux1, rho1)
     !    CALL track_front_height(rho1, rho2, rho3)
-    !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
-    !         di1, &
+    !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, &
+    !         ti1, di1, &
     !         rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
     !         rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
     !    CALL calc_sedimentation(rho1, rho2, rho3)

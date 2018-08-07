@@ -1602,7 +1602,7 @@ SUBROUTINE track_front_height(rho1, rho2, rho3)
   
 ENDSUBROUTINE track_front_height
 
-SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
      di1, &
      rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
      rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
@@ -1624,7 +1624,7 @@ SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1
   INTEGER status(MPI_STATUS_SIZE)
   INTEGER :: i0, ctr, r
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, ux1, uy1, uz1, mu1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, td1, te1, tf1, tg1, th1, &
        ti1, di1
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2, ux2, uy2, uz2, ta2, tb2, tc2, &

@@ -1316,7 +1316,7 @@ SUBROUTINE calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: massfrac1, temperature1, rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: mu1
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: mu2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: mu2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: mu3
 
   if (iprops.ne.0) then
@@ -1331,6 +1331,8 @@ SUBROUTINE calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
      call transpose_y_to_z(mu2, mu3)
   else
      !! Use fixed properties
+     mu1(:,:,:) = 1._mytype
+     mu2(:,:,:) = 1._mytype
      mu3(:,:,:) = 1._mytype
   endif
   
