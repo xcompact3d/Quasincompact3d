@@ -2774,15 +2774,13 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
      i = 1
      DO k = 1, xsize(3)
         DO j = 1, xsize(2)
-           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
-                * invfrx
+           ta1(i, j, k) = ta1(i, j, k) - bcx * (rho1(i, j, k) - 1._mytype) * invfrx
         ENDDO
      ENDDO
      i = xsize(1)
      DO k = 1, xsize(3)
         DO j = 1, xsize(2)
-           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
-                * invfrx
+           ta1(i, j, k) = ta1(i, j, k) - bcx * (rho1(i, j, k) - 1._mytype) * invfrx
         ENDDO
      ENDDO
      
@@ -2792,15 +2790,13 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
         j = 1
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
-                   * invfry
+              tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
            ENDDO
         ENDDO
         j = xsize(2)
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
-                   * invfry
+              tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
            ENDDO
         ENDDO
      ELSE
@@ -2808,8 +2804,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            j = 1
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 tb1(i, j, k) = tb1(i, j, k) &
-                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+                 tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
               ENDDO
            ENDDO
         ENDIF
@@ -2817,8 +2812,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            j = xsize(2)
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 tb1(i, j, k) = tb1(i, j, k) &
-                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+                 tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
               ENDDO
            ENDDO
         ENDIF
@@ -2828,15 +2822,13 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
         k = 1
         DO k = 1, xsize(2)
            DO i = 1, xsize(1)
-              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
-                   * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
            ENDDO
         ENDDO
         k = xsize(3)
         DO j = 1, xsize(2)
            DO i = 1, xsize(1)
-              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
-                   * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
            ENDDO
         ENDDO
      ELSE
@@ -2844,8 +2836,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            k = 1
            DO k = 1, xsize(2)
               DO i = 1, xsize(1)
-                 tc1(i, j, k) = tc1(i, j, k) &
-                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+                 tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
               ENDDO
            ENDDO
         ENDIF
@@ -2853,8 +2844,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            k = xsize(3)
            DO j = 1, xsize(2)
               DO i = 1, xsize(1)
-                 tc1(i, j, k) = tc1(i, j, k) &
-                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+                 tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
               ENDDO
            ENDDO
         ENDIF
