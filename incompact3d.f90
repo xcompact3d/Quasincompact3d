@@ -158,6 +158,7 @@ PROGRAM incompact3d
   !           di1, &
   !           rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
   !           rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+  ! CALL calc_sedimentation(rho1, rho2, rho3)
 
   tpoisstotal = 0._mytype
   do itime=ifirst,ilast
