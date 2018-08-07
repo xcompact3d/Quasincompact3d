@@ -1450,22 +1450,34 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
       enddo
     enddo
   else if (itype.eq.7) then
+     p_front = (14._mytype / 32._mytype) * xlx
      if (itime.eq.0) then
         do k = 1, xsize(3)
+           z = float(k + xstart(3) - 2) * dz
            do j = 1, xsize(2)
               y = float((j + xstart(2) - 2)) * dy - 0.5_mytype * yly
+              
+              ! p_front = 1._mytype
+              ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * y / yly) &
+              !      * SIN(2._mytype * PI * z / zlz)
               do i = 1, xsize(1)
-                 x = float((i + xstart(1) - 2)) * dx - (14_mytype / 32._mytype) * xlx ! The weird 14/32 is from Birman
+                 x = float(i + xstart(1) - 2) * dx - p_front
                  
-                 ux1(i, j, k) = 0._mytype
-                 uy1(i, j, k) = 0._mytype
-                 uz1(i, j, k) = 0._mytype
+                 ! ux1(i, j, k) = 0._mytype
+                 ! uy1(i, j, k) = 0._mytype
+                 ! uz1(i, j, k) = 0._mytype
                  
                  temperature1(i, j, k) = 1._mytype
 
                  !! Birman2005
                  rho1(i, j, k) = 0.5_mytype * ((dens2 / dens1 + 1._mytype) &
                       - (1._mytype - dens2 / dens1) * ERF(x * SQRT(sc / xnu)))
+
+                 ! if (x.gt.0._mytype) then
+                 !    rho1(i, j, k) = dens2
+                 ! else
+                 !    rho1(i, j, k) = dens1
+                 ! endif
                  
                  massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
                       - dens1) / (dens2 - dens1)
@@ -1563,16 +1575,19 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     !modulation of the random noise
     rhol = dens2
     rhor = dens1
+    p_front = (14._mytype / 32._mytype) * xlx
     do k=1,xsize(3)
        z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
-
-       p_front = 1._mytype
        do j=1,xsize(2)
           if (istret.eq.0) then
              y=(j+xstart(2)-2)*dy-yly/2._mytype
           else
              y=yp(j+xstart(2)-1)-yly/2._mytype
           endif
+
+          ! p_front = 1._mytype
+          ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * y / yly) &
+          !      * SIN(2._mytype * PI * z / zlz)
           do i=1,xsize(1)
              x = (i + xstart(1) - 2) * dx
              x = x - p_front
@@ -1601,7 +1616,7 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
        do k = 1, xsize(3)
           z = float(k + xstart(3) - 2) * dz
           
-          p_front = 1._mytype
+          ! p_front = 1._mytype
           ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * z / zlz)
           do j = 1, xsize(2)
              y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
