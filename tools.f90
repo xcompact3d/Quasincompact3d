@@ -1576,7 +1576,7 @@ SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1
 
   LOGICAL, SAVE :: firstcall = .TRUE.
   REAL(mytype), SAVE :: tlast
-  INTEGER :: i, j, k, N
+  INTEGER :: i, j, k
   INTEGER :: ierr
   INTEGER, DIMENSION(2) :: dims, dummy_coords
   LOGICAL, DIMENSION(2) :: dummy_periods
@@ -1761,54 +1761,27 @@ SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1
 
   CALL transpose_z_to_y(ta3, ta2)
 
-  xpos(:) = -1
-  dissipation_int(:) = 0._mytype
-  N = 16 ! Averaging interval
+  tb2(:,:,:) = 0._mytype
   DO j = 1, ysize(2)
-     i0 = 1
-     ctr = 1
-
      IF ((j.EQ.1).OR.(j.EQ.ysize(2))) THEN
         deltay = 0.5_mytype * dy
      ELSE
         deltay = dy
      ENDIF
-
-     DO WHILE ((i0 + (N - 1)).LE.ysize(1))
-        IF (j.EQ.1) THEN
-           xpos(ctr) = 0._mytype
-           DO i = i0, i0 + (N - 1)
-              xpos(ctr) = xpos(ctr) + (i + ystart(1) - 2) * dx
-           ENDDO
-           xpos(ctr) = xpos(ctr) / N
-        ENDIF
-        DO i = i0, i0 + (N - 1)
-           dissipation_int(ctr) = dissipation_int(ctr) + ta2(i, j, 1) * deltay
-        ENDDO
-        i0 = i0 + N
-        ctr = ctr + 1
+     
+     DO i = 1, ysize(1)
+        tb2(i, 1, 1) = tb2(i, 1, 1) + ta2(i, j, 1) * deltay
      ENDDO
-
-     IF (i0.LE.ysize(1)) THEN
-        IF (j.EQ.1) THEN
-           xpos(ctr) = 0._mytype
-           DO i = i0, ysize(1)
-              xpos(ctr) = xpos(ctr) + (i + ystart(1) - 2) * dx
-           ENDDO
-           xpos(ctr) = xpos(ctr) / (ysize(1) - i0 + 1)
-        ENDIF
-        DO i = i0, ysize(1)
-           dissipation_int(ctr) = dissipation_int(ctr) + ta2(i, j, 1) * deltay
+  ENDDO
+  DO k = 2, ysize(3)
+     DO j = 2, ysize(2)
+        DO i = 1, ysize(1)
+           tb2(i, j, k) = tb2(i, 1, 1)
         ENDDO
-        ctr = ctr + 1
-     ENDIF
+     ENDDO
   ENDDO
-  ctr = ctr - 1
 
-  DO i = 1, ctr - 1
-     dissipation_int(i) = dissipation_int(i) / N
-  ENDDO
-  dissipation_int(ctr) = dissipation_int(ctr) / (ysize(1) - N * (ctr - 1))
+  CALL transpose_y_to_x(tb2, ta1)
 
   IF (nrank.EQ.0) THEN
      IF (firstcall) THEN
@@ -1819,26 +1792,11 @@ SUBROUTINE calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1
      ENDIF
 
      DO i = 1, ctr
-        WRITE(14, *) t, xpos(i), dissipation_int(i)
-     ENDDO
-
-     DO r = 1, nproc - 1
-        CALL MPI_RECV(xpos, nx, real_type, r, 2000 + r, MPI_COMM_WORLD, status, ierr)
-        CALL MPI_RECV(dissipation_int, nx, real_type, r, 2000 + nproc + r, MPI_COMM_WORLD, status, &
-             ierr)
-
-        DO i = 1, nx
-           IF (xpos(i).LT.0._mytype) THEN
-              EXIT
-           ENDIF
-           WRITE(14, *) t, xpos(i), dissipation_int(i)
-        ENDDO
+        x = float(i + xstart(1) - 2) * dx
+        WRITE(14, *) t, x, ta1(i, 1, 1)
      ENDDO
 
      CLOSE(14)
-  ELSE
-     CALL MPI_SEND(xpos, nx, real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
-     CALL MPI_SEND(dissipation_int, nx, real_type, 0, 2000 + nproc + nrank, MPI_COMM_WORLD, ierr)
   ENDIF
 
   firstcall = .FALSE.
