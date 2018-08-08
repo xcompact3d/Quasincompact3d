@@ -1456,7 +1456,7 @@ SUBROUTINE track_front(ux1, rho1)
   
 ENDSUBROUTINE track_front
 
-SUBROUTINE track_front_height(rho1, rho2, rho3)
+SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
 
   USE param
   USE variables
@@ -1466,19 +1466,18 @@ SUBROUTINE track_front_height(rho1, rho2, rho3)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2, ta2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3, ta3
 
   REAL(mytype) :: face_area
 
   INTEGER :: i, j, k, r
 
-  INTEGER :: N, i0, rem, ctr
-  REAL(mytype), DIMENSION(nx) :: x, h
+  INTEGER :: N, i0, ie
+  REAL(mytype), DIMENSION(xsize(1)) :: h
+  REAL(mytype) :: x
   REAL(mytype) :: densr
-
-  INTEGER status(MPI_STATUS_SIZE)
-  INTEGER :: ierr
 
   LOGICAL :: file_exists
 
@@ -1502,69 +1501,47 @@ SUBROUTINE track_front_height(rho1, rho2, rho3)
 
   CALL transpose_z_to_y(rho3, rho2)
 
-  !! Now compute moving average of front height
+  !! Now compute the front height
   densr = MIN(dens1, dens2) / MAX(dens1, dens2)
-  x(:) = -1
-  h(:) = 0._mytype
-  N = 16 ! Averaging interval
+  ta2(:,:,:) = -densr
   DO j = 1, ysize(2)
-     i0 = 1
-     ctr = 1
-
      IF ((j.EQ.1).OR.(j.EQ.ysize(2))) THEN
         face_area = 0.5_mytype * dy
      ELSE
         face_area = dy
      ENDIF
-     
-     DO WHILE ((i0 + (N - 1)).LE.ysize(1))
-        IF (j.EQ.1) THEN
-           x(ctr) = 0._mytype
-           h(ctr) = -N * densr
-           DO i = i0, i0 + (N - 1)
-              x(ctr) = x(ctr) + (i + ystart(1) - 2) * dx
-           ENDDO
-           x(ctr) = x(ctr) / N
-        ENDIF
-        DO i = i0, i0 + (N - 1)
-           h(ctr) = h(ctr) + rho2(i, j, 1) * face_area
-        ENDDO
-        i0 = i0 + N
-        ctr = ctr + 1
+
+     DO i = 1, ysize(1)
+        ta2(i, 1, 1) = ta2(i, 1, 1) + rho2(i, j, 1) * face_area
      ENDDO
-
-     IF (i0.LE.ysize(1)) THEN !! We have more work to do!
-        rem = ysize(1) - i0
-        IF (j.EQ.1) THEN
-           x(ctr) = 0._mytype
-           h(ctr) = -(rem + 1) * densr
-           DO i = i0, ysize(1)
-              x(ctr) = x(ctr) + (i + ystart(1) - 2) * dx
-           ENDDO
-           x(ctr) = x(ctr) / (rem + 1)
-        ENDIF
-        DO i = i0, ysize(1)
-           h(ctr) = h(ctr) + rho2(i, j, 1) * face_area
+  ENDDO
+  DO k = 2, ysize(3)
+     DO j = 2, ysize(2)
+        DO i = 1, ysize(1)
+           ta2(i, 1, 1) = ta2(i, 1, 1) / (1._mytype - densr)
+           ta2(i, j, k) = ta2(i, 1, 1)
         ENDDO
-        ctr = ctr + 1
-     ENDIF
+     ENDDO
   ENDDO
-  ctr = ctr - 1 !! This is the number of points averaged over
 
-  DO i = 1, ctr - 1
-     h(i) = h(i) / N
-  ENDDO
-  rem = ysize(1) - N * (ctr - 1)
-  h(ctr) = h(ctr) / rem
+  !! Now compute moving average of front height
+  CALL transpose_y_to_x(ta2, ta1)
+  N = 16 ! Averaging interval
+  h(:) = 0._mytype
+  DO i = 1, xsize(1)
+     i0 = MAX((i - N / 2), 1)
+     ie = MIN((i + N / 2), xsize(1))
+     DO j = i0, ie
+        h(i) = h(i) + ta1(j, 1, 1)
+     ENDDO
+     h(i) = h(i) / float(ie - i0 + 1)
 
-  h(:) = h(:) / (1._mytype - densr)
-
-  !! Cleanup
-  DO i = 1, ctr
+     !! Clean data
      h(i) = MIN(h(i), yly)
      h(i) = MAX(h(i), 0._mytype)
   ENDDO
 
+  !! Write data
   IF (nrank.EQ.0) THEN
      !! Open datafile
      INQUIRE(FILE="FRONTHEIGHT.log", EXIST=file_exists)
@@ -1575,29 +1552,12 @@ SUBROUTINE track_front_height(rho1, rho2, rho3)
         WRITE(12, *) "TIME X H"
      ENDIF
      
-     !! First print out your own data
-     DO i = 1, ctr
-        WRITE(12, *) t, x(i), h(i)
-     ENDDO
-     
-     !! Listen for data from others and print it out too
-     DO r = 1, nproc - 1
-        CALL MPI_RECV(x, nx, real_type, r, 1000 + r, MPI_COMM_WORLD, status, ierr)
-        CALL MPI_RECV(h, nx, real_type, r, 1000 + nproc + r, MPI_COMM_WORLD, status, ierr)
-
-        DO i = 1, nx
-           IF (x(i).LT.0._mytype) THEN
-              EXIT
-           ENDIF
-           WRITE(12, *) t, x(i), h(i)
-        ENDDO
+     DO i = 1, xsize(1)
+        x = float(i + xstart(1) - 2) * dx
+        WRITE(12, *) t, x, h(i)
      ENDDO
      
      CLOSE(12)
-  ELSE
-     !! Send data back to rank 0
-     CALL MPI_SEND(x, nx, real_type, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
-     CALL MPI_SEND(h, nx, real_type, 0, 1000 + nproc + nrank, MPI_COMM_WORLD, ierr)
   ENDIF
   
 ENDSUBROUTINE track_front_height
