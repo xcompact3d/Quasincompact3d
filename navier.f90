@@ -2837,7 +2837,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
 
      IF (dims(2).EQ.1) THEN
         k = 1
-        DO k = 1, xsize(2)
+        DO j = 1, xsize(2)
            DO i = 1, xsize(1)
               tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
            ENDDO
@@ -2851,7 +2851,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
      ELSE
         IF (xstart(3).EQ.1) THEN
            k = 1
-           DO k = 1, xsize(2)
+           DO j = 1, xsize(2)
               DO i = 1, xsize(1)
                  tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
               ENDDO
