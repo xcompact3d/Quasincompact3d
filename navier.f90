@@ -2025,6 +2025,12 @@ SUBROUTINE birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, ta2, tb2, di
 
   invpe = xnu / sc
 
+  IF ((nscheme.NE.1).AND.(nscheme.NE.4)) THEN
+     IF (nrank.EQ.0) THEN
+        PRINT *, "To apply birman correction must use AB2 or AB3 (nscheme=1,4)"
+        STOP
+     ENDIF
+  ENDIF
   CALL transpose_x_to_y(rho1, rho2)
   CALL transpose_y_to_z(rho2, rho3)
 
