@@ -204,7 +204,8 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, rhos001, rhos0001, &
+       drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
 
   REAL(mytype) :: udenslim, ldenslim
@@ -245,26 +246,35 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
     ENDIF
     STOP
   ELSE
-    !! AB3
-    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
-      IF (nrank.EQ.0) THEN
-        PRINT  *, 'start with Euler', itime
-      ENDIF
-      rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
-    ELSE
-      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
-        IF (nrank.EQ.0) THEN
-          PRINT *, 'then with AB2', itime
-        ENDIF
-        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
-      ELSE
-        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
-             * rhoss1(:,:,:)
-      ENDIF
+     !! AB3
 
-      !! Update oldold stage
-      rhoss1(:,:,:) = rhos1(:,:,:)
-    ENDIF
+     IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+           PRINT  *, 'start with Euler', itime
+        ENDIF
+        rhos01(:,:,:) = rho1(:,:,:)
+        
+        !! Compute new rho
+        rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
+     ELSE
+        IF ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+           IF (nrank.EQ.0) THEN
+              PRINT *, 'then with AB2', itime
+           ENDIF
+           rhos001(:,:,:) = rhos01(:,:,:)
+           rhos01(:,:,:) = rho1(:,:,:)
+           rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
+        ELSE
+           rhos0001(:,:,:) = rhos001(:,:,:)
+           rhos001(:,:,:) = rhos01(:,:,:)
+           rhos01(:,:,:) = rho1(:,:,:)
+           rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
+                * rhoss1(:,:,:)
+        ENDIF
+        
+        !! Update oldold stage
+        rhoss1(:,:,:) = rhos1(:,:,:)
+     ENDIF
   ENDIF
 
   !! Update old stage
@@ -1908,7 +1918,7 @@ end subroutine divergence
 !              equation at time k+1.
 !        NOTE: All input and output in X-pencils.
 !********************************************************************
-SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
+SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, rhos0001, drhodt1)
 
   USE param
   USE decomp_2d
@@ -1916,12 +1926,16 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, rhos001, &
+       rhos0001, drhodt1
+  REAL(mytype) :: invdt, one_sixth
   INTEGER :: subitr
 
   INTEGER :: ijk, nxyz
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
+  invdt = 1._mytype / dt
+  one_sixth = 1._mytype / 6._mytype
 
   IF (nscheme.EQ.1) THEN
      !! AB2
@@ -1933,7 +1947,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
         drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
      ENDIF
 
-     drhodt1(:,:,:) = drhodt1(:,:,:) / dt
+     drhodt1(:,:,:) = drhodt1(:,:,:) * invdt
   ELSE IF (nscheme.EQ.2) THEN
      !! RK3
 
@@ -1957,7 +1971,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
                  ! Based on testing, it appears Golanski2005 made a typo,
                  ! their expression would use gdt(itr) not gdt(subitr)
                  drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
-                      + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
+                      + (gdt(subitr) * invdt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
               ENDDO ! End loop over subitr
            ENDDO ! End loop over ijk
         ELSE
@@ -1968,9 +1982,26 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
            ! drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:) / gdt(itr) ! drhodt1 stores -rho^k
         ENDIF
      ENDIF
+  ELSE IF (nscheme.EQ.4) THEN
+     !! AB3
+     IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+        !! First-order
+        drhodt1(:,:,:) = rho1(:,:,:) - rhos01(:,:,:)
+     ELSE IF ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        !! Second-order
+        drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhos01(:,:,:) + rhos001(:,:,:)
+        drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
+     ELSE
+        !! Third-order
+        drhodt1(:,:,:) = 11._mytype * rho1(:,:,:) - 18._mytype * rhos01(:,:,:) &
+             + 9._mytype * rhos001(:,:,:) - 2._mytype * rhos0001(:,:,:)
+        drhodt1(:,:,:) = one_sixth * drhodt1(:,:,:)
+     ENDIF
+
+     drhodt1(:,:,:) = drhodt1(:,:,:) * invdt
   ELSE
      IF (nrank.EQ.0) THEN
-        PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
+        PRINT *, "Extrapolating drhodt only implemented for AB2, AB3 and RK3 (nscheme = 0,1)"
         STOP
      ENDIF
   ENDIF
@@ -2337,7 +2368,7 @@ ENDSUBROUTINE divergence_corr
 !              1/rho nabla^2(p) - div( 1/rho grad(p) )
 !********************************************************************
 SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
-     rhos1, rhoss1, rhos01, drhodt1, &
+     rhos1, rhoss1, rhos01, rhos001, rhos0001, drhodt1, &
      td2, te2, tf2, di2, ta2, tb2, tc2, &
      ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
      nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
@@ -2356,7 +2387,8 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   TYPE(DECOMP_INFO) :: ph1, ph3, ph4
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, rhos01
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, &
+       rhos01, rhos001, rhos0001
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: momx1, momy1, momz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
@@ -2386,7 +2418,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   momx1(:,:,:) = rho1(:,:,:) * ux1(:,:,:)
   momy1(:,:,:) = rho1(:,:,:) * uy1(:,:,:)
   momz1(:,:,:) = rho1(:,:,:) * uz1(:,:,:)
-  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,rhos0001,drhodt1)
   CALL divergence (momx1, momy1, momz1, ep1, ta1, tb1, tc1, di1, td1, te1, tf1, drhodt1, &
        td2, te2, tf2, di2, ta2, tb2, tc2, &
        ta3, tb3, tc3, di3, td3, te3, tf3, divu3, pp3corr, &

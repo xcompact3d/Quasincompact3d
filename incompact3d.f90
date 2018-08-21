@@ -266,7 +266,7 @@ PROGRAM incompact3d
       if (ilmn.ne.0) then
         !! Update density
         if (isolvetemp.eq.0) then
-          call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
+          call inttdensity(rho1,rhos1,rhoss1,rhos01,rhos001,rhos0001,tg1,drhodt1)
 
           ! Update temperature using EOS
           call calctemp_eos(temperature1, rho1, massfrac1, pressure0, xsize)
@@ -279,7 +279,7 @@ PROGRAM incompact3d
 
         if (ivarcoeff.eq.0) then
            !! Predict drhodt at new timestep
-           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,rhos0001,drhodt1)
            
            ! !! Apply Birman correction
            ! call birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, &
@@ -368,7 +368,7 @@ PROGRAM incompact3d
                ! else
                !   !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
                !   call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
-               !        di1, rhos1, rhoss1, rhos01, drhodt1, &
+               !        di1, rhos1, rhoss1, rhos01, rhos001, rhos0001, drhodt1, &
                !        td2, te2, tf2, di2, ta2, tb2, tc2, &
                !        ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
                !        nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
