@@ -204,8 +204,7 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, rhos001, rhos0001, &
-       drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, rhos001, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
 
   REAL(mytype) :: udenslim, ldenslim
@@ -265,7 +264,8 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
            rhos01(:,:,:) = rho1(:,:,:)
            rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
         ELSE
-           rhos0001(:,:,:) = rhos001(:,:,:)
+           !! Third-order
+           drhodt1(:,:,:) = rhos001(:,:,:)
            rhos001(:,:,:) = rhos01(:,:,:)
            rhos01(:,:,:) = rho1(:,:,:)
            rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
@@ -1918,7 +1918,7 @@ end subroutine divergence
 !              equation at time k+1.
 !        NOTE: All input and output in X-pencils.
 !********************************************************************
-SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, rhos0001, drhodt1)
+SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, drhodt1)
 
   USE param
   USE decomp_2d
@@ -1927,7 +1927,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, rhos0001, drh
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, rhos001, &
-       rhos0001, drhodt1
+       drhodt1
   REAL(mytype) :: invdt, one_sixth
   INTEGER :: subitr
 
@@ -1994,7 +1994,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, rhos0001, drh
      ELSE
         !! Third-order
         drhodt1(:,:,:) = 11._mytype * rho1(:,:,:) - 18._mytype * rhos01(:,:,:) &
-             + 9._mytype * rhos001(:,:,:) - 2._mytype * rhos0001(:,:,:)
+             + 9._mytype * rhos001(:,:,:) - 2._mytype * drhodt1(:,:,:)
         drhodt1(:,:,:) = one_sixth * drhodt1(:,:,:)
      ENDIF
 
@@ -2374,7 +2374,7 @@ ENDSUBROUTINE divergence_corr
 !              1/rho nabla^2(p) - div( 1/rho grad(p) )
 !********************************************************************
 SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
-     rhos1, rhoss1, rhos01, rhos001, rhos0001, drhodt1, &
+     rhos1, rhoss1, rhos01, rhos001, drhodt1, &
      td2, te2, tf2, di2, ta2, tb2, tc2, &
      ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
      nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
@@ -2394,7 +2394,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, &
-       rhos01, rhos001, rhos0001
+       rhos01, rhos001
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: momx1, momy1, momz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
@@ -2424,7 +2424,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   momx1(:,:,:) = rho1(:,:,:) * ux1(:,:,:)
   momy1(:,:,:) = rho1(:,:,:) * uy1(:,:,:)
   momz1(:,:,:) = rho1(:,:,:) * uz1(:,:,:)
-  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,rhos0001,drhodt1)
+  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,drhodt1)
   CALL divergence (momx1, momy1, momz1, ep1, ta1, tb1, tc1, di1, td1, te1, tf1, drhodt1, &
        td2, te2, tf2, di2, ta2, tb2, tc2, &
        ta3, tb3, tc3, di3, td3, te3, tf3, divu3, pp3corr, &
