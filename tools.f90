@@ -1834,7 +1834,7 @@ SUBROUTINE force_variable_2d(ta1, ta2, ta3)
   
 ENDSUBROUTINE force_variable_2d
 
-SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
+SUBROUTINE calc_sedimentation(rho1, D1, rho2, D2, rho3, D3)
 
   USE param
   USE variables
@@ -1844,20 +1844,17 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2
-  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3
-  REAL(mytype), DIMENSION(nx) :: D, Dtmp, xarr, xtmp
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: D1
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: rho2, D2
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)) :: rho3, D3
 
-  REAL(mytype) :: us, c, mdot, mdotglob
+  REAL(mytype) :: us, mdot, mdotglob
   REAL(mytype) :: rhomax, rhomin, gamma
-  REAL(mytype) :: x, z
+  REAL(mytype) :: x, deltax, deltaz
 
   INTEGER :: i, j, k, r
 
-  INTEGER status(MPI_STATUS_SIZE)
   INTEGER :: ierr
-  INTEGER, DIMENSION(2) :: dims, dummy_coords
-  LOGICAL, DIMENSION(2) :: dummy_periods
 
   LOGICAL :: file_exists
 
@@ -1867,95 +1864,95 @@ SUBROUTINE calc_sedimentation(rho1, rho2, rho3)
   rhomin = MIN(dens1, dens2)
   gamma = rhomax / rhomin
 
+  !! First, get just the first y-layer (it's all we're interested in)
   CALL transpose_x_to_y(rho1, rho2)
-  CALL transpose_y_to_z(rho2, rho3)
-  
-  CALL MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
 
-  mdot = 0._mytype
-  D(:) = 0._mytype
-  xarr(:) = 0._mytype
-  
-  j = 1
-  IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
-     DO k = 1, zsize(3)
-        z = float(k + zstart(3) - 2) * dz
-        DO i = 1, zsize(1)
-           x = float(i + zstart(1) - 2) * dx
-           xarr(i) = x
-           
-           c = ((rho3(i, j, k) / rhomin) - 1._mytype) / (gamma - 1._mytype)
-
-           D(i) = D(i) + c * us * dz
-        ENDDO
-     ENDDO
-  ENDIF
-
-  DO i = 1, zsize(1)
-     mdot = mdot + D(i) * dx
+  DO j = 2, ysize(2)
+     rho2(:,j,:) = rho2(:,1,:)
   ENDDO
 
-  mdot = mdot / (xlx * zlz)
-  D(:) = D(:) / zlz
+  !! Move to z and compute deposition
+  CALL transpose_y_to_z(rho2, rho3)
+
+  DO k = 1, zsize(3)
+     IF (nclz.EQ.0) THEN
+        deltaz = dz
+     ELSE
+        IF (k.EQ.zsize(3)) THEN
+           deltaz = 0.5_mytype * dz
+        ELSE
+           deltaz = dz
+        ENDIF
+     ENDIF
+
+     D3(:,:,k) = (((rho3(:,:,k) / rhomin) - 1._mytype) / (gamma - 1._mytype)) * us * deltaz
+  ENDDO
+
+  CALL transpose_z_to_y(D3, D2)
+  CALL transpose_y_to_x(D2, D1)
+
+  !! Compute sedimentation rate
+  mdot = 0._mytype
+  j = 1
+  DO k = 1, xsize(3)
+     DO i = 1, xsize(1)
+        IF (nclx.EQ.0) THEN
+           deltax = dx
+        ELSE
+           IF ((i.EQ.1).OR.(i.EQ.xsize(1))) THEN
+              deltax = 0.5_mytype * dx
+           ELSE
+              deltax = dx
+           ENDIF
+        ENDIF
+
+        mdot = mdot + D1(i, j, k) * deltax
+     ENDDO
+  ENDDO
 
   CALL MPI_ALLREDUCE(mdot, mdotglob, 1, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  IF (nrank.EQ.0) THEN
-     IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
-        i = zsize(1)
-     ELSE
-        i = 0
-     ENDIF
+  mdot = mdotglob / (xlx * zlz)
 
-     DO r = 1, nproc - 1
-        !! Does procr have info?
-        CALL MPI_RECV(j, 1, MPI_INTEGER, r, 1000 + r, MPI_COMM_WORLD, status, ierr)
-        
-        !! If so, get that info
-        IF (j.GT.0) THEN
-           CALL MPI_RECV(Dtmp, j, real_type, r, 2000 + r, MPI_COMM_WORLD, status, ierr)
-           CALL MPI_RECV(xtmp, j, real_type, r, 3000 + r, MPI_COMM_WORLD, status, ierr)
-           DO k = 1, j
-              D(i + k) = Dtmp(k)
-              xarr(i + k) = xtmp(k)
-           ENDDO
-           i = i + j
-        ENDIF
-     ENDDO
-     
+  !! We also want to know the deposition profile in x
+  !  First need to average the deposition in z
+  DO k = 2, zsize(3)
+     D3(:,:,1) = D3(:,:,1) + D3(:,:,k)
+  ENDDO
+  D3(:,:,1) = D3(:,:,1) / zlz
+  DO k = 2, zsize(3)
+     D3(:,:,k) = D3(:,:,1)
+  ENDDO
+
+  CALL transpose_z_to_y(D3, D2)
+  CALL transpose_y_to_z(D2, D1)
+
+  IF (nrank.EQ.0) THEN
      !! Write data to file
      INQUIRE(FILE="ms.log", EXIST=file_exists)
      IF (file_exists.EQV..TRUE.) THEN
         OPEN(20, FILE="ms.log", STATUS="old", ACTION="write", POSITION="append")
      ELSE
         OPEN(20, FILE="ms.log", STATUS="new", ACTION="write")
-        WRITE(20, *) "| ITIME | ms |"
+        WRITE(20, *) "ITIME ms"
      ENDIF
-     WRITE(20, *) itime, mdotglob
+     WRITE(20, *) itime, mdot
      CLOSE(20)
-     
-     INQUIRE(FILE="deposit.log", EXIST=file_exists)
-     IF (file_exists.EQV..TRUE.) THEN
-        OPEN(21, FILE="deposit.log", STATUS="old", ACTION="write", POSITION="append")
-     ELSE
-        OPEN(21, FILE="deposit.log", STATUS="new", ACTION="write")
-        WRITE(21, *) "| ITIME | x | deposit |"
-     ENDIF
-     DO i = 1, nx
-        WRITE(21, *) itime, xarr(i), D(i)
-     ENDDO
-     CLOSE(21)
-  ELSE
-     IF ((dims(1).EQ.1).OR.(zstart(2).EQ.1)) THEN
-        !! Tell proc0 we have info
-        CALL MPI_SEND(zsize(1), 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
-        
-        !! Send D array to proc0
-        CALL MPI_SEND(D, zsize(1), real_type, 0, 2000 + nrank, MPI_COMM_WORLD, ierr)
-        CALL MPI_SEND(xarr, zsize(1), real_type, 0, 3000 + nrank, MPI_COMM_WORLD, ierr)
-     ELSE
-        !! Tell proc0 we have no info
-        CALL MPI_SEND(0, 1, MPI_INTEGER, 0, 1000 + nrank, MPI_COMM_WORLD, ierr)
+
+
+     IF (MOD(itime, imodulo).EQ.0) THEN
+        INQUIRE(FILE="deposit.log", EXIST=file_exists)
+        IF (file_exists.EQV..TRUE.) THEN
+           OPEN(21, FILE="deposit.log", STATUS="old", ACTION="write", POSITION="append")
+        ELSE
+           OPEN(21, FILE="deposit.log", STATUS="new", ACTION="write")
+           WRITE(21, *) "ITIME x deposit"
+        ENDIF
+        DO i = 1, xsize(1)
+           x = float(i + xstart(1) - 2) * dx
+           WRITE(21, *) itime, x, D1(i, 1, 1)
+        ENDDO
+        CLOSE(21)
      ENDIF
   ENDIF
   
