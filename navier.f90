@@ -34,7 +34,7 @@
 !
 ! 
 !********************************************************************
-subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
+subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,td1,rho)
 
   USE param
   USE variables
@@ -47,25 +47,33 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx,gy,gz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx,hy,hz
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1
+  real(mytype) :: rhoc
 
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
+  td1(:,:,:) = 1._mytype
   if (ilmn.ne.0) then
-    !! First, convert velocity to momentum
-    if (iskew.ne.2) then
-      !! Rotational form or Quasi skew-symmetric
-      do ijk = 1, nxyz
-        ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
-        uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
-        uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
-      enddo
-    else
-      !! Skew-symmetric
-      ux(:,:,:) = SQRT(rho(:,:,:)) * ux(:,:,:)
-      uy(:,:,:) = SQRT(rho(:,:,:)) * uy(:,:,:)
-      uz(:,:,:) = SQRT(rho(:,:,:)) * uz(:,:,:)
-    endif
+     !! First, convert velocity to momentum
+     if (iskew.ne.2) then
+        !! Rotational form or Quasi skew-symmetric
+        do ijk = 1, nxyz
+           rhoc = rho(ijk, 1, 1)
+           ux(ijk, 1, 1) = rhoc * ux(ijk, 1, 1)
+           uy(ijk, 1, 1) = rhoc * uy(ijk, 1, 1)
+           uz(ijk, 1, 1) = rhoc * uz(ijk, 1, 1)
+        enddo
+     else
+        !! Skew-symmetric
+        do ijk = 1, nxyz
+           rhoc = SQRT(rho(ijk, 1, 1))
+           ux(ijk, 1, 1) = rhoc * ux(ijk, 1, 1)
+           uy(ijk, 1, 1) = rhoc * uy(ijk, 1, 1)
+           uz(ijk, 1, 1) = rhoc * uz(ijk, 1, 1)
+           
+           td1(ijk, 1, 1) = 1._mytype / rhoc
+        enddo
+     endif
   endif
 
   if ((nscheme.eq.1).or.(nscheme.eq.2)) then
@@ -74,9 +82,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
     if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
          (nscheme.eq.2.and.itr.eq.1)) then
       do ijk=1,nxyz
-        ux(ijk,1,1)=gdt(itr)*ta1(ijk,1,1)+ux(ijk,1,1)
-        uy(ijk,1,1)=gdt(itr)*tb1(ijk,1,1)+uy(ijk,1,1) 
-        uz(ijk,1,1)=gdt(itr)*tc1(ijk,1,1)+uz(ijk,1,1)
+        ux(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*ta1(ijk,1,1)+ux(ijk,1,1)
+        uy(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*tb1(ijk,1,1)+uy(ijk,1,1) 
+        uz(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*tc1(ijk,1,1)+uz(ijk,1,1)
         gx(ijk,1,1)=ta1(ijk,1,1)
         gy(ijk,1,1)=tb1(ijk,1,1)
         gz(ijk,1,1)=tc1(ijk,1,1)            
@@ -84,17 +92,17 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
     else
       if (nz.gt.1) then
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+uy(ijk,1,1)   
-          uz(ijk,1,1)=adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1))+uy(ijk,1,1)   
+          uz(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1))+uz(ijk,1,1)
           gx(ijk,1,1)=ta1(ijk,1,1)
           gy(ijk,1,1)=tb1(ijk,1,1)
           gz(ijk,1,1)=tc1(ijk,1,1)            
         enddo
       else !! End is 3D
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+uy(ijk,1,1)   
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1))+uy(ijk,1,1)   
           gx(ijk,1,1)=ta1(ijk,1,1)
           gy(ijk,1,1)=tb1(ijk,1,1)
         enddo
@@ -117,9 +125,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       endif
       do ijk=1,nxyz
-        ux(ijk,1,1)=ux(ijk,1,1)+bdt(itr)*gx(ijk,1,1)
-        uy(ijk,1,1)=uy(ijk,1,1)+bdt(itr)*gy(ijk,1,1)
-        uz(ijk,1,1)=uz(ijk,1,1)+bdt(itr)*gz(ijk,1,1)
+        ux(ijk,1,1)=ux(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gx(ijk,1,1)
+        uy(ijk,1,1)=uy(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gy(ijk,1,1)
+        uz(ijk,1,1)=uz(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gz(ijk,1,1)
       enddo
     else
       ! if (adt(itr)==0._mytype) then
@@ -135,8 +143,8 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       endif
       do ijk=1,nxyz
-        ux(ijk,1,1)=ux(ijk,1,1)+bdt(itr)*gx(ijk,1,1)
-        uy(ijk,1,1)=uy(ijk,1,1)+bdt(itr)*gy(ijk,1,1)
+        ux(ijk,1,1)=ux(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gx(ijk,1,1)
+        uy(ijk,1,1)=uy(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gy(ijk,1,1)
       enddo
     endif
   else if (nscheme==4) then
@@ -146,9 +154,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
       endif
 
       do ijk=1,nxyz !start with Euler
-        ux(ijk,1,1)=dt*ta1(ijk,1,1)+ux(ijk,1,1)
-        uy(ijk,1,1)=dt*tb1(ijk,1,1)+uy(ijk,1,1) 
-        uz(ijk,1,1)=dt*tc1(ijk,1,1)+uz(ijk,1,1)
+        ux(ijk,1,1)=td1(ijk,1,1)*dt*ta1(ijk,1,1)+ux(ijk,1,1)
+        uy(ijk,1,1)=td1(ijk,1,1)*dt*tb1(ijk,1,1)+uy(ijk,1,1) 
+        uz(ijk,1,1)=td1(ijk,1,1)*dt*tc1(ijk,1,1)+uz(ijk,1,1)
         gx(ijk,1,1)=ta1(ijk,1,1)
         gy(ijk,1,1)=tb1(ijk,1,1)
         gz(ijk,1,1)=tc1(ijk,1,1)            
@@ -160,9 +168,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         endif
         
         do ijk=1,nxyz
-          ux(ijk,1,1)=1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=1.5_mytype*dt*tb1(ijk,1,1)-0.5_mytype*dt*gy(ijk,1,1)+uy(ijk,1,1)
-          uz(ijk,1,1)=1.5_mytype*dt*tc1(ijk,1,1)-0.5_mytype*dt*gz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*tb1(ijk,1,1)-0.5_mytype*dt*gy(ijk,1,1))+uy(ijk,1,1)
+          uz(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*tc1(ijk,1,1)-0.5_mytype*dt*gz(ijk,1,1))+uz(ijk,1,1)
           hx(ijk,1,1)=gx(ijk,1,1)
           hy(ijk,1,1)=gy(ijk,1,1)
           hz(ijk,1,1)=gz(ijk,1,1)
@@ -172,12 +180,12 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       else
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+&
-               cdt(itr)*hx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+&
-               cdt(itr)*hy(ijk,1,1)+uy(ijk,1,1)
-          uz(ijk,1,1)=adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+&
-               cdt(itr)*hz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+&
+               cdt(itr)*hx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+&
+               cdt(itr)*hy(ijk,1,1))+uy(ijk,1,1)
+          uz(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+&
+               cdt(itr)*hz(ijk,1,1))+uz(ijk,1,1)
           hx(ijk,1,1)=gx(ijk,1,1)
           hy(ijk,1,1)=gy(ijk,1,1)
           hz(ijk,1,1)=gz(ijk,1,1)
@@ -1893,15 +1901,21 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
         print *,'ERR DIV U final Min=',tmin1
         print *,'ERR DIV U final Moy=',tmoy1/real(nproc)
       else
-        if ((ilmn.eq.0).or.((ivarcoeff.ne.0).and.(nlock.ne.3))) then
-          print *,'ERR DIV U* Max=',tmax1
-          print *,'ERR DIV U* Min=',tmin1
-          print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
-        else 
-          print *,'ERR DIV (RHO U)* Max=',tmax1
-          print *,'ERR DIV (RHO U)* Min=',tmin1
-          print *,'ERR DIV (RHO U)* Moy=',tmoy1/real(nproc)
-        endif
+         if ((ilmn.eq.0).or.((ivarcoeff.ne.0).and.(nlock.ne.3))) then
+            print *,'ERR DIV U* Max=',tmax1
+            print *,'ERR DIV U* Min=',tmin1
+            print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
+         else
+            if (iskew.ne.2) then
+               print *,'ERR DIV (RHO U)* Max=',tmax1
+               print *,'ERR DIV (RHO U)* Min=',tmin1
+               print *,'ERR DIV (RHO U)* Moy=',tmoy1/real(nproc)
+            else
+               print *,'ERR DIV (SQRT(RHO) U)* Max=',tmax1
+               print *,'ERR DIV (SQRT(RHO) U)* Min=',tmin1
+               print *,'ERR DIV (SQRT(RHO) U)* Moy=',tmoy1/real(nproc)
+            endif
+         endif
       endif
     endif
   endif
@@ -2007,6 +2021,29 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, drhodt1)
   ENDIF
 
 ENDSUBROUTINE extrapol_rhotrans
+
+SUBROUTINE rhotrans_skewsymm(drhodt1, rho1)
+
+  USE param
+  USE decomp_2d
+  USE variables
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+  
+  IF (iskew.EQ.2) THEN
+     !! Properly skew-symmetric, need to know div(sqrt(rho) u)
+     DO ijk = 1, nxyz
+        drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) / (2._mytype * SQRT(rho1(ijk, 1, 1)))
+     ENDDO
+  ENDIF
+ENDSUBROUTINE rhotrans_skewsymm
 
 SUBROUTINE birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, ta2, tb2, di2, rho3, ta3, di3)
 

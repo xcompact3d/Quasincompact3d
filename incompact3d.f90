@@ -257,7 +257,7 @@ PROGRAM incompact3d
       endif
 
       !X PENCILS
-      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,rho1)
+      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,td1,rho1)
 
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
@@ -285,6 +285,8 @@ PROGRAM incompact3d
            ! call birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, &
            !      ta2, tb2, di2, &
            !      rho3, ta3, di3)
+
+           call rhotrans_skewsymm(drhodt1, rho1)
         endif
       endif
 
