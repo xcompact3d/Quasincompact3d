@@ -485,7 +485,7 @@ PROGRAM incompact3d
     ! CALL eval_error_rho(rho1)
     ! CALL eval_error_vel(ux1,uy1,uz1)
 
-    ! IF (MOD(itime, 10).EQ.0) THEN
+    ! IF ((MOD(itime, 10).EQ.0).OR.(MOD(itime, imodulo).EQ.0)) THEN
     !    CALL track_front(ux1, rho1)
     !    CALL track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
     !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, &
