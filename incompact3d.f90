@@ -169,6 +169,12 @@ PROGRAM incompact3d
 1001  format('Time step =',i7,', Time unit =',F9.3)
     endif
 
+    ! call force_variable_2d(ux1, ta2, ta3)
+    ! call force_variable_2d(uy1, ta2, ta3)
+    ! call force_variable_2d(uz1, ta2, ta3)
+
+    ! call force_variable_2d(rho1, ta2, ta3)
+    
     do itr=1,iadvance_time
       
       !-----------------------------------------------------------------------------------
