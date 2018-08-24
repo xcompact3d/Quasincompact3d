@@ -203,7 +203,7 @@ end subroutine intt
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, rhos001, tg1, drhodt1)
 
   USE param
   USE variables
