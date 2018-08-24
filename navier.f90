@@ -1170,7 +1170,7 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
               ! rho1(i, j, k) = rho1(i, j + 1, k)
 
               !! Sedimenting
-              rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j + 1, k))
+              rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
               rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
               rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
            ENDDO
@@ -1190,7 +1190,7 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
                  ! rho1(i, j, k) = rho1(i, j + 1, k)
 
                  !! Sedimenting
-                 rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j, k) - rho1(i, j + 1, k))
+                 rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
                  rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
                  rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
               ENDDO
