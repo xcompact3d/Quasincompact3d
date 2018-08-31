@@ -1022,7 +1022,7 @@ SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfra
   ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
   
   if (isolvetemp.ne.0) then
-     call eval_densitycoeffs(rho1,massfrac1,ta1,rhos1,rhoss1,rhos01,drhodt1,1)
+     call eval_densitycoeffs(rho1,massfrac1,ta1,rhos1,rhoss1,rhos01,drhodt1,0)
   endif
 
   !! Integrate in time
