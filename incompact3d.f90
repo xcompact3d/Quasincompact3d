@@ -173,7 +173,14 @@ PROGRAM incompact3d
     ! call force_variable_2d(uy1, ta2, ta3)
     ! call force_variable_2d(uz1, ta2, ta3)
 
-    ! call force_variable_2d(rho1, ta2, ta3)
+    ! if (isolvetemp.eq.0) then
+    !    call force_variable_2d(rho1, ta2, ta3)
+    ! else
+    !    call force_variable_2d(temperature1, ta2, ta3)
+    ! endif
+    ! if (imulticomponent.ne.0) then
+    !    call force_variable_2d(massfrac1, ta2, ta3)
+    ! endif
     
     do itr=1,iadvance_time
       
