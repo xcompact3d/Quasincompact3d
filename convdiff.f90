@@ -950,7 +950,8 @@ ENDSUBROUTINE convdiff_temperature
 
 SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfracss1, ta1, tb1, tc1, di1, &
      uy2, uz2, rho2, massfrac2, ta2, tb2, tc2, di2, &
-     uz3, rho3, massfrac3, ta3, tb3, tc3, di3)
+     uz3, rho3, massfrac3, ta3, tb3, tc3, di3, &
+     rhos1, rhoss1, rhos01, drhodt1)
 
   USE param
   USE variables
@@ -961,6 +962,7 @@ SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfra
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: massfrac1, massfracs1, massfracss1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos1, rhoss1, rhos01, drhodt1
   
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2, rho2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: massfrac2
@@ -1018,6 +1020,10 @@ SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfra
   ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
   CALL transpose_y_to_x(ta2, tb1)
   ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
+  
+  if (isolvetemp.ne.0) then
+     call eval_densitycoeffs(rho1,massfrac1,ta1,rhos1,rhoss1,rhos01,drhodt1,1)
+  endif
 
   !! Integrate in time
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN

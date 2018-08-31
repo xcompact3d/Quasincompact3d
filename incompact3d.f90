@@ -226,7 +226,8 @@ PROGRAM incompact3d
       if (imulticomponent.ne.0) then
         call convdiff_massfrac(ux1,uy1,uz1,rho1,massfrac1,massfracs1,massfracss1,tg1,th1,ti1,di1,&
              uy2,uz2,rho2,massfrac2,ta2,tb2,tc2,di2,&
-             uz3,rho3,massfrac3,ta3,tb3,tc3,di3)
+             uz3,rho3,massfrac3,ta3,tb3,tc3,di3,&
+             rhos1,rhoss1,rhos01,drhodt1)
       endif
 
       if (iscalar.eq.1) then
@@ -254,7 +255,7 @@ PROGRAM incompact3d
             call convdiff_temperature(ux1,uy1,uz1,rho1,temperature1,di1,tg1,th1,&
                  uy2,uz2,rho2,temperature2,di2,ta2,tb2,&
                  uz3,rho3,temperature3,di3,ta3,tb3)
-            call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1)
+            call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1,1)
             call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
          endif
       endif

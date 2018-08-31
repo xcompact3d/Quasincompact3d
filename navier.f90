@@ -301,7 +301,7 @@ ENDSUBROUTINE inttdensity
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE eval_densitycoeffs(rho1, temperature1, ta1, rhos1, rhoss1, rhos01, drhodt1)
+SUBROUTINE eval_densitycoeffs(rho1, var1, ta1, rhos1, rhoss1, rhos01, drhodt1, ivar)
 
   USE param
   USE variables
@@ -309,48 +309,93 @@ SUBROUTINE eval_densitycoeffs(rho1, temperature1, ta1, rhos1, rhoss1, rhos01, dr
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, temperature1, ta1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, var1, ta1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos1, rhoss1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos01, drhodt1
+
+  REAL(mytype) :: wbar
   
+  INTEGER :: ivar ! ivar = 0: massfrac; ivar = 1: temperature 
   INTEGER :: ijk, nxyz
+  LOGICAL :: firstcall
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
-  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
-    !! AB2 or RK3
-
-    ! First store -rho1 in drhodt1 incase we use simple extrapolation
-    drhodt1(:,:,:) = -rho1(:,:,:)
-
-    IF (nscheme.EQ.1) THEN
-      !! AB2
-      rhos01(:,:,:) = rhoss1(:,:,:)
-      rhoss1(:,:,:) = rho1(:,:,:)
-    ELSE IF (itr.EQ.1) THEN
-      !! RK3, first iteration
-      rhos01(:,:,:) = rhoss1(:,:,:)
-      rhoss1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
-    ENDIF
-  ELSE IF (nscheme.EQ.3) THEN
-    !! RK4
-    !! XXX Not implemented!
-    IF (nrank.EQ.0) THEN
-      PRINT  *, 'LMN: RK4 not ready'
-      STOP
-    ENDIF
+  IF (MIN(ivar, imulticomponent).EQ.0) THEN
+     firstcall = .TRUE.
   ELSE
-    !! AB3
-    !! XXX Not implemented
-    IF (nrank.EQ.0) THEN
-      PRINT  *, 'LMN: AB3 not ready'
-      STOP
-    ENDIF
+     firstcall = .FALSE.
   ENDIF
 
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+     !! AB2 or RK3
+     
+     ! First store -rho1 in drhodt1 incase we use simple extrapolation
+     IF (firstcall) THEN
+        drhodt1(:,:,:) = -rho1(:,:,:)
+     ENDIF
+     
+     IF (nscheme.EQ.1) THEN
+        !! AB2
+        IF (firstcall) THEN
+           rhos01(:,:,:) = rhoss1(:,:,:)
+           rhoss1(:,:,:) = rho1(:,:,:)
+        ENDIF
+     ELSE IF (itr.EQ.1) THEN
+        !! RK3, first iteration
+
+        IF (firstcall) THEN
+           rhos01(:,:,:) = rhoss1(:,:,:)
+        ENDIF
+
+        IF (ivar.EQ.0) THEN
+           !! Massfrac
+           DO ijk = 1, nxyz
+              wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
+              wbar = 1._mytype / wbar
+              rhoss1(:,:,:) = -(rho1(ijk, 1, 1) * wbar) * ta1(:,:,:)
+           ENDDO
+        ELSE IF (ivar.EQ.1) THEN
+           !! Temperature
+           IF (firstcall) THEN
+              rhoss1(:,:,:) = -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+           ELSE
+              rhoss1(:,:,:) = rhoss1(:,:,:) -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+           ENDIF
+        ENDIF
+     ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+     !! RK4
+     !! XXX Not implemented!
+     IF (nrank.EQ.0) THEN
+        PRINT  *, 'LMN: RK4 not ready'
+        STOP
+     ENDIF
+  ELSE
+     !! AB3
+     !! XXX Not implemented
+     IF (nrank.EQ.0) THEN
+        PRINT  *, 'LMN: AB3 not ready'
+        STOP
+     ENDIF
+  ENDIF
+  
   !! Update old stage
-  rhos1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
-   
+  IF (ivar.EQ.0) THEN
+     !! Massfrac
+     DO ijk = 1, nxyz
+        wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
+        wbar = 1._mytype / wbar
+        rhoss1(:,:,:) = -(rho1(ijk, 1, 1) * wbar) * ta1(:,:,:)
+     ENDDO
+  ELSE
+     IF (firstcall) THEN
+        rhos1(:,:,:) = -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+     ELSE
+        rhos1(:,:,:) = rhos1(:,:,:) -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+     ENDIF
+  ENDIF
+  
 ENDSUBROUTINE eval_densitycoeffs
 
 !********************************************************************
