@@ -1132,8 +1132,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       call derx (tb1,massfrac1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
       tb1(:,:,:) = rho1(:,:,:) * tb1(:,:,:)
       call derx (tc1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-      ta1(:,:,:) = ta1(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc1(:,:,:)
+      ta1(:,:,:) = ta1(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac1(:,:,:)) / dens1 + massfrac1(:,:,:) / dens2) &
+           * ((xnu * invsc / rho1(:,:,:)) * tc1(:,:,:))
     endif
     
     ! Transpose to Y
@@ -1176,8 +1178,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       CALL dery (tb2, massfrac2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
       tb2(:,:,:) = rho2(:,:,:) * tb2(:,:,:)
       CALL dery (tc2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-      ta2(:,:,:) = ta2(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc2(:,:,:)
+      ta2(:,:,:) = ta2(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac2(:,:,:)) / dens1 + massfrac2(:,:,:) / dens2) &
+           * ((xnu * invsc / rho2(:,:,:)) * tc2(:,:,:))
     endif
     
     ! Transpose to Z
@@ -1207,8 +1211,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       CALL derz (tb3, massfrac3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = rho3(:,:,:) * tb3(:,:,:)
       CALL derz (ta3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-      divu3(:,:,:) = divu3(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac3(:,:,:) + dens1)) * ta3(:,:,:)
+      divu3(:,:,:) = divu3(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac3(:,:,:)) / dens1 + massfrac3(:,:,:) / dens2) &
+           * ((xnu * invsc / rho3(:,:,:)) * ta3(:,:,:))
     endif
 
     ! So far have rho * divu, want divu

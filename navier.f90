@@ -1498,7 +1498,12 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
                  ! endif
                  
                  massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
-                      - dens1) / (dens2 - dens1)
+                      - dens2) / (dens1 - dens2)
+                 if (massfrac1(i, j, k).GE.1._mytype) then
+                    massfrac1(i, j, k) = 1._mytype
+                 else if (massfrac1(i, j, k).LE.0._mytype) then
+                    massfrac1(i, j, k) = 0._mytype
+                 endif
               enddo
            enddo
         enddo
@@ -1564,6 +1569,12 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
   real(mytype) :: rhor, rhol
   real(mytype) :: p_front
   real(mytype) :: kloc, kglob, ploc, pglob
+  real(mytype) :: invfrx, invfry, invfrz, invfr
+  real(mytype) :: egx, egy, egz
+  real(mytype) :: invumag
+
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: dummy2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: dummy3
 
   p_front = 1._mytype
   
@@ -1589,6 +1600,11 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
         enddo
       enddo
     enddo
+
+    ! !! (for 2D version)
+    ! call force_variable_2d(ux1, dummy2, dummy3)
+    ! call force_variable_2d(uy1, dummy2, dummy3)
+    ! uz1(:,:,:) = 0._mytype
 
     !modulation of the random noise
     rhol = dens2
@@ -1700,7 +1716,6 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
         hy1(i,j,k)=gy1(i,j,k)
         hz1(i,j,k)=gz1(i,j,k)
 
-        massfrac1(i,j,k)=massfrac1(1,j,k)
         massfracs1(i,j,k)=massfrac1(i,j,k)
         massfracss1(i,j,k)=massfracs1(i,j,k)
       enddo
@@ -1736,6 +1751,26 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
 
   if (itype.eq.7) then
      !! Set kinetic energy = 1% of gravitational potential energy
+     if (frx.ne.0._mytype) then
+        invfrx = 1._mytype / frx
+     else
+        invfrx = 0._mytype
+     endif
+     if (fry.ne.0._mytype) then
+        invfry = 1._mytype / fry
+     else
+        invfry = 0._mytype
+     endif
+     if (frz.ne.0._mytype) then
+        invfrz = 1._mytype / frz
+     else
+        invfrz = 0._mytype
+     endif
+     invfr = SQRT(invfrx**2 + invfry**2 + invfrz**2)
+     egx = invfrx / invfr
+     egy = invfry / invfr
+     egz = invfrz / invfr
+
      kloc = 0._mytype
      ploc = 0._mytype
      do k = 1, xsize(3)
@@ -1744,7 +1779,8 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
            do i = 1, xsize(1)
               kloc = kloc + 0.5_mytype * rho1(i, j, k) &
                    * (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2)
-              ploc = ploc + 0.5_mytype * rho1(i, j, k) * y**2
+              ploc = ploc - (rho1(i, j, k) - MIN(dens1, dens2)) * invfr &
+                   * (egx * x + egy * y + egz * z) 
            enddo
         enddo
      enddo
@@ -1752,10 +1788,24 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
      CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
      CALL MPI_ALLREDUCE(ploc, pglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
      IF (kglob.GT.0._mytype) THEN
-        kloc = SQRT(0.01_mytype * pglob / kglob)
-        ux1(i, j, k) = kloc * ux1(i, j, k)
-        uy1(i, j, k) = kloc * uy1(i, j, k)
-        uz1(i, j, k) = kloc * uz1(i, j, k)
+        kglob = SQRT(0.01_mytype * pglob / kglob)
+        kloc = 0._mytype
+        do k = 1, xsize(3)
+           do j = 1, xsize(2)
+              do i = 1, xsize(1)
+                 ux1(i, j, k) = kglob * ux1(i, j, k)
+                 uy1(i, j, k) = kglob * uy1(i, j, k)
+                 uz1(i, j, k) = kglob * uz1(i, j, k)
+                 kloc = kloc + 0.5_mytype * rho1(i, j, k) &
+                      * (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2)
+              enddo
+           enddo
+        enddo
+
+        CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+        IF (nrank.EQ.0) THEN
+           PRINT *, "Potential energy: ", pglob, " kinetic energy: ", kglob, "(", 100 * kglob / pglob, "%)"
+        ENDIF
      ENDIF
   endif
 
@@ -2015,7 +2065,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, drhodt1)
      drhodt1(:,:,:) = drhodt1(:,:,:) * invdt
   ELSE
      IF (nrank.EQ.0) THEN
-        PRINT *, "Extrapolating drhodt only implemented for AB2, AB3 and RK3 (nscheme = 0,1)"
+        PRINT *, "Extrapolating drhodt only implemented for AB2, AB3 and RK3 (nscheme = 0,1,4)"
         STOP
      ENDIF
   ENDIF
