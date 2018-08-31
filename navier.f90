@@ -1214,6 +1214,144 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
   
 ENDSUBROUTINE set_density_bcs
 
+SUBROUTINE set_temp_bcs(temperature1, ux1, uy1, uz1)
+
+  USE decomp_2d
+  USE param
+  USE variables
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
+
+  INTEGER :: i, j, k
+
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  IF (nclx.EQ.2) THEN
+  ENDIF
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+     ! determine the processor grid in use
+     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
+  ENDIF
+
+  IF (ncly.EQ.2) THEN
+     IF (dims(1).EQ.1) THEN
+        DO k = 1, xsize(3)
+           j = 1
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              temperature1(i, j, k) = temperature1(i, j + 1, k)
+           ENDDO
+           
+           j = xsize(2)
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              temperature1(i, j, k) = temperature1(i, j - 1, k)
+           ENDDO
+        ENDDO
+     ELSE
+        IF (xstart(2).EQ.1) THEN
+           j = 1
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 temperature1(i, j, k) = temperature1(i, j + 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+
+        IF (ny - (nym / dims(1)).EQ.xstart(2)) THEN
+           j = xsize(2)
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 temperature1(i, j, k) = temperature1(i, j - 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDIF
+  ENDIF
+
+  IF (nclz.EQ.2) THEN
+  ENDIF
+  
+ENDSUBROUTINE set_temp_bcs
+
+SUBROUTINE set_massfrac_bcs(massfrac1, ux1, uy1, uz1)
+
+  USE decomp_2d
+  USE param
+  USE variables
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: massfrac1
+
+  INTEGER :: i, j, k
+
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  IF (nclx.EQ.2) THEN
+  ENDIF
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+     ! determine the processor grid in use
+     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
+  ENDIF
+
+  IF (ncly.EQ.2) THEN
+     IF (dims(1).EQ.1) THEN
+        DO k = 1, xsize(3)
+           j = 1
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              massfrac1(i, j, k) = massfrac1(i, j + 1, k)
+           ENDDO
+           
+           j = xsize(2)
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              massfrac1(i, j, k) = massfrac1(i, j - 1, k)
+           ENDDO
+        ENDDO
+     ELSE
+        IF (xstart(2).EQ.1) THEN
+           j = 1
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 massfrac1(i, j, k) = massfrac1(i, j + 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+
+        IF (ny - (nym / dims(1)).EQ.xstart(2)) THEN
+           j = xsize(2)
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 massfrac1(i, j, k) = massfrac1(i, j - 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDIF
+  ENDIF
+
+  IF (nclz.EQ.2) THEN
+  ENDIF
+  
+ENDSUBROUTINE set_massfrac_bcs
+
 !**********************************************************************
 !
 !
