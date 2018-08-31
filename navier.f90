@@ -353,7 +353,7 @@ SUBROUTINE eval_densitycoeffs(rho1, var1, ta1, rhos1, rhoss1, rhos01, drhodt1, i
            DO ijk = 1, nxyz
               wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
               wbar = 1._mytype / wbar
-              rhoss1(:,:,:) = -(rho1(ijk, 1, 1) * wbar) * ta1(:,:,:)
+              rhoss1(ijk, 1, 1) = -(rho1(ijk, 1, 1) * wbar) * ta1(ijk, 1, 1)
            ENDDO
         ELSE IF (ivar.EQ.1) THEN
            !! Temperature
@@ -386,7 +386,7 @@ SUBROUTINE eval_densitycoeffs(rho1, var1, ta1, rhos1, rhoss1, rhos01, drhodt1, i
      DO ijk = 1, nxyz
         wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
         wbar = 1._mytype / wbar
-        rhoss1(:,:,:) = -(rho1(ijk, 1, 1) * wbar) * ta1(:,:,:)
+        rhoss1(ijk, 1, 1) = -(rho1(ijk, 1, 1) * wbar) * ta1(ijk, 1, 1)
      ENDDO
   ELSE
      IF (firstcall) THEN
