@@ -1,0 +1,57 @@
+#
+# INCOMPACT 3D Flow parameters 
+#
+8.0    #xlx  # Lx (Size of the box in x-direction)
+4.0    #yly  # Ly (Size of the box in y-direction) 
+4.0    #zlz  # Lz (Size of the box in z-direction) 
+1273.   #re    # Reynolds number
+0.7    #pr    # Prandtl number
+1.     #sc    # Schmidt number (if passive scalar)
+0. #-1.54   #frx   # Froude number in x direction (frx = 0 gives no gravity)
+0.     #fry   # Froude number in y direction
+0.     #frz   # Froude number in z direction
+1.0    #u1    # u1 (max velocity) (for inflow condition)
+0.0    #u2    # u2 (min velocity) (for inflow condition)
+1.0    #dens1 # dens1 (max density) (for inflow condition)
+1.0    #dens2 # dens2 (min density) (for inflow condition)
+0.05   #noise# Turbulence intensity (1=100%) !! Initial condition
+0.05   #noise1# Turbulence intensity (1=100%) !! Inflow condition
+0.006  #dt   # Time step
+#
+# INCOMPACT3D Flow configuration
+#
+2      #nclx   # nclx (BC)
+0      #ncly   # ncly (BC) 
+0      #nclz   # nclz (BC)
+5      #itype  # Type of flow  (1: Constant flowfield, 4: Mixing layer, 6: Taylor-Green)
+1      #iin    # Inflow condition (1: classic, 2: turbinit)
+1      #ifirst # First iteration
+16700  #ilast  # Last iteration 
+2      #nscheme# Temporal scheme (1:AB2, 2: RK3, 3:RK4, 4:AB3)
+0      #istret # y mesh refinement (0:no, 1:center, 2:both sides, 3:bottom)
+0.3    #beta   # Refinement parameter (beta)
+1      #ilmn   # (0:incompressible, 1: Low Mach Number)
+0      #isolvetemp# (0: solve for density, 1: solve for temperature)
+0      #imulticomponent
+0      #nrhoscheme# Density scheme (how to approximate drhodt^{k+1})
+1      #ivarcoeff# (0:constant-coefficient Poisson equation, 1:variable-coefficient Poisson equation)
+1      #npoisscheme# How to compute rho0 in var-coeff poisson equation? (0: rho0 = MIN(rho), Anything else: harmonic average)
+1.0e-14 #tol    # Tolerance for Poisson equation
+1      #iskew  # (0:urotu, 1:skew, for the convective terms)
+1      #iprops # (0: constant properties, 1: variable properties)
+0      #iscalar# (0: no scalar, 1:scalar)
+#
+# INCOMPACT 3D File parameters 
+#
+0           #ilit     # Read initial flow field ?
+25600       #isave    # Frequency for writing backup file  
+167        #imodulo  # Frequency for visualization for VISU_INSTA
+#
+# INCOMPACT 3D Body  old school
+#
+0     #ivirt# IBM? (1: old school, 2: Lagrangian Poly)
+5.    #cex  # X-centre position of the solid body
+6.    #cey  # Y-centre position of the solid body
+0.    #cez  # Z-centre position of the solid body
+0.5   #re   # Radius of the solid body
+#

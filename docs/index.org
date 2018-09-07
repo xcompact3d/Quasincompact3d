@@ -1,0 +1,36 @@
+#+TITLE: QuasIncompact3D
+#+OPTIONS: tex:t
+
+=QuasIncompact3D= is a Low Mach Number (LMN) solver implemented in the =Incompact3D= framework for
+simulating low speed, turbulent flows with non-negligible density gradients.
+Due to these density gradients, these flows are governed by the Navier-Stokes equations for
+/compressible/ flows:
+\begin{align}
+\frac{\partial\rho}{\partial{}t} + \nabla\cdot\rho{}u &= 0 \\
+\gamma{}M^2 \left( \frac{\partial\rho{}u}{\partial{}t} + \nabla\cdot\rho{}uu \right) &= -\nabla{}p + \frac{\gamma{}M^2}{Re} \nabla\cdot\tau \\
+\frac{\partial{}T}{\partial{}t} + u\cdot\nabla{}T &= \frac{1}{\rho}\nabla\cdot\kappa\nabla{}T
+\end{align}
+
+* The Low Mach Number Approximation
+
+The Low Mach Number approximation is developed for the case when changes in density cannot be
+ignored, but the flow speed is low compared to the speed of sound, specifically: $\gamma{}M^2 \ll 1$.
+Derivation of the LMN approximation proceeds by defining this new variable as $\varepsilon = \gamma{}M^2$ and
+expanding the variables as a power series of it:
+\begin{equation}
+\textbf{u} = \textbf{u}^{\left( 0 \right)} + \varepsilon\textbf{u}^{\left( 1 \right)} + \varepsilon^2 \textbf{u}^{\left( 2 \right)} + \ldots
+\end{equation}
+Inserting these expansions into the governing equations and collecting only the lowest order terms
+yields the following system of equations:
+\begin{align}
+\frac{\partial\rho^{\left( 0 \right)}}{\partial{}t} + \nabla \cdot \rho^{\left( 0 \right)} \textbf{u}^{\left( 0 \right)} &= 0 \\
+\textbf{0} &= \nabla{}p^{^\left( 0 \right)}
+\end{align}
+In the above equation system, there is no equation for velocity, the momentum equations have reduced
+to: $\nabla{}p^{\left( 0 \right)} = 0$, so the first-order expansion of the momentum equations are taken,
+giving:
+\begin{equation}
+\frac{\partial\rho^{\left( 0 \right)}\textbf{u}^{\left( 0 \right)}}{\partial{}t} + \nabla \cdot \rho^{\left( 0 \right)}
+\textbf{u}^{\left( 0 \right)} \textbf{u}^{\left( 0 \right)} = -\nabla p^{\left( 1 \right)} + \frac{1}{Re} \nabla \cdot
+\tau^{\left( 0 \right)}
+\end{equation}

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Coarse
+mpiexec -np 8 ./incompact3d-16x65x8 > OUTPUT.log
+mv ux* DATA/16x65x8/RK3-010/
+mv uy* DATA/16x65x8/RK3-010/
+mv uz* DATA/16x65x8/RK3-010/
+mv vort* DATA/16x65x8/RK3-010/
+mv pp* DATA/16x65x8/RK3-010/
+mv OUTPUT.log DATA/16x65x8/RK3-010/
+
+# Med
+mpiexec -np 8 ./incompact3d-32x129x8 > OUTPUT.log
+mv ux* DATA/32x129x8/RK3-010/
+mv uy* DATA/32x129x8/RK3-010/
+mv uz* DATA/32x129x8/RK3-010/
+mv vort* DATA/32x129x8/RK3-010/
+mv pp* DATA/32x129x8/RK3-010/
+mv OUTPUT.log DATA/32x129x8/RK3-010/
+
+# Fine
+mpiexec -np 8 ./incompact3d-64x257x8 > OUTPUT.log
+mv ux* DATA/64x257x8/RK3-010/
+mv uy* DATA/64x257x8/RK3-010/
+mv uz* DATA/64x257x8/RK3-010/
+mv vort* DATA/64x257x8/RK3-010/
+mv pp* DATA/64x257x8/RK3-010/
+mv OUTPUT.log DATA/64x257x8/RK3-010/
+
+# Finest
+mpiexec -np 8 ./incompact3d-128x513x8 > OUTPUT.log
+mv ux* DATA/128x513x8/RK3-010/
+mv uy* DATA/128x513x8/RK3-010/
+mv uz* DATA/128x513x8/RK3-010/
+mv vort* DATA/128x513x8/RK3-010/
+mv pp* DATA/128x513x8/RK3-010/
+mv OUTPUT.log DATA/128x513x8/RK3-010/
+
