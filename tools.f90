@@ -1485,7 +1485,8 @@ SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
   LOGICAL :: file_exists
 
   REAL(mytype) :: hr, xr, hw, xw, hf, xf
-  LOGICAL :: found_hr
+  REAL(mytype) :: dhdx, d2hdx2
+  LOGICAL :: found_hr, found_exp
 
   !! We want to work in y, but first need to average in z
   CALL transpose_x_to_y(rho1, rho2)
@@ -1543,45 +1544,97 @@ SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
      h(i) = h(i) / float(ie - i0 + 1)
 
      !! Clean data
-     h(i) = MIN(h(i), yly)
-     h(i) = MAX(h(i), 0._mytype)
+     IF (h(i).GT.(1.0_mytype - 1.0e-6_mytype)*yly) THEN
+        h(i) = yly
+     ELSE IF (h(i).LT.1.0e-6*yly) THEN
+        h(i) = 0._mytype
+     ENDIF
   ENDDO
 
   !! Compute hf, hw, hr and their locations
   found_hr = .FALSE.
+  found_exp = .FALSE.
   hr = 0._mytype
   xr = -1._mytype
   hf = 0._mytype
   xf = -1._mytype
-  hw = 0._mytype
+  hw = yly
   xw = -1._mytype
   DO i = 2, xsize(1) - 1
      x = float(i + xstart(1) - 2) * dx
-     IF (.NOT.found_hr) THEN
+     dhdx = (h(i + 1) - h(i - 1)) / (2._mytype * dx)
+     IF (found_exp) THEN
         IF ((h(i - 1).GT.h(i)).AND.(h(i + 1).GT.h(i))) THEN
-           hr = h(i)
-           xr = x
-           found_hr = .TRUE.
-
-           hw = hr
-           xw = xr
-           hf = 0._mytype
-           xf = -1._mytype
+           !! Found a minimum
+           IF ((.NOT.found_hr)) THEN
+              hr = h(i)
+              xr = x
+              found_hr = .TRUE.
+           ENDIF
+           IF (h(i).LT.hw) THEN !! hw is the minimum within the expansion
+              hw = h(i)
+              xw = x
+              hf = 0._mytype
+              xf = -1._mytype
+           ENDIF
         ENDIF
-     ELSE
-        IF (h(i).LT.hw) THEN
-           hw = h(i)
-           xw = x
-           hf = 0._mytype
-           xf = -1._mytype
+        
+        IF (found_hr.AND.(h(i).GT.hf)) THEN
+           hf = h(i)
+           xf = x
         ENDIF
-     ENDIF
-
-     IF (found_hr.AND.(h(i).GT.hf)) THEN
-        hf = h(i)
-        xf = x
+     ELSE IF (h(i).LT.0.99*yly) THEN
+        found_exp = .TRUE.
+        DO j = i, xsize(1)
+           IF (h(j).GT.0.99*yly) THEN
+              found_exp = .FALSE.
+              EXIT
+           ENDIF
+        ENDDO
      ENDIF
   ENDDO
+
+  IF (.NOT.found_hr) THEN
+     found_exp = .FALSE.
+     DO i = 2, xsize(1) - 1
+        x = float(i + xstart(1) - 2) * dx
+        d2hdx2 = (h(i + 1) - 2._mytype * h(i) + h(i - 1)) / (dx**2)
+
+        IF (.NOT.found_hr) THEN
+           IF (h(i).LT.0.99*yly) THEN
+              found_hr = .TRUE.
+              DO j = i, xsize(1)
+                 IF (h(j).GT.0.99*yly) THEN
+                    found_hr = .FALSE.
+                    EXIT
+                 ENDIF
+              ENDDO
+              IF (found_hr) THEN
+                 hr = h(i)
+                 xr = x
+              ENDIF
+           ENDIF
+        ELSE IF (.NOT.found_exp) THEN
+           IF (h(i).LT.0.01*yly) THEN
+              found_exp = .TRUE.
+              DO j = i, xsize(1)
+                 IF (h(j).GT.0.99*yly) THEN
+                    found_exp = .FALSE.
+                    EXIT
+                 ENDIF
+              ENDDO
+              IF (found_exp) THEN
+                 hf = h(i)
+                 xf = x
+                 EXIT
+              ENDIF
+           ENDIF
+        ENDIF
+     ENDDO
+
+     hw = 0.5_mytype * (hr + hf)
+     xw = 0.5_mytype * (xr + xf)
+  ENDIF
 
   IF (nrank.EQ.0) THEN
      !! Write data
@@ -1592,7 +1645,7 @@ SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
         OPEN(11, FILE="FRONTHEIGHT-LOC.log", STATUS="new", ACTION="write")
         WRITE(11, *) "TIME Xr Hr Xf Hf Xw Hw"
      ENDIF
-     WRITE(11, *) t, xr, hr, xf, hf, xw, hw
+     WRITE(11, "(F9.6, ES14.6, ES14.6, ES14.6, ES14.6, ES14.6, ES14.6)") t, xr, hr, xf, hf, xw, hw
      CLOSE(11)
      
      IF (MOD(itime, imodulo).EQ.0) THEN
@@ -1609,7 +1662,7 @@ SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
         
         DO i = 1, xsize(1)
            x = float(i + xstart(1) - 2) * dx
-           WRITE(12, *) t, x, h(i)
+           WRITE(12, "(F9.6, ES14.6, ES14.6)") t, x, h(i)
         ENDDO
         
         CLOSE(12)
