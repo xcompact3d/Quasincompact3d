@@ -1565,21 +1565,26 @@ SUBROUTINE track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
      dhdx = (h(i + 1) - h(i - 1)) / (2._mytype * dx)
      IF (found_exp) THEN
         IF ((h(i - 1).GT.h(i)).AND.(h(i + 1).GT.h(i))) THEN
-           !! Found a minimum
-           IF ((.NOT.found_hr)) THEN
+           !! This is a minimum
+           IF (.NOT.found_hr) THEN
+              
               hr = h(i)
               xr = x
               found_hr = .TRUE.
-           ENDIF
-           IF (h(i).LT.hw) THEN !! hw is the minimum within the expansion
+
+              hw = h(i)
+              xw = x
+
+              hf = h(i)
+              xf = x
+           ELSEIF (h(i).LT.hw) THEN
               hw = h(i)
               xw = x
               hf = 0._mytype
               xf = -1._mytype
            ENDIF
         ENDIF
-        
-        IF (found_hr.AND.(h(i).GT.hf)) THEN
+        IF (h(i).GT.hf) THEN !! hf is the maximum after hw
            hf = h(i)
            xf = x
         ENDIF
