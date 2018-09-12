@@ -1358,7 +1358,7 @@ SUBROUTINE updateXYZ(var1, var2, var3, size1, size2, size3, idx1, idx2, idx3)
     
 ENDSUBROUTINE updateXYZ
 
-SUBROUTINE track_front(ux1, rho1)
+SUBROUTINE track_front(ux1, rho1, colour_crit)
 
   USE param
   USE variables
@@ -1376,7 +1376,9 @@ SUBROUTINE track_front(ux1, rho1)
   
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, rho1
   REAL(mytype) :: x, x_left, x_right, u_left, u_right, rho_left, rho_right, rho_mid
+  REAL(mytype), INTENT(IN) :: colour_crit
   REAL(mytype) :: x_leftmin, u_leftmin, x_rightmax, u_rightmax
+  CHARACTER(len=1024) :: filename
 
   x_left = 10._mytype * xlx
   x_right = -10._mytype * xlx
@@ -1391,7 +1393,7 @@ SUBROUTINE track_front(ux1, rho1)
   ENDDO
   rho_left = rho_left / xsize(2) / xsize(3)
   rho_right = rho_right / xsize(2) / xsize(3)
-  rho_mid = 0.5_mytype * (rho_left + rho_right)
+  rho_mid = (1._mytype - colour_crit) * rho_left + colour_crit * rho_right
 
   !! Find the fronts
   DO k = 1, xsize(3)
@@ -1443,11 +1445,12 @@ SUBROUTINE track_front(ux1, rho1)
   ENDIF
 
   IF (nrank.EQ.0) THEN
-     INQUIRE(FILE="FRONTLOC.log", EXIST=file_exists)
+     WRITE(filename, "(A9, F3.1, A4)") "FRONTLOC-", colour_crit, ".log"
+     INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
      IF (file_exists.EQV..TRUE.) THEN
-        OPEN(11, FILE="FRONTLOC.log", STATUS="old", ACTION="write", POSITION="append")
+        OPEN(11, FILE=TRIM(filename), STATUS="old", ACTION="write", POSITION="append")
      ELSE
-        OPEN(11, FILE="FRONTLOC.log", STATUS="new", ACTION="write")
+        OPEN(11, FILE=TRIM(filename), STATUS="new", ACTION="write")
         WRITE(11, *) "TIME XL UL XR UR"
      ENDIF
      WRITE(11, *) t, x_leftmin, u_leftmin, x_rightmax, u_rightmax
