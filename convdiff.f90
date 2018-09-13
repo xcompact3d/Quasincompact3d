@@ -764,6 +764,9 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   REAL(mytype) :: invpe
 
+  REAL(mytype) :: us
+  REAL(mytype) :: egx, egy, egz, egmag
+
   INTEGER :: ijk, nvect1, nvect2, nvect3
 
   nvect1 = xsize(1) * xsize(2) * xsize(3)
@@ -772,6 +775,37 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   invpe = xnu / sc
 
+  !! Settling velocity
+  us = 0._mytype
+  
+  egmag = 0._mytype
+  IF (frx.NE.0._mytype) THEN
+     egmag = egmag + (1._mytype / frx)**2
+  ENDIF
+  IF (fry.NE.0._mytype) THEN
+     egmag = egmag + (1._mytype / fry)**2
+  ENDIF
+  IF (frz.NE.0._mytype) THEN
+     egmag = egmag + (1._mytype / frz)**2
+  ENDIF
+  egmag = SQRT(egmag)
+
+  IF (frx.NE.0._mytype) THEN
+     egx = (1._mytype / frx) / egmag
+  ELSE
+     egx = 0._mytype
+  ENDIF
+  IF (fry.NE.0._mytype) THEN
+     egy = (1._mytype / fry) / egmag
+  ELSE
+     egy = 0._mytype
+  ENDIF
+  IF (frz.NE.0._mytype) THEN
+     egz = (1._mytype / frz) / egmag
+  ELSE
+     egz = 0._mytype
+  ENDIF
+
   !------------------------------------------------------------------------
   ! X PENCILS
   ! tb1 = diffusion
@@ -779,7 +813,7 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL derx (ta1, rho1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-  ta1(:,:,:) = ux1(:,:,:) * ta1(:,:,:)
+  ta1(:,:,:) = (ux1(:,:,:) + us * egx) * ta1(:,:,:)
 
   ! Go to Y
   CALL transpose_x_to_y(rho1, rho2)
@@ -793,7 +827,7 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
 
   ! Advection term (non-conservative)
   CALL dery (ta2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-  ta2(:,:,:) = uy2(:,:,:) * ta2(:,:,:)
+  ta2(:,:,:) = (uy2(:,:,:) + us * egy) * ta2(:,:,:)
 
   ! Go to Z
   CALL transpose_y_to_z(rho2, rho3)
@@ -807,7 +841,7 @@ SUBROUTINE conv_density(ux1, uy1, uz1, rho1, di1, ta1, tb1, tc1, td1,&
   ! Advection term (non-conservative)
   ! XXX Also adds contribution from divu3
   CALL derz (ta3, rho3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
-  ta3(:,:,:) = uz3(:,:,:) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
+  ta3(:,:,:) = (uz3(:,:,:) + us * egz) * ta3(:,:,:) + rho3(:,:,:) * divu3(:,:,:)
   
   ! call derzz (tb3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
   ! ta3(:,:,:) = ta3(:,:,:) - invpe * tb3(:,:,:)
@@ -916,7 +950,8 @@ ENDSUBROUTINE convdiff_temperature
 
 SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfracss1, ta1, tb1, tc1, di1, &
      uy2, uz2, rho2, massfrac2, ta2, tb2, tc2, di2, &
-     uz3, rho3, massfrac3, ta3, tb3, tc3, di3)
+     uz3, rho3, massfrac3, ta3, tb3, tc3, di3, &
+     rhos1, rhoss1, rhos01, drhodt1)
 
   USE param
   USE variables
@@ -927,6 +962,7 @@ SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfra
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: massfrac1, massfracs1, massfracss1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: di1, ta1, tb1, tc1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos1, rhoss1, rhos01, drhodt1
   
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: uy2, uz2, rho2
   REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: massfrac2
@@ -984,6 +1020,10 @@ SUBROUTINE convdiff_massfrac(ux1, uy1, uz1, rho1, massfrac1, massfracs1, massfra
   ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
   CALL transpose_y_to_x(ta2, tb1)
   ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
+  
+  if (isolvetemp.ne.0) then
+     call eval_densitycoeffs(rho1,massfrac1,ta1,rhos1,rhoss1,rhos01,drhodt1,0)
+  endif
 
   !! Integrate in time
   IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
@@ -1098,8 +1138,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       call derx (tb1,massfrac1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
       tb1(:,:,:) = rho1(:,:,:) * tb1(:,:,:)
       call derx (tc1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-      ta1(:,:,:) = ta1(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc1(:,:,:)
+      ta1(:,:,:) = ta1(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac1(:,:,:)) / dens1 + massfrac1(:,:,:) / dens2) &
+           * ((xnu * invsc / rho1(:,:,:)) * tc1(:,:,:))
     endif
     
     ! Transpose to Y
@@ -1142,8 +1184,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       CALL dery (tb2, massfrac2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
       tb2(:,:,:) = rho2(:,:,:) * tb2(:,:,:)
       CALL dery (tc2, tb2, di2, sy, ffy, fsy, fwy, ppy, ysize(1), ysize(2), ysize(3), 0)
-      ta2(:,:,:) = ta2(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac1(:,:,:) + dens1)) * tc2(:,:,:)
+      ta2(:,:,:) = ta2(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac2(:,:,:)) / dens1 + massfrac2(:,:,:) / dens2) &
+           * ((xnu * invsc / rho2(:,:,:)) * tc2(:,:,:))
     endif
     
     ! Transpose to Z
@@ -1173,8 +1217,10 @@ SUBROUTINE calc_divu(ta1, tb1, tc1, rho1, temperature1, massfrac1, kappa1, di1, 
       CALL derz (tb3, massfrac3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
       tb3(:,:,:) = rho3(:,:,:) * tb3(:,:,:)
       CALL derz (ta3, tb3, di3, sz, ffz, fsz, fwz, zsize(1), zsize(2), zsize(3), 0)
-      divu3(:,:,:) = divu3(:,:,:) + (xnu * invsc &
-           * (dens2 - dens1) / ((dens2 - dens1) * massfrac3(:,:,:) + dens1)) * ta3(:,:,:)
+      divu3(:,:,:) = divu3(:,:,:) &
+           + (1._mytype / dens2 - 1._mytype / dens1) &
+           / ((1._mytype - massfrac3(:,:,:)) / dens1 + massfrac3(:,:,:) / dens2) &
+           * ((xnu * invsc / rho3(:,:,:)) * ta3(:,:,:))
     endif
 
     ! So far have rho * divu, want divu
@@ -1231,7 +1277,7 @@ SUBROUTINE calctemp_eos(temperature1, rho1, massfrac1, pressure0, arrsize)
   W1 = dens1
   W2 = dens2
 
-  nxyz = xsize(1) * xsize(2) * xsize(3)
+  nxyz = arrsize(1) * arrsize(2) * arrsize(3)
   DO ijk = 1, nxyz
     Wbar = (1._mytype - massfrac1(ijk, 1, 1)) / W1 + massfrac1(ijk, 1, 1) / W2
     Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
@@ -1275,7 +1321,7 @@ SUBROUTINE calcrho_eos(rho1, temperature1, massfrac1, pressure0, arrsize)
   W1 = dens1
   W2 = dens2
 
-  nxyz = xsize(1) * xsize(2) * xsize(3)
+  nxyz = arrsize(1) * arrsize(2) * arrsize(3)
   DO ijk = 1, nxyz
     Wbar = (1._mytype - massfrac1(ijk, 1, 1)) / W1 + massfrac1(ijk, 1, 1) / W2
     Wbar = (1._mytype - dmulticomponent) + dmulticomponent / Wbar
@@ -1299,7 +1345,7 @@ SUBROUTINE calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: massfrac1, temperature1, rho1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: mu1
-  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)) :: mu2
+  REAL(mytype), DIMENSION(ysize(1), ysize(2), ysize(3)), INTENT(OUT) :: mu2
   REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(OUT) :: mu3
 
   if (iprops.ne.0) then
@@ -1314,6 +1360,8 @@ SUBROUTINE calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
      call transpose_y_to_z(mu2, mu3)
   else
      !! Use fixed properties
+     mu1(:,:,:) = 1._mytype
+     mu2(:,:,:) = 1._mytype
      mu3(:,:,:) = 1._mytype
   endif
   

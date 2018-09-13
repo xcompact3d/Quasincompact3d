@@ -104,6 +104,7 @@ PROGRAM incompact3d
          hx1,hy1,hz1,rhoss1,phiss1,&
          pressure0,phG,0)
   endif
+  call calcvisc(mu1, mu2, mu3, rho1, temperature1, massfrac1)
 
   ! XXX LMN: Calculate divergence of velocity field. Also updates rho in Y
   !          and Z pencils.
@@ -151,12 +152,15 @@ PROGRAM incompact3d
   !      ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2,&
   !      ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3,phG,uvisu)
 
-  ! CALL track_front(ux1, rho1)
-  ! CALL track_front_height(rho1, rho2, rho3)
-  ! CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
+  ! CALL track_front(ux1, rho1, 0.1)
+  ! CALL track_front(ux1, rho1, 0.5)
+  ! CALL track_front(ux1, rho1, 0.9)
+  ! CALL track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
+  ! CALL calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
   !           di1, &
   !           rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
   !           rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+  ! CALL calc_sedimentation(rho1, ta1, rho2, ta2, rho3, ta3)
 
   tpoisstotal = 0._mytype
   do itime=ifirst,ilast
@@ -167,6 +171,19 @@ PROGRAM incompact3d
 1001  format('Time step =',i7,', Time unit =',F9.3)
     endif
 
+    ! call force_variable_2d(ux1, ta2, ta3)
+    ! call force_variable_2d(uy1, ta2, ta3)
+    ! call force_variable_2d(uz1, ta2, ta3)
+
+    ! if (isolvetemp.eq.0) then
+    !    call force_variable_2d(rho1, ta2, ta3)
+    ! else
+    !    call force_variable_2d(temperature1, ta2, ta3)
+    ! endif
+    ! if (imulticomponent.ne.0) then
+    !    call force_variable_2d(massfrac1, ta2, ta3)
+    ! endif
+    
     do itr=1,iadvance_time
       
       !-----------------------------------------------------------------------------------
@@ -184,15 +201,12 @@ PROGRAM incompact3d
       endif
 
       if (ilmn.ne.0) then
-         call set_density_bcs(rho1, ux1, uy1, uz1)
-         !! if (itype.eq.5) then
-         !!    if (ncly.eq.2) then
-         !!       call set_density_entrainment_y(rho1, uy1)
-         !!    endif
-         !!    if (nclz.eq.2) then
-         !!       call set_density_entrainment_z(rho1, uz1)
-         !!    endif
-         !! endif
+         if (isolvetemp.eq.0) then
+            call set_density_bcs(rho1, ux1, uy1, uz1)
+         else
+            call set_temp_bcs(temperature1, ux1, uy1, uz1)
+         endif
+         call set_massfrac_bcs(massfrac1, ux1, uy1, uz1)
       endif
 
       !! Ensure rho/temp is up to date
@@ -221,7 +235,8 @@ PROGRAM incompact3d
       if (imulticomponent.ne.0) then
         call convdiff_massfrac(ux1,uy1,uz1,rho1,massfrac1,massfracs1,massfracss1,tg1,th1,ti1,di1,&
              uy2,uz2,rho2,massfrac2,ta2,tb2,tc2,di2,&
-             uz3,rho3,massfrac3,ta3,tb3,tc3,di3)
+             uz3,rho3,massfrac3,ta3,tb3,tc3,di3,&
+             rhos1,rhoss1,rhos01,drhodt1)
       endif
 
       if (iscalar.eq.1) then
@@ -249,13 +264,13 @@ PROGRAM incompact3d
             call convdiff_temperature(ux1,uy1,uz1,rho1,temperature1,di1,tg1,th1,&
                  uy2,uz2,rho2,temperature2,di2,ta2,tb2,&
                  uz3,rho3,temperature3,di3,ta3,tb3)
-            call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1)
+            call eval_densitycoeffs(rho1,temperature1,tg1,rhos1,rhoss1,rhos01,drhodt1,1)
             call intttemperature(temperature1,temperatures1,temperaturess1,tg1)
          endif
       endif
 
       !X PENCILS
-      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,rho1)
+      call intt (ux1,uy1,uz1,gx1,gy1,gz1,hx1,hy1,hz1,ta1,tb1,tc1,td1,rho1)
 
       !-----------------------------------------------------------------------------------
       ! XXX ux,uy,uz now contain momentum: ux = (rho u) etc.
@@ -264,7 +279,7 @@ PROGRAM incompact3d
       if (ilmn.ne.0) then
         !! Update density
         if (isolvetemp.eq.0) then
-          call inttdensity(rho1,rhos1,rhoss1,rhos01,tg1,drhodt1)
+          call inttdensity(rho1,rhos1,rhoss1,rhos01,rhos001,tg1,drhodt1)
 
           ! Update temperature using EOS
           call calctemp_eos(temperature1, rho1, massfrac1, pressure0, xsize)
@@ -277,12 +292,14 @@ PROGRAM incompact3d
 
         if (ivarcoeff.eq.0) then
            !! Predict drhodt at new timestep
-           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+           call extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,drhodt1)
            
            ! !! Apply Birman correction
            ! call birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, &
            !      ta2, tb2, di2, &
            !      rho3, ta3, di3)
+
+           call rhotrans_skewsymm(drhodt1, rho1)
         endif
       endif
 
@@ -294,7 +311,8 @@ PROGRAM incompact3d
         else
           !! Temporarily store current pressure field
           pp3corr(:,:,:) = 0._mytype
-        endif
+          pp3star(:,:,:) = 0._mytype
+       endif
       endif
 
       if (max(nclx, ncly, nclz).eq.2) then
@@ -365,7 +383,7 @@ PROGRAM incompact3d
                ! else
                !   !! Need an initial guess for 1/rho0 nabla^2 p - div( 1/rho nabla p )
                !   call approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, &
-               !        di1, rhos1, rhoss1, rhos01, drhodt1, &
+               !        di1, rhos1, rhoss1, rhos01, rhos001, drhodt1, &
                !        td2, te2, tf2, di2, ta2, tb2, tc2, &
                !        ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
                !        nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
@@ -480,13 +498,16 @@ PROGRAM incompact3d
     ! CALL eval_error_rho(rho1)
     ! CALL eval_error_vel(ux1,uy1,uz1)
 
-    ! IF (MOD(itime, 10).EQ.0) THEN
-    !    CALL track_front(ux1, rho1)
-    !    CALL track_front_height(rho1, rho2, rho3)
-    !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, ti1, &
-    !         di1, &
+    ! IF ((MOD(itime, 10).EQ.0).OR.(MOD(itime, imodulo).EQ.0)) THEN
+    !    CALL track_front(ux1, rho1, 0.1)
+    !    CALL track_front(ux1, rho1, 0.5)
+    !    CALL track_front(ux1, rho1, 0.9)
+    !    CALL track_front_height(rho1, ta1, rho2, ta2, rho3, ta3)
+    !    CALL calc_energy_budgets(rho1, ux1, uy1, uz1, mu1, ta1, tb1, tc1, td1, te1, tf1, tg1, th1, &
+    !         ti1, di1, &
     !         rho2, ux2, uy2, uz2, ta2, tb2, tc2, td2, te2, tf2, di2, &
     !         rho3, ux3, uy3, uz3, ta3, tb3, tc3, di3)
+    !    CALL calc_sedimentation(rho1, ta1, rho2, ta2, rho3, ta3)
     ! ENDIF
 
   enddo

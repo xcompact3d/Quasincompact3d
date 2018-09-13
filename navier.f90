@@ -34,7 +34,7 @@
 !
 ! 
 !********************************************************************
-subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
+subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,td1,rho)
 
   USE param
   USE variables
@@ -47,25 +47,33 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: rho
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: gx,gy,gz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx,hy,hz
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1
+  real(mytype) :: rhoc
 
   nxyz=xsize(1)*xsize(2)*xsize(3)
 
+  td1(:,:,:) = 1._mytype
   if (ilmn.ne.0) then
-    !! First, convert velocity to momentum
-    if (iskew.ne.2) then
-      !! Rotational form or Quasi skew-symmetric
-      do ijk = 1, nxyz
-        ux(ijk, 1, 1) = rho(ijk, 1, 1) * ux(ijk, 1, 1)
-        uy(ijk, 1, 1) = rho(ijk, 1, 1) * uy(ijk, 1, 1)
-        uz(ijk, 1, 1) = rho(ijk, 1, 1) * uz(ijk, 1, 1)
-      enddo
-    else
-      !! Skew-symmetric
-      ux(:,:,:) = SQRT(rho(:,:,:)) * ux(:,:,:)
-      uy(:,:,:) = SQRT(rho(:,:,:)) * uy(:,:,:)
-      uz(:,:,:) = SQRT(rho(:,:,:)) * uz(:,:,:)
-    endif
+     !! First, convert velocity to momentum
+     if (iskew.ne.2) then
+        !! Rotational form or Quasi skew-symmetric
+        do ijk = 1, nxyz
+           rhoc = rho(ijk, 1, 1)
+           ux(ijk, 1, 1) = rhoc * ux(ijk, 1, 1)
+           uy(ijk, 1, 1) = rhoc * uy(ijk, 1, 1)
+           uz(ijk, 1, 1) = rhoc * uz(ijk, 1, 1)
+        enddo
+     else
+        !! Skew-symmetric
+        do ijk = 1, nxyz
+           rhoc = SQRT(rho(ijk, 1, 1))
+           ux(ijk, 1, 1) = rhoc * ux(ijk, 1, 1)
+           uy(ijk, 1, 1) = rhoc * uy(ijk, 1, 1)
+           uz(ijk, 1, 1) = rhoc * uz(ijk, 1, 1)
+           
+           td1(ijk, 1, 1) = 1._mytype / rhoc
+        enddo
+     endif
   endif
 
   if ((nscheme.eq.1).or.(nscheme.eq.2)) then
@@ -74,9 +82,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
     if ((nscheme.eq.1.and.itime.eq.1.and.ilit.eq.0).or.&
          (nscheme.eq.2.and.itr.eq.1)) then
       do ijk=1,nxyz
-        ux(ijk,1,1)=gdt(itr)*ta1(ijk,1,1)+ux(ijk,1,1)
-        uy(ijk,1,1)=gdt(itr)*tb1(ijk,1,1)+uy(ijk,1,1) 
-        uz(ijk,1,1)=gdt(itr)*tc1(ijk,1,1)+uz(ijk,1,1)
+        ux(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*ta1(ijk,1,1)+ux(ijk,1,1)
+        uy(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*tb1(ijk,1,1)+uy(ijk,1,1) 
+        uz(ijk,1,1)=td1(ijk,1,1)*gdt(itr)*tc1(ijk,1,1)+uz(ijk,1,1)
         gx(ijk,1,1)=ta1(ijk,1,1)
         gy(ijk,1,1)=tb1(ijk,1,1)
         gz(ijk,1,1)=tc1(ijk,1,1)            
@@ -84,17 +92,17 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
     else
       if (nz.gt.1) then
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+uy(ijk,1,1)   
-          uz(ijk,1,1)=adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1))+uy(ijk,1,1)   
+          uz(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1))+uz(ijk,1,1)
           gx(ijk,1,1)=ta1(ijk,1,1)
           gy(ijk,1,1)=tb1(ijk,1,1)
           gz(ijk,1,1)=tc1(ijk,1,1)            
         enddo
       else !! End is 3D
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+uy(ijk,1,1)   
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1))+uy(ijk,1,1)   
           gx(ijk,1,1)=ta1(ijk,1,1)
           gy(ijk,1,1)=tb1(ijk,1,1)
         enddo
@@ -117,9 +125,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       endif
       do ijk=1,nxyz
-        ux(ijk,1,1)=ux(ijk,1,1)+bdt(itr)*gx(ijk,1,1)
-        uy(ijk,1,1)=uy(ijk,1,1)+bdt(itr)*gy(ijk,1,1)
-        uz(ijk,1,1)=uz(ijk,1,1)+bdt(itr)*gz(ijk,1,1)
+        ux(ijk,1,1)=ux(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gx(ijk,1,1)
+        uy(ijk,1,1)=uy(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gy(ijk,1,1)
+        uz(ijk,1,1)=uz(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gz(ijk,1,1)
       enddo
     else
       ! if (adt(itr)==0._mytype) then
@@ -135,8 +143,8 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       endif
       do ijk=1,nxyz
-        ux(ijk,1,1)=ux(ijk,1,1)+bdt(itr)*gx(ijk,1,1)
-        uy(ijk,1,1)=uy(ijk,1,1)+bdt(itr)*gy(ijk,1,1)
+        ux(ijk,1,1)=ux(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gx(ijk,1,1)
+        uy(ijk,1,1)=uy(ijk,1,1)+td1(ijk,1,1)*bdt(itr)*gy(ijk,1,1)
       enddo
     endif
   else if (nscheme==4) then
@@ -146,9 +154,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
       endif
 
       do ijk=1,nxyz !start with Euler
-        ux(ijk,1,1)=dt*ta1(ijk,1,1)+ux(ijk,1,1)
-        uy(ijk,1,1)=dt*tb1(ijk,1,1)+uy(ijk,1,1) 
-        uz(ijk,1,1)=dt*tc1(ijk,1,1)+uz(ijk,1,1)
+        ux(ijk,1,1)=td1(ijk,1,1)*dt*ta1(ijk,1,1)+ux(ijk,1,1)
+        uy(ijk,1,1)=td1(ijk,1,1)*dt*tb1(ijk,1,1)+uy(ijk,1,1) 
+        uz(ijk,1,1)=td1(ijk,1,1)*dt*tc1(ijk,1,1)+uz(ijk,1,1)
         gx(ijk,1,1)=ta1(ijk,1,1)
         gy(ijk,1,1)=tb1(ijk,1,1)
         gz(ijk,1,1)=tc1(ijk,1,1)            
@@ -160,9 +168,9 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         endif
         
         do ijk=1,nxyz
-          ux(ijk,1,1)=1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*gx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=1.5_mytype*dt*tb1(ijk,1,1)-0.5_mytype*dt*gy(ijk,1,1)+uy(ijk,1,1)
-          uz(ijk,1,1)=1.5_mytype*dt*tc1(ijk,1,1)-0.5_mytype*dt*gz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*ta1(ijk,1,1)-0.5_mytype*dt*gx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*tb1(ijk,1,1)-0.5_mytype*dt*gy(ijk,1,1))+uy(ijk,1,1)
+          uz(ijk,1,1)=td1(ijk,1,1)*(1.5_mytype*dt*tc1(ijk,1,1)-0.5_mytype*dt*gz(ijk,1,1))+uz(ijk,1,1)
           hx(ijk,1,1)=gx(ijk,1,1)
           hy(ijk,1,1)=gy(ijk,1,1)
           hz(ijk,1,1)=gz(ijk,1,1)
@@ -172,12 +180,12 @@ subroutine intt (ux,uy,uz,gx,gy,gz,hx,hy,hz,ta1,tb1,tc1,rho)
         enddo
       else
         do ijk=1,nxyz
-          ux(ijk,1,1)=adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+&
-               cdt(itr)*hx(ijk,1,1)+ux(ijk,1,1)
-          uy(ijk,1,1)=adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+&
-               cdt(itr)*hy(ijk,1,1)+uy(ijk,1,1)
-          uz(ijk,1,1)=adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+&
-               cdt(itr)*hz(ijk,1,1)+uz(ijk,1,1)
+          ux(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*ta1(ijk,1,1)+bdt(itr)*gx(ijk,1,1)+&
+               cdt(itr)*hx(ijk,1,1))+ux(ijk,1,1)
+          uy(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tb1(ijk,1,1)+bdt(itr)*gy(ijk,1,1)+&
+               cdt(itr)*hy(ijk,1,1))+uy(ijk,1,1)
+          uz(ijk,1,1)=td1(ijk,1,1)*(adt(itr)*tc1(ijk,1,1)+bdt(itr)*gz(ijk,1,1)+&
+               cdt(itr)*hz(ijk,1,1))+uz(ijk,1,1)
           hx(ijk,1,1)=gx(ijk,1,1)
           hy(ijk,1,1)=gy(ijk,1,1)
           hz(ijk,1,1)=gz(ijk,1,1)
@@ -195,7 +203,7 @@ end subroutine intt
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
+SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, rhos001, tg1, drhodt1)
 
   USE param
   USE variables
@@ -204,7 +212,7 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
   IMPLICIT NONE
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: tg1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(OUT) :: rhos01, rhos001, drhodt1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(INOUT) :: rho1, rhos1, rhoss1
 
   REAL(mytype) :: udenslim, ldenslim
@@ -245,26 +253,36 @@ SUBROUTINE inttdensity(rho1, rhos1, rhoss1, rhos01, tg1, drhodt1)
     ENDIF
     STOP
   ELSE
-    !! AB3
-    IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
-      IF (nrank.EQ.0) THEN
-        PRINT  *, 'start with Euler', itime
-      ENDIF
-      rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
-    ELSE
-      IF  ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
-        IF (nrank.EQ.0) THEN
-          PRINT *, 'then with AB2', itime
-        ENDIF
-        rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
-      ELSE
-        rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
-             * rhoss1(:,:,:)
-      ENDIF
+     !! AB3
 
-      !! Update oldold stage
-      rhoss1(:,:,:) = rhos1(:,:,:)
-    ENDIF
+     IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+        IF (nrank.EQ.0) THEN
+           PRINT  *, 'start with Euler', itime
+        ENDIF
+        rhos01(:,:,:) = rho1(:,:,:)
+        
+        !! Compute new rho
+        rho1(:,:,:) = rho1(:,:,:) + dt * tg1(:,:,:)
+     ELSE
+        IF ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+           IF (nrank.EQ.0) THEN
+              PRINT *, 'then with AB2', itime
+           ENDIF
+           rhos001(:,:,:) = rhos01(:,:,:)
+           rhos01(:,:,:) = rho1(:,:,:)
+           rho1(:,:,:) = rho1(:,:,:) - 0.5_mytype * dt * (rhos1(:,:,:) - 3._mytype * tg1(:,:,:))
+        ELSE
+           !! Third-order
+           drhodt1(:,:,:) = rhos001(:,:,:)
+           rhos001(:,:,:) = rhos01(:,:,:)
+           rhos01(:,:,:) = rho1(:,:,:)
+           rho1(:,:,:) = rho1(:,:,:) + adt(itr) * tg1(:,:,:) + bdt(itr) * rhos1(:,:,:) + cdt(itr) &
+                * rhoss1(:,:,:)
+        ENDIF
+        
+        !! Update oldold stage
+        rhoss1(:,:,:) = rhos1(:,:,:)
+     ENDIF
   ENDIF
 
   !! Update old stage
@@ -283,7 +301,7 @@ ENDSUBROUTINE inttdensity
 
 !********************************************************************
 !********************************************************************
-SUBROUTINE eval_densitycoeffs(rho1, temperature1, ta1, rhos1, rhoss1, rhos01, drhodt1)
+SUBROUTINE eval_densitycoeffs(rho1, var1, ta1, rhos1, rhoss1, rhos01, drhodt1, ivar)
 
   USE param
   USE variables
@@ -291,48 +309,93 @@ SUBROUTINE eval_densitycoeffs(rho1, temperature1, ta1, rhos1, rhoss1, rhos01, dr
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, temperature1, ta1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, var1, ta1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos1, rhoss1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rhos01, drhodt1
+
+  REAL(mytype) :: wbar
   
+  INTEGER :: ivar ! ivar = 0: massfrac; ivar = 1: temperature 
   INTEGER :: ijk, nxyz
+  LOGICAL :: firstcall
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
 
-  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
-    !! AB2 or RK3
-
-    ! First store -rho1 in drhodt1 incase we use simple extrapolation
-    drhodt1(:,:,:) = -rho1(:,:,:)
-
-    IF (nscheme.EQ.1) THEN
-      !! AB2
-      rhos01(:,:,:) = rhoss1(:,:,:)
-      rhoss1(:,:,:) = rho1(:,:,:)
-    ELSE IF (itr.EQ.1) THEN
-      !! RK3, first iteration
-      rhos01(:,:,:) = rhoss1(:,:,:)
-      rhoss1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
-    ENDIF
-  ELSE IF (nscheme.EQ.3) THEN
-    !! RK4
-    !! XXX Not implemented!
-    IF (nrank.EQ.0) THEN
-      PRINT  *, 'LMN: RK4 not ready'
-      STOP
-    ENDIF
+  IF (MIN(ivar, imulticomponent).EQ.0) THEN
+     firstcall = .TRUE.
   ELSE
-    !! AB3
-    !! XXX Not implemented
-    IF (nrank.EQ.0) THEN
-      PRINT  *, 'LMN: AB3 not ready'
-      STOP
-    ENDIF
+     firstcall = .FALSE.
   ENDIF
 
+  IF ((nscheme.EQ.1).OR.(nscheme.EQ.2)) THEN
+     !! AB2 or RK3
+     
+     ! First store -rho1 in drhodt1 incase we use simple extrapolation
+     IF (firstcall) THEN
+        drhodt1(:,:,:) = -rho1(:,:,:)
+     ENDIF
+     
+     IF (nscheme.EQ.1) THEN
+        !! AB2
+        IF (firstcall) THEN
+           rhos01(:,:,:) = rhoss1(:,:,:)
+           rhoss1(:,:,:) = rho1(:,:,:)
+        ENDIF
+     ELSE IF (itr.EQ.1) THEN
+        !! RK3, first iteration
+
+        IF (firstcall) THEN
+           rhos01(:,:,:) = rhoss1(:,:,:)
+        ENDIF
+
+        IF (ivar.EQ.0) THEN
+           !! Massfrac
+           DO ijk = 1, nxyz
+              wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
+              wbar = 1._mytype / wbar
+              rhoss1(ijk, 1, 1) = -(rho1(ijk, 1, 1) * wbar) * ta1(ijk, 1, 1)
+           ENDDO
+        ELSE IF (ivar.EQ.1) THEN
+           !! Temperature
+           IF (firstcall) THEN
+              rhoss1(:,:,:) = -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+           ELSE
+              rhoss1(:,:,:) = rhoss1(:,:,:) -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+           ENDIF
+        ENDIF
+     ENDIF
+  ELSE IF (nscheme.EQ.3) THEN
+     !! RK4
+     !! XXX Not implemented!
+     IF (nrank.EQ.0) THEN
+        PRINT  *, 'LMN: RK4 not ready'
+        STOP
+     ENDIF
+  ELSE
+     !! AB3
+     !! XXX Not implemented
+     IF (nrank.EQ.0) THEN
+        PRINT  *, 'LMN: AB3 not ready'
+        STOP
+     ENDIF
+  ENDIF
+  
   !! Update old stage
-  rhos1(:,:,:) = -(temperature1(:,:,:) / rho1(:,:,:)) * ta1(:,:,:)
-   
+  IF (ivar.EQ.0) THEN
+     !! Massfrac
+     DO ijk = 1, nxyz
+        wbar = (1._mytype - var1(ijk, 1, 1)) / dens1 + var1(ijk, 1, 1) / dens2
+        wbar = 1._mytype / wbar
+        rhos1(ijk, 1, 1) = -(rho1(ijk, 1, 1) * wbar) * ta1(ijk, 1, 1)
+     ENDDO
+  ELSE
+     IF (firstcall) THEN
+        rhos1(:,:,:) = -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+     ELSE
+        rhos1(:,:,:) = rhos1(:,:,:) -(rho1(:,:,:) / var1(:,:,:)) * ta1(:,:,:)
+     ENDIF
+  ENDIF
+  
 ENDSUBROUTINE eval_densitycoeffs
 
 !********************************************************************
@@ -1114,6 +1177,100 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1
 
+  REAL(mytype) :: rhomax, rhomin
+  REAL(mytype) :: us, cy
+
+  INTEGER :: i, j, k
+
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  rhomax = MAX(dens1, dens2)
+  rhomin = MIN(dens1, dens2)
+
+  us = 0._mytype ! Settling velocity
+
+  IF (nclx.EQ.2) THEN
+  ENDIF
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+     ! determine the processor grid in use
+     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
+  ENDIF
+
+  IF (fry.GT.0._mytype) THEN
+     cy = (us / dy) * gdt(itr)
+  ELSEIF (fry.LT.0._mytype) THEN
+     cy = -(us / dy) * gdt(itr)
+  ELSE
+     cy = 0._mytype
+  ENDIF
+  IF (ncly.EQ.2) THEN
+     IF (dims(1).EQ.1) THEN
+        DO k = 1, xsize(3)
+           j = 1
+           DO i = 1, xsize(1)
+              ! !! Zero gradient
+              ! rho1(i, j, k) = rho1(i, j + 1, k)
+
+              !! Sedimenting
+              rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
+              rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+              rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
+           ENDDO
+           
+           j = xsize(2)
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              rho1(i, j, k) = rho1(i, j - 1, k)
+           ENDDO
+        ENDDO
+     ELSE
+        IF (xstart(2).EQ.1) THEN
+           j = 1
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 ! !! Zero gradient
+                 ! rho1(i, j, k) = rho1(i, j + 1, k)
+
+                 !! Sedimenting
+                 rho1(i, j, k) = rho1(i, j, k) - cy * (rho1(i, j + 1, k) - rho1(i, j, k))
+                 rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+                 rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
+              ENDDO
+           ENDDO
+        ENDIF
+
+        IF (ny - (nym / dims(1)).EQ.xstart(2)) THEN
+           j = xsize(2)
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 rho1(i, j, k) = rho1(i, j - 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDIF
+  ENDIF
+
+  IF (nclz.EQ.2) THEN
+  ENDIF
+  
+ENDSUBROUTINE set_density_bcs
+
+SUBROUTINE set_temp_bcs(temperature1, ux1, uy1, uz1)
+
+  USE decomp_2d
+  USE param
+  USE variables
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: temperature1
+
   INTEGER :: i, j, k
 
   INTEGER :: ierr
@@ -1133,12 +1290,14 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
         DO k = 1, xsize(3)
            j = 1
            DO i = 1, xsize(1)
-              rho1(i, j, k) = rho1(i, j + 1, k)
+              !! Zero gradient
+              temperature1(i, j, k) = temperature1(i, j + 1, k)
            ENDDO
            
            j = xsize(2)
            DO i = 1, xsize(1)
-              rho1(i, j, k) = rho1(i, j - 1, k)
+              !! Zero gradient
+              temperature1(i, j, k) = temperature1(i, j - 1, k)
            ENDDO
         ENDDO
      ELSE
@@ -1146,7 +1305,8 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
            j = 1
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 rho1(i, j, k) = rho1(i, j + 1, k)
+                 !! Zero gradient
+                 temperature1(i, j, k) = temperature1(i, j + 1, k)
               ENDDO
            ENDDO
         ENDIF
@@ -1155,7 +1315,8 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
            j = xsize(2)
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 rho1(i, j, k) = rho1(i, j - 1, k)
+                 !! Zero gradient
+                 temperature1(i, j, k) = temperature1(i, j - 1, k)
               ENDDO
            ENDDO
         ENDIF
@@ -1165,7 +1326,76 @@ SUBROUTINE set_density_bcs(rho1, ux1, uy1, uz1)
   IF (nclz.EQ.2) THEN
   ENDIF
   
-ENDSUBROUTINE set_density_bcs
+ENDSUBROUTINE set_temp_bcs
+
+SUBROUTINE set_massfrac_bcs(massfrac1, ux1, uy1, uz1)
+
+  USE decomp_2d
+  USE param
+  USE variables
+  USE MPI
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: massfrac1
+
+  INTEGER :: i, j, k
+
+  INTEGER :: ierr
+  INTEGER, DIMENSION(2) :: dims, dummy_coords
+  LOGICAL, DIMENSION(2) :: dummy_periods
+
+  IF (nclx.EQ.2) THEN
+  ENDIF
+
+  IF ((ncly.EQ.2).OR.(nclz.EQ.2)) THEN
+     ! determine the processor grid in use
+     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, ierr)
+  ENDIF
+
+  IF (ncly.EQ.2) THEN
+     IF (dims(1).EQ.1) THEN
+        DO k = 1, xsize(3)
+           j = 1
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              massfrac1(i, j, k) = massfrac1(i, j + 1, k)
+           ENDDO
+           
+           j = xsize(2)
+           DO i = 1, xsize(1)
+              !! Zero gradient
+              massfrac1(i, j, k) = massfrac1(i, j - 1, k)
+           ENDDO
+        ENDDO
+     ELSE
+        IF (xstart(2).EQ.1) THEN
+           j = 1
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 massfrac1(i, j, k) = massfrac1(i, j + 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+
+        IF (ny - (nym / dims(1)).EQ.xstart(2)) THEN
+           j = xsize(2)
+           DO k = 1, xsize(3)
+              DO i = 1, xsize(1)
+                 !! Zero gradient
+                 massfrac1(i, j, k) = massfrac1(i, j - 1, k)
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDIF
+  ENDIF
+
+  IF (nclz.EQ.2) THEN
+  ENDIF
+  
+ENDSUBROUTINE set_massfrac_bcs
 
 !**********************************************************************
 !
@@ -1192,6 +1422,9 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
   real(mytype) :: gauss, g_umax, ucf
   real(mytype) :: g_rext
   real(mytype) :: s
+  real(mytype) :: p_front
+  real(mytype) :: T1, T2, cp, M, rspech
+  real(mytype) :: rhomax, rhomin
 
   bxx1=0._mytype;bxy1=0._mytype;bxz1=0._mytype
   byx1=0._mytype;byy1=0._mytype;byz1=0._mytype
@@ -1261,8 +1494,15 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
 
     ! #ifndef TWOD
     ! Set the flowfield
+    rhomax = MAX(dens1, dens2)
+    rhomin = MIN(dens1, dens2)
+    T1 = 1._mytype / dens1
+    T2 = 1._mytype / dens2
     u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + 1._mytype)
     u2 = -SQRT(dens1 / dens2) / (1._mytype + SQRT(dens1 / dens2))
+    rspech = 1.4_mytype
+    M = 0.2_mytype
+    cp = (1._mytype / (T2 * (rspech - 1._mytype))) * ((u1 - u2) / M)**2
     do k = 1, xsize(3)
       do j = 1, xsize(2)
         if (istret.eq.0) then
@@ -1280,10 +1520,18 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           uz1(i, j, k) = 0._mytype
           rho1(i, j, k) = 0._mytype
 
+          ! Calculate the density field according to the temperature field given in Fortune2004
+          rho1(i, j, k) = (1._mytype / (2._mytype * cp)) &
+               * (ux1(i, j, k) * (u1 + u2) - ux1(i, j, k)**2 - u1 * u2) &
+               + ux1(i, j, k) * (T1 - T2) / (u1 - u2) &
+               + (T2 * u1 - T1 * u2) / (u1 - u2)
+          rho1(i, j, k) = 1._mytype / rho1(i, j, k)
+          rho1(i, j, k) = MAX(rho1(i, j, k), rhomin)
+          rho1(i, j, k) = MIN(rho1(i, j, k), rhomax)
+
           ! Calculate disturbance field (as given in Fortune2004)
           ! NB x and y are swapped relative to Fortune2004
-          ! `noise' is used to set the intensity of the disturbance
-          disturb_decay = noise * (u1 - u2) * EXP(-0.05_mytype * (y**2))
+          disturb_decay = 0.025 * (u1 - u2) * EXP(-0.05_mytype * (y**2))
           u_disturb = disturb_decay * (SIN(8._mytype * PI * x / xlx) &
                + SIN(4._mytype * PI * x / xlx) / 8._mytype &
                + SIN(2._mytype * PI * x / xlx) / 16._mytype)
@@ -1295,14 +1543,6 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           ux1(i, j, k) = ux1(i, j, k) + u_disturb
           uy1(i, j, k) = uy1(i, j, k) + v_disturb 
           uz1(i, j, k) = uz1(i, j, k) + 0._mytype
-
-          if (y.gt.0._mytype) then
-            rho1(i, j, k) = rho1(i, j, k) + dens1
-          else if (y.lt.0._mytype) then
-            rho1(i, j, k) = rho1(i, j, k) + dens2
-          else
-            rho1(i, j, k) = rho1(i, j, k) + 0.5_mytype * (dens1 + dens2)
-          endif
         enddo
       enddo
     enddo
@@ -1343,34 +1583,25 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
           y=yp(j)-yly/2._mytype
         endif
         r = SQRT(y**2 + z**2)
-        
+        r = r + 1.0e-32 ! Avoid division by zero
+
         ! Set the mean profile
-        if (r.gt.0._mytype) then ! Avoid division by zero
-          bxx1(j, k) = u2 - (u2 - u1) * 0.5_mytype * (1._mytype &
-               - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          bxx1(j, k) = MAX(bxx1(j, k), u2) ! Ensure a minimum velocity
+        bxx1(j, k) = u2 - (u2 - u1) * 0.5_mytype * (1._mytype &
+             - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        bxx1(j, k) = MAX(bxx1(j, k), u2) ! Ensure a minimum velocity
 
-          ! if (r.lt.0.5_mytype * D) then ! jet
-            massfrac1(1, j, k) = 0._mytype - (0._mytype - 1._mytype) &
-                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          ! else ! co-flow
-          !   massfrac1(1, j, k) = 0._mytype
-          ! endif
+        ! if (r.lt.0.5_mytype * D) then ! jet
+        massfrac1(1, j, k) = 0._mytype - (0._mytype - 1._mytype) &
+             * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        ! else ! co-flow
+        !   massfrac1(1, j, k) = 0._mytype
+        ! endif
 
-          if (isolvetemp.eq.0) then
-            rho1(1, j, k) = dens2 - (dens2 - dens1) &
-                 * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
-          else
-            temperature1(1, j, k) = 1._mytype
-          endif
-        else ! r = 0, set centreline values
-          bxx1(j, k) = u1
-          massfrac1(1, j, k) = 1._mytype
-          if (isolvetemp.eq.0) then
-            rho1(1, j, k) = dens1
-          else
-            temperature1(1, j, k) = 1._mytype
-          endif
+        if (isolvetemp.eq.0) then
+           rho1(1, j, k) = dens2 - (dens2 - dens1) &
+                * 0.5_mytype * (1._mytype - TANH(b2 * (2._mytype * r / D - D / (2._mytype * r))))
+        else
+           temperature1(1, j, k) = 1._mytype
         endif
 
         !! Smooth inflow in time, s = SIN(t * PI / 2) if t < 1, 1 otherwise
@@ -1420,25 +1651,42 @@ subroutine ecoule(ux1,uy1,uz1,rho1,temperature1,massfrac1)
       enddo
     enddo
   else if (itype.eq.7) then
+     p_front = (14._mytype / 32._mytype) * xlx
      if (itime.eq.0) then
         do k = 1, xsize(3)
+           z = float(k + xstart(3) - 2) * dz
            do j = 1, xsize(2)
               y = float((j + xstart(2) - 2)) * dy - 0.5_mytype * yly
+              
+              ! p_front = 1._mytype
+              ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * y / yly) &
+              !      * SIN(2._mytype * PI * z / zlz)
               do i = 1, xsize(1)
-                 x = float((i + xstart(1) - 2)) * dx - (14_mytype / 32._mytype) * xlx ! The weird 14/32 is from Birman
+                 x = float(i + xstart(1) - 2) * dx - p_front
                  
-                 ux1(i, j, k) = 0._mytype
-                 uy1(i, j, k) = 0._mytype
-                 uz1(i, j, k) = 0._mytype
+                 ! ux1(i, j, k) = 0._mytype
+                 ! uy1(i, j, k) = 0._mytype
+                 ! uz1(i, j, k) = 0._mytype
                  
                  temperature1(i, j, k) = 1._mytype
 
                  !! Birman2005
                  rho1(i, j, k) = 0.5_mytype * ((dens2 / dens1 + 1._mytype) &
                       - (1._mytype - dens2 / dens1) * ERF(x * SQRT(sc / xnu)))
+
+                 ! if (x.gt.0._mytype) then
+                 !    rho1(i, j, k) = dens2
+                 ! else
+                 !    rho1(i, j, k) = dens1
+                 ! endif
                  
                  massfrac1(i, j, k) = (dens1 * dens2 / (rho1(i, j, k) * temperature1(i, j, k)) &
-                      - dens1) / (dens2 - dens1)
+                      - dens2) / (dens1 - dens2)
+                 if (massfrac1(i, j, k).GE.1._mytype) then
+                    massfrac1(i, j, k) = 1._mytype
+                 else if (massfrac1(i, j, k).LE.0._mytype) then
+                    massfrac1(i, j, k) = 0._mytype
+                 endif
               enddo
            enddo
         enddo
@@ -1503,6 +1751,13 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
   integer (kind=MPI_OFFSET_KIND) :: disp
   real(mytype) :: rhor, rhol
   real(mytype) :: p_front
+  real(mytype) :: kloc, kglob, ploc, pglob
+  real(mytype) :: invfrx, invfry, invfrz, invfr
+  real(mytype) :: egx, egy, egz
+  real(mytype) :: invumag
+
+  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: dummy2
+  real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: dummy3
 
   p_front = 1._mytype
   
@@ -1529,9 +1784,15 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
       enddo
     enddo
 
+    ! !! (for 2D version)
+    ! call force_variable_2d(ux1, dummy2, dummy3)
+    ! call force_variable_2d(uy1, dummy2, dummy3)
+    ! uz1(:,:,:) = 0._mytype
+
     !modulation of the random noise
     rhol = dens2
     rhor = dens1
+    p_front = (14._mytype / 32._mytype) * xlx
     do k=1,xsize(3)
        z = float(k + xstart(3) - 2) * dz - zlz / 2._mytype
        do j=1,xsize(2)
@@ -1540,14 +1801,18 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
           else
              y=yp(j+xstart(2)-1)-yly/2._mytype
           endif
+
+          ! p_front = 1._mytype
+          ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * y / yly) &
+          !      * SIN(2._mytype * PI * z / zlz)
           do i=1,xsize(1)
              x = (i + xstart(1) - 2) * dx
              x = x - p_front
 
-             um = -((20._mytype / noise**3) / Fry) &
-                  * ((rhol * p_front + rhor * (xlx - p_front)) * yly) &
-                  / (rhol * (erf(0._mytype) - erf(5._mytype * sqrt(2._mytype) * p_front)) &
-                  + (rhor * (erf(5._mytype * sqrt(2._mytype) * (xlx - p_front)) - erf(0._mytype))))
+             ! um = -((20._mytype / noise**3) / Fry) &
+             !      * ((rhol * p_front + rhor * (xlx - p_front)) * yly) &
+             !      / (rhol * (erf(0._mytype) - erf(5._mytype * sqrt(2._mytype) * p_front)) &
+             !      + (rhor * (erf(5._mytype * sqrt(2._mytype) * (xlx - p_front)) - erf(0._mytype))))
              um = noise * exp(-25._mytype * x**2)
              
              ux1(i,j,k)=um*ux1(i,j,k)
@@ -1564,24 +1829,27 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     ! massfrac1(:,:,:) = 1._mytype
 
     if (isolvetemp.eq.0) then
-      ! LMN: set density
-      do k = 1, xsize(3)
-        z = float(k + xstart(3) - 2) * dz
-        do j = 1, xsize(2)
-          y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
-          do i = 1, xsize(1)
-            x = float(i + xstart(1) - 2) * dx
-
-            if (x.LT.p_front) then
-               rho1(i, j, k) = dens2
-            else
-               rho1(i, j, k) = dens1
-            endif
+       ! LMN: set density
+       do k = 1, xsize(3)
+          z = float(k + xstart(3) - 2) * dz
+          
+          ! p_front = 1._mytype
+          ! p_front = p_front + 0.2_mytype * SIN(2._mytype * PI * z / zlz)
+          do j = 1, xsize(2)
+             y = float(j + xstart(2) - 2) * dy - yly / 2._mytype
+             do i = 1, xsize(1)
+                x = float(i + xstart(1) - 2) * dx
+                
+                if (x.LT.p_front) then
+                   rho1(i, j, k) = dens2
+                else
+                   rho1(i, j, k) = dens1
+                endif
+             enddo
           enddo
-        enddo
-      enddo
+       enddo
     else
-      temperature1(:,:,:) = 1._mytype
+       temperature1(:,:,:) = 1._mytype
     endif
     
     if (iscalar==1) then
@@ -1615,7 +1883,7 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     temperature1(:,:,:) = 1._mytype
   endif
   if (imulticomponent.eq.0) then
-    massfrac1(:,:,:) = 1._mytype
+    massfrac1(:,:,:) = 0._mytype
   endif
   !INIT FOR G AND U=MEAN FLOW + NOISE
   do k=1,xsize(3)
@@ -1631,7 +1899,6 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
         hy1(i,j,k)=gy1(i,j,k)
         hz1(i,j,k)=gz1(i,j,k)
 
-        massfrac1(i,j,k)=massfrac1(1,j,k)
         massfracs1(i,j,k)=massfrac1(i,j,k)
         massfracss1(i,j,k)=massfracs1(i,j,k)
       enddo
@@ -1663,6 +1930,66 @@ subroutine init (ux1,uy1,uz1,rho1,temperature1,massfrac1,ep1,phi1,&
     call MPI_FILE_CLOSE(fh,ierror)
     if (nrank==0) print *,'read epsilon file done from init'
     print *,ep1
+  endif
+
+  if (itype.eq.7) then
+     !! Set kinetic energy = 1% of gravitational potential energy
+     if (frx.ne.0._mytype) then
+        invfrx = 1._mytype / frx
+     else
+        invfrx = 0._mytype
+     endif
+     if (fry.ne.0._mytype) then
+        invfry = 1._mytype / fry
+     else
+        invfry = 0._mytype
+     endif
+     if (frz.ne.0._mytype) then
+        invfrz = 1._mytype / frz
+     else
+        invfrz = 0._mytype
+     endif
+     invfr = SQRT(invfrx**2 + invfry**2 + invfrz**2)
+     egx = invfrx / invfr
+     egy = invfry / invfr
+     egz = invfrz / invfr
+
+     kloc = 0._mytype
+     ploc = 0._mytype
+     do k = 1, xsize(3)
+        do j = 1, xsize(2)
+           y = float(j + xstart(2) - 2) * dy
+           do i = 1, xsize(1)
+              kloc = kloc + 0.5_mytype * rho1(i, j, k) &
+                   * (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2)
+              ploc = ploc - (rho1(i, j, k) - MIN(dens1, dens2)) * invfr &
+                   * (egx * x + egy * y + egz * z) 
+           enddo
+        enddo
+     enddo
+     ploc = ploc / abs(fry)
+     CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+     CALL MPI_ALLREDUCE(ploc, pglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+     IF (kglob.GT.0._mytype) THEN
+        kglob = SQRT(0.01_mytype * pglob / kglob)
+        kloc = 0._mytype
+        do k = 1, xsize(3)
+           do j = 1, xsize(2)
+              do i = 1, xsize(1)
+                 ux1(i, j, k) = kglob * ux1(i, j, k)
+                 uy1(i, j, k) = kglob * uy1(i, j, k)
+                 uz1(i, j, k) = kglob * uz1(i, j, k)
+                 kloc = kloc + 0.5_mytype * rho1(i, j, k) &
+                      * (ux1(i, j, k)**2 + uy1(i, j, k)**2 + uz1(i, j, k)**2)
+              enddo
+           enddo
+        enddo
+
+        CALL MPI_ALLREDUCE(kloc, kglob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierror)
+        IF (nrank.EQ.0) THEN
+           PRINT *, "Potential energy: ", pglob, " kinetic energy: ", kglob, "(", 100 * kglob / pglob, "%)"
+        ENDIF
+     ENDIF
   endif
 
   return
@@ -1807,15 +2134,21 @@ subroutine divergence (ux1,uy1,uz1,ep1,ta1,tb1,tc1,di1,td1,te1,tf1,drhodt1,&
         print *,'ERR DIV U final Min=',tmin1
         print *,'ERR DIV U final Moy=',tmoy1/real(nproc)
       else
-        if ((ilmn.eq.0).or.((ivarcoeff.ne.0).and.(nlock.ne.3))) then
-          print *,'ERR DIV U* Max=',tmax1
-          print *,'ERR DIV U* Min=',tmin1
-          print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
-        else 
-          print *,'ERR DIV (RHO U)* Max=',tmax1
-          print *,'ERR DIV (RHO U)* Min=',tmin1
-          print *,'ERR DIV (RHO U)* Moy=',tmoy1/real(nproc)
-        endif
+         if ((ilmn.eq.0).or.((ivarcoeff.ne.0).and.(nlock.ne.3))) then
+            print *,'ERR DIV U* Max=',tmax1
+            print *,'ERR DIV U* Min=',tmin1
+            print *,'ERR DIV U* Moy=',tmoy1/real(nproc)
+         else
+            if (iskew.ne.2) then
+               print *,'ERR DIV (RHO U)* Max=',tmax1
+               print *,'ERR DIV (RHO U)* Min=',tmin1
+               print *,'ERR DIV (RHO U)* Moy=',tmoy1/real(nproc)
+            else
+               print *,'ERR DIV (SQRT(RHO) U)* Max=',tmax1
+               print *,'ERR DIV (SQRT(RHO) U)* Min=',tmin1
+               print *,'ERR DIV (SQRT(RHO) U)* Moy=',tmoy1/real(nproc)
+            endif
+         endif
       endif
     endif
   endif
@@ -1832,7 +2165,7 @@ end subroutine divergence
 !              equation at time k+1.
 !        NOTE: All input and output in X-pencils.
 !********************************************************************
-SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
+SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, rhos001, drhodt1)
 
   USE param
   USE decomp_2d
@@ -1840,12 +2173,16 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
 
   IMPLICIT NONE
 
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: rho1, rhos1, rhoss1, rhos01, rhos001, &
+       drhodt1
+  REAL(mytype) :: invdt, one_sixth
   INTEGER :: subitr
 
   INTEGER :: ijk, nxyz
 
   nxyz = xsize(1) * xsize(2) * xsize(3)
+  invdt = 1._mytype / dt
+  one_sixth = 1._mytype / 6._mytype
 
   IF (nscheme.EQ.1) THEN
      !! AB2
@@ -1857,7 +2194,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
         drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
      ENDIF
 
-     drhodt1(:,:,:) = drhodt1(:,:,:) / dt
+     drhodt1(:,:,:) = drhodt1(:,:,:) * invdt
   ELSE IF (nscheme.EQ.2) THEN
      !! RK3
 
@@ -1881,7 +2218,7 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
                  ! Based on testing, it appears Golanski2005 made a typo,
                  ! their expression would use gdt(itr) not gdt(subitr)
                  drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) &
-                      + (gdt(subitr) / dt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
+                      + (gdt(subitr) * invdt) * (rhoss1(ijk, 1, 1) - rhos01(ijk, 1, 1)) 
               ENDDO ! End loop over subitr
            ENDDO ! End loop over ijk
         ELSE
@@ -1892,14 +2229,54 @@ SUBROUTINE extrapol_rhotrans(rho1, rhos1, rhoss1, rhos01, drhodt1)
            ! drhodt1(:,:,:) = (rho1(:,:,:) + drhodt1(:,:,:) / gdt(itr) ! drhodt1 stores -rho^k
         ENDIF
      ENDIF
+  ELSE IF (nscheme.EQ.4) THEN
+     !! AB3
+     IF ((itime.EQ.1).AND.(ilit.EQ.0)) THEN
+        !! First-order
+        drhodt1(:,:,:) = rho1(:,:,:) - rhos01(:,:,:)
+     ELSE IF ((itime.EQ.2).AND.(ilit.EQ.0)) THEN
+        !! Second-order
+        drhodt1(:,:,:) = 3._mytype * rho1(:,:,:) - 4._mytype * rhos01(:,:,:) + rhos001(:,:,:)
+        drhodt1(:,:,:) = 0.5_mytype * drhodt1(:,:,:)
+     ELSE
+        !! Third-order
+        drhodt1(:,:,:) = 11._mytype * rho1(:,:,:) - 18._mytype * rhos01(:,:,:) &
+             + 9._mytype * rhos001(:,:,:) - 2._mytype * drhodt1(:,:,:)
+        drhodt1(:,:,:) = one_sixth * drhodt1(:,:,:)
+     ENDIF
+
+     drhodt1(:,:,:) = drhodt1(:,:,:) * invdt
   ELSE
      IF (nrank.EQ.0) THEN
-        PRINT *, "Extrapolating drhodt only implemented for AB2 and RK3 (nscheme = 0,1)"
+        PRINT *, "Extrapolating drhodt only implemented for AB2, AB3 and RK3 (nscheme = 0,1,4)"
         STOP
      ENDIF
   ENDIF
 
 ENDSUBROUTINE extrapol_rhotrans
+
+SUBROUTINE rhotrans_skewsymm(drhodt1, rho1)
+
+  USE param
+  USE decomp_2d
+  USE variables
+
+  IMPLICIT NONE
+
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1
+
+  INTEGER :: ijk, nxyz
+
+  nxyz = xsize(1) * xsize(2) * xsize(3)
+  
+  IF (iskew.EQ.2) THEN
+     !! Properly skew-symmetric, need to know div(sqrt(rho) u)
+     DO ijk = 1, nxyz
+        drhodt1(ijk, 1, 1) = drhodt1(ijk, 1, 1) / (2._mytype * SQRT(rho1(ijk, 1, 1)))
+     ENDDO
+  ENDIF
+ENDSUBROUTINE rhotrans_skewsymm
 
 SUBROUTINE birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, ta2, tb2, di2, rho3, ta3, di3)
 
@@ -1916,24 +2293,78 @@ SUBROUTINE birman_rhotrans_corr(rho1, drhodt1, ta1, tb1, di1, rho2, ta2, tb2, di
 
   REAL(mytype) :: invpe
 
+  REAL(mytype) :: us
+  REAL(mytype) :: invfrx, invfry, invfrz
+  REAL(mytype) :: egx, egy, egz, egmag
+
   invpe = xnu / sc
 
+  IF ((nscheme.NE.1).AND.(nscheme.NE.4)) THEN
+     IF (nrank.EQ.0) THEN
+        PRINT *, "To apply birman correction must use AB2 or AB3 (nscheme=1,4)"
+        STOP
+     ENDIF
+  ENDIF
+
+  !! Update rho pencils
   CALL transpose_x_to_y(rho1, rho2)
   CALL transpose_y_to_z(rho2, rho3)
 
+  !! Diffusion term
   CALL derzz (ta3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-
   CALL transpose_z_to_y(ta3, tb2)
 
   CALL deryy (ta2,rho2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
   ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
-
   CALL transpose_y_to_x(ta2, tb1)
   
   CALL derxx (ta1,rho1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
   ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
 
   drhodt1(:,:,:) = drhodt1(:,:,:) - invpe * ta1(:,:,:)
+
+  !! Sedimentation term
+  us = 0._mytype
+
+  IF (frx.NE.0._mytype) THEN
+     invfrx = 1._mytype / frx
+  ELSE
+     invfrx = 0._mytype
+  ENDIF
+  IF (fry.NE.0._mytype) THEN
+     invfry = 1._mytype / fry
+  ELSE
+     invfry = 0._mytype
+  ENDIF
+  IF (frz.NE.0._mytype) THEN
+     invfrz = 1._mytype / frz
+  ELSE
+     invfrz = 0._mytype
+  ENDIF
+
+  egmag = SQRT(invfrx**2 + invfry**2 + invfrz**2)
+  IF (egmag.NE.0._mytype) THEN
+     egx = invfrx / egmag
+     egy = invfry / egmag
+     egz = invfrz / egmag
+  ELSE
+     egx = 0._mytype
+     egy = 0._mytype
+     egz = 0._mytype
+  ENDIF
+  
+  CALL derz (ta3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+  ta3(:,:,:) = egz * ta3(:,:,:)
+  CALL transpose_z_to_y(ta3, tb2)
+  
+  CALL dery (ta2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+  ta2(:,:,:) = egy * ta2(:,:,:) + tb2(:,:,:)
+  CALL transpose_y_to_x(ta2, tb1)
+
+  CALL derx(ta1,rho1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+  ta1(:,:,:) = egx * ta1(:,:,:) + tb1(:,:,:)
+
+  drhodt1(:,:,:) = drhodt1(:,:,:) + us * ta1(:,:,:)
   
 ENDSUBROUTINE birman_rhotrans_corr
 
@@ -2029,7 +2460,8 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), zsize(3)) :: tc3, pz3, di3
   REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: ta3, tb3, &
-       pp3corr, pp3, rho0p3, tg3
+       pp3corr, rho0p3, tg3
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize), INTENT(IN) :: pp3
 
   REAL(mytype) :: resnorm, resnormlocal, pressnorm, pressnormlocal, deltadivunormlocal, deltadivunorm
   REAL(mytype), INTENT(IN) :: divup3norm
@@ -2061,7 +2493,7 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
   IF ((poissiter.NE.0).AND.(pressnorm.LE.tol)) THEN
     converged = .TRUE.  
   ENDIF
-  tg3(:,:,:) = pp3corr(:,:,:)
+  tg3(:,:,:) = pp3corr(:,:,:) ! Store current pressure field
   
   !!===================================================================================================
   ! 1) Compute residual r = -div(1/rho grad p) + (div u^* - div u)
@@ -2151,7 +2583,10 @@ SUBROUTINE divergence_corr(rho1, px1, py1, pz1, ta1, tb1, tc1, td1, te1, tf1, di
 !   write(filename, 990) itime/imodulo, itr, poissiter
 !   call decomp_2d_write_one(1,uvisu,filename,2)
 
-  IF (converged.EQV..FALSE.) THEN
+  IF (converged.EQV..TRUE.) THEN
+     !! Need to reset pp3corr to the pressure field
+     pp3corr(:,:,:) = tg3(:,:,:)
+  ELSE !! Not yet converged
 
     !!===================================================================================================
     ! 2) Scale the residual by density
@@ -2257,7 +2692,7 @@ ENDSUBROUTINE divergence_corr
 !              1/rho nabla^2(p) - div( 1/rho grad(p) )
 !********************************************************************
 SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1, ep1, di1, &
-     rhos1, rhoss1, rhos01, drhodt1, &
+     rhos1, rhoss1, rhos01, rhos001, drhodt1, &
      td2, te2, tf2, di2, ta2, tb2, tc2, &
      ta3, tb3, tc3, di3, td3, te3, tf3, tg3, pp3corr, divu3, &
      nxmsize, nymsize, nzmsize, ph1, ph3, ph4, &
@@ -2276,7 +2711,8 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   TYPE(DECOMP_INFO) :: ph1, ph3, ph4
 
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
-  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, rhos01
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: rho1, rhos1, rhoss1, &
+       rhos01, rhos001
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: momx1, momy1, momz1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1, ep1, di1
   REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1
@@ -2306,7 +2742,7 @@ SUBROUTINE approx_divergence_corr(ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, 
   momx1(:,:,:) = rho1(:,:,:) * ux1(:,:,:)
   momy1(:,:,:) = rho1(:,:,:) * uy1(:,:,:)
   momz1(:,:,:) = rho1(:,:,:) * uz1(:,:,:)
-  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,drhodt1)
+  CALL extrapol_rhotrans(rho1,rhos1,rhoss1,rhos01,rhos001,drhodt1)
   CALL divergence (momx1, momy1, momz1, ep1, ta1, tb1, tc1, di1, td1, te1, tf1, drhodt1, &
        td2, te2, tf2, di2, ta2, tb2, tc2, &
        ta3, tb3, tc3, di3, td3, te3, tf3, divu3, pp3corr, &
@@ -2711,15 +3147,13 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
      i = 1
      DO k = 1, xsize(3)
         DO j = 1, xsize(2)
-           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
-                * invfrx
+           ta1(i, j, k) = ta1(i, j, k) - bcx * (rho1(i, j, k) - 1._mytype) * invfrx
         ENDDO
      ENDDO
      i = xsize(1)
      DO k = 1, xsize(3)
         DO j = 1, xsize(2)
-           ta1(i, j, k) = ta1(i, j, k) - (bcx * rho1(i, j, k) + (1._mytype - bcx) - 1._mytype) &
-                * invfrx
+           ta1(i, j, k) = ta1(i, j, k) - bcx * (rho1(i, j, k) - 1._mytype) * invfrx
         ENDDO
      ENDDO
      
@@ -2729,15 +3163,13 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
         j = 1
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
-                   * invfry
+              tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
            ENDDO
         ENDDO
         j = xsize(2)
         DO k = 1, xsize(3)
            DO i = 1, xsize(1)
-              tb1(i, j, k) = tb1(i, j, k) - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) &
-                   * invfry
+              tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
            ENDDO
         ENDDO
      ELSE
@@ -2745,8 +3177,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            j = 1
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 tb1(i, j, k) = tb1(i, j, k) &
-                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+                 tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
               ENDDO
            ENDDO
         ENDIF
@@ -2754,8 +3185,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            j = xsize(2)
            DO k = 1, xsize(3)
               DO i = 1, xsize(1)
-                 tb1(i, j, k) = tb1(i, j, k) &
-                      - (bcy * rho1(i, j, k) + (1._mytype - bcy) - 1._mytype) * invfry
+                 tb1(i, j, k) = tb1(i, j, k) - bcy * (rho1(i, j, k) - 1._mytype) * invfry
               ENDDO
            ENDDO
         ENDIF
@@ -2763,26 +3193,23 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
 
      IF (dims(2).EQ.1) THEN
         k = 1
-        DO k = 1, xsize(2)
+        DO j = 1, xsize(2)
            DO i = 1, xsize(1)
-              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
-                   * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
            ENDDO
         ENDDO
         k = xsize(3)
         DO j = 1, xsize(2)
            DO i = 1, xsize(1)
-              tc1(i, j, k) = tc1(i, j, k) - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) &
-                   * invfrz
+              tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
            ENDDO
         ENDDO
      ELSE
         IF (xstart(3).EQ.1) THEN
            k = 1
-           DO k = 1, xsize(2)
+           DO j = 1, xsize(2)
               DO i = 1, xsize(1)
-                 tc1(i, j, k) = tc1(i, j, k) &
-                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+                 tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
               ENDDO
            ENDDO
         ENDIF
@@ -2790,8 +3217,7 @@ SUBROUTINE apply_grav(ta1, tb1, tc1, rho1)
            k = xsize(3)
            DO j = 1, xsize(2)
               DO i = 1, xsize(1)
-                 tc1(i, j, k) = tc1(i, j, k) &
-                      - (bcz * rho1(i, j, k) + (1._mytype - bcz) - 1._mytype) * invfrz
+                 tc1(i, j, k) = tc1(i, j, k) - bcz * (rho1(i, j, k) - 1._mytype) * invfrz
               ENDDO
            ENDDO
         ENDIF
